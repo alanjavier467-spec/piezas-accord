@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Piezas Honda Accord 2018–2022 | Usadas originales</title>
+<meta name="description" content="Piezas usadas originales de Honda Accord 2018–2022 con fotos reales y precio. Pide por WhatsApp.">
+<meta property="og:title" content="Piezas Honda Accord 2018–2022">
+<meta property="og:description" content="Piezas usadas originales con fotos y precio. Pide por WhatsApp.">
+<meta name="theme-color" content="#15191B">
+<link rel="icon" href="icon-192.png">
+<style>
+body{margin:0}
+
+/* Layout: mostrador de refacciones — buscador fijo arriba, lista de etiquetas de pieza, barra de pestañas abajo */
+:root{
+  --bg:#ECEEEC; --surface:#FFFFFF; --sunk:#E2E6E4; --ink:#15191B; --muted:#5B6569; --line:#D2D8D6;
+  --head:#15191B; --tag:#F3C22B; --tag-ink:#1E1A08; --ok:#1D7A4C; --ok-bg:#DDF1E6; --warn:#A94F12; --warn-bg:#FBE7D7; --danger:#B3261E;
+  --shadow:0 1px 2px rgba(20,25,27,.08),0 4px 14px rgba(20,25,27,.06);
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111416; --surface:#1A1E21; --sunk:#14181A; --ink:#E6EAEB; --muted:#8D989C; --line:#2A3135;
+  --head:#08090A; --tag:#E2B323; --tag-ink:#1A1606; --ok:#56C38B; --ok-bg:#163326; --warn:#F0A066; --warn-bg:#3A2414; --danger:#FF8A80;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --head:#08090A; --bg:#111416; --surface:#1A1E21; --sunk:#14181A; --ink:#E6EAEB; --muted:#8D989C; --line:#2A3135;
+  --tag:#E2B323; --tag-ink:#1A1606; --ok:#56C38B; --ok-bg:#163326; --warn:#F0A066; --warn-bg:#3A2414; --danger:#FF8A80;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--head)}
+img{max-width:100%}
+input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--tag);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--head);color:#fff}
+header.top .wrap{padding-block:10px 12px;display:grid;gap:8px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{margin:0;white-space:nowrap;font-family:var(--f-display);font-weight:700;font-size:24px;letter-spacing:.02em;text-transform:uppercase;color:#fff}
+.brand h1 span{color:var(--tag)}
+.brand small{color:#AEB7BB;font-size:12px;text-align:right;line-height:1.2}
+.search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px;padding:0 10px;height:46px}
+.search svg{flex:none;color:#5B6569}
+.search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#15191B;font-size:17px;height:100%}
+.search button{border:0;background:none;color:#5B6569;font-size:20px;padding:4px 6px}
+main{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+main .wrap{padding-block:14px;display:grid;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--tag);border-color:var(--tag);color:var(--tag-ink);font-weight:700}
+.hint{color:var(--muted);font-size:13px}
+.list{display:grid;gap:8px}
+.item{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;width:100%}
+.item .ph{width:72px;height:72px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+.item .ph img{max-width:100%;max-height:100%;object-fit:contain}
+.item .t{min-width:0;display:grid;gap:2px}
+.pn{font-family:var(--f-mono);font-size:13px;letter-spacing:.02em}
+.item .es{font-weight:700;font-size:15px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.item .en{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .r{display:grid;gap:4px;justify-items:end;text-align:right}
+.price{font-family:var(--f-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.price.none{font-family:var(--f-body);font-weight:400;font-size:12px;color:var(--muted)}
+.stock{font-size:12px;font-weight:700;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.stock.y{background:var(--ok-bg);color:var(--ok)}
+.stock.n{background:var(--sunk);color:var(--muted);font-weight:400}
+.more{border:1px dashed var(--line);background:transparent;border-radius:10px;padding:12px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.sec-h{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--muted);margin:6px 0 0}
+.cat{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.cat b{font-size:16px}
+.cat span{color:var(--muted);font-size:13px;white-space:nowrap}
+.back{border:0;background:none;color:var(--muted);padding:0;font-size:14px;justify-self:start}
+h2.title{margin:0;font-family:var(--f-display);font-size:26px;line-height:1.1;text-wrap:balance}
+.diag-btn{display:block;width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px;position:relative}
+.diag-btn img{width:100%;display:block}
+.diag-btn em{position:absolute;right:10px;bottom:10px;background:var(--head);color:#fff;font-style:normal;font-size:12px;padding:4px 8px;border-radius:6px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.kpi b{display:block;font-family:var(--f-display);font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:12px}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs button{border:0;background:none;padding:10px 0 9px;display:grid;justify-items:center;gap:3px;font-size:12px;color:var(--muted)}
+nav.tabs button[aria-current="page"]{color:var(--ink);font-weight:700}
+nav.tabs button[aria-current="page"] svg{color:var(--warn)}
+/* hoja de detalle */
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.sheet .bar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line)}
+.sheet .bar .wrap{display:flex;justify-content:space-between;align-items:center;padding-block:10px}
+.sheet .bar button{border:0;background:none;font-size:15px;color:var(--muted);padding:6px 0}
+.sheet .body{padding-block:14px;display:grid;gap:14px}
+.photo{background:#fff;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;min-height:200px;padding:10px}
+.photo img{max-height:300px;object-fit:contain}
+.tagline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{background:var(--tag);color:var(--tag-ink);font-family:var(--f-mono);font-size:16px;padding:6px 10px;border-radius:6px;position:relative;padding-left:22px}
+.tag::before{content:"";position:absolute;left:8px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--bg)}
+.copy{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 10px;font-size:13px}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.meta dt{color:var(--muted)}
+.meta dd{margin:0;min-width:0}
+.form{display:grid;gap:10px}
+.form .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+label.f input,label.f select,label.f textarea{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px;font-size:16px;color:var(--ink);width:100%;min-width:0}
+.qty{display:grid;grid-template-columns:44px 1fr 44px;gap:6px}
+.qty button{border:1px solid var(--line);background:var(--sunk);border-radius:8px;font-size:20px}
+.qty input{text-align:center}
+.btn{border:0;border-radius:10px;padding:12px 16px;font-weight:700;font-size:16px;background:var(--ink);color:var(--bg)}
+.btn.alt{background:var(--tag);color:var(--tag-ink)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:400}
+.btn:disabled{opacity:.5}
+.status{font-size:13px;color:var(--muted);min-height:1.2em}
+.status.ok{color:var(--ok)} .status.err{color:var(--danger)}
+.zoom{position:fixed;inset:0;z-index:60;background:#fff;display:grid;grid-template-rows:auto 1fr}
+.zoom .zbar{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--head);color:#fff;padding:calc(8px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
+.zoom .zbar button{border:1px solid #444;background:#222;color:#fff;border-radius:6px;padding:6px 10px}
+.zoom .zarea{overflow:auto;-webkit-overflow-scrolling:touch}
+.zoom .zarea img{display:block;max-width:none}
+.sale{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.sale:last-child{border-bottom:0}
+.sale small{color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:28px 10px}
+.example{font-size:12px;color:var(--warn);background:var(--warn-bg);padding:2px 6px;border-radius:4px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(16px);opacity:.6}to{transform:none;opacity:1}}}
+@media (min-width:640px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+nav.tabs .wrap{grid-template-columns:repeat(5,1fr)}
+nav.tabs button{position:relative}
+.badge{position:absolute;top:4px;left:calc(50% + 6px);background:var(--danger);color:#fff;font-size:11px;font-weight:700;border-radius:999px;min-width:18px;height:18px;line-height:18px;padding:0 5px}
+.avail{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.cb{font-family:var(--f-mono);font-size:11px;border-radius:4px;padding:1px 5px;background:var(--ok-bg);color:var(--ok)}
+.cb.q{background:var(--tag);color:var(--tag-ink)}
+.st{display:inline-block;font-size:12px;font-weight:700;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.st-esta{background:var(--ok-bg);color:var(--ok)}
+.st-quitada{background:var(--tag);color:var(--tag-ink)}
+.st-vendida{background:var(--sunk);color:var(--muted)}
+.st-mala{background:var(--warn-bg);color:var(--danger)}
+.st-revisar{background:var(--warn-bg);color:var(--warn)}
+.st-falta{background:var(--sunk);color:var(--muted);text-decoration:line-through}
+.st-na{background:var(--sunk);color:var(--muted)}
+.carrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.carrow:last-child{border-bottom:0}
+.carcode{font-family:var(--f-display);font-weight:700;font-size:22px;background:var(--head);color:var(--tag);border-radius:6px;padding:2px 8px;min-width:48px;text-align:center}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;font-size:12px}
+.seg button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg);font-weight:700}
+.walk{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px}
+.walk .ph{width:56px;height:56px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+.walk .ph img{max-width:100%;max-height:100%;object-fit:contain}
+.walk .t{min-width:0;display:grid;gap:6px}
+.ticket{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;font-variant-numeric:tabular-nums}
+.tline{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px dashed var(--line)}
+.tline .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tline .ctl input{width:90px;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--surface);color:var(--ink);font-size:15px}
+.tline .ctl button{border:1px solid var(--line);background:var(--sunk);border-radius:6px;min-width:34px;height:34px;font-size:17px}
+.sum{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding-top:10px;font-size:15px}
+.sum .tot{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1}
+.sum .neg{color:var(--danger)}
+.pcts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pcts button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 0;font-weight:700}
+.pcts button[aria-pressed="true"]{background:var(--tag);border-color:var(--tag);color:var(--tag-ink)}
+.drow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.note{font-size:12px;color:var(--muted)}
+
+.login{min-height:100%;display:grid;place-items:center;padding-block:40px}
+.login .card{width:100%;max-width:420px;display:grid;gap:12px}
+.login h1{margin:0;font-family:var(--f-display);font-size:34px;text-transform:uppercase;letter-spacing:.02em}
+.login h1 span{color:var(--warn)}
+.hdr-btn{border:1px solid #3a4246;background:transparent;color:#fff;border-radius:8px;padding:4px 8px;font-size:12px}
+.netchip{font-size:11px;border-radius:999px;padding:2px 8px;background:#2a3135;color:#cfd6d9;white-space:nowrap}
+.netchip.off{background:#5a2a12;color:#ffd9bf}
+.brand .right{display:flex;gap:6px;align-items:center}
+.alt{display:inline-flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:13px;background:var(--sunk);border-radius:6px;padding:4px 8px}
+.alt button{border:0;background:none;color:var(--danger);font-size:14px;padding:0 2px}
+.who{font-size:12px;color:var(--muted)}
+.sug{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:right}
+.realtag{display:inline-block;justify-self:start;width:max-content;font-size:11px;background:#1f6f43;color:#fff;border-radius:4px;padding:1px 6px;margin-right:4px;vertical-align:middle}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.gal button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:0;overflow:hidden;aspect-ratio:1;position:relative}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
+.gal em{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-style:normal;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot{display:grid;place-items:center;gap:6px;border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;background:var(--sunk);cursor:pointer}
+.shot input{position:absolute;width:1px;height:1px;opacity:0}
+.shot b{font-size:17px}
+.cand{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface)}
+.cand .ph{width:64px;height:64px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+.cand .ph img{max-width:100%;max-height:100%;object-fit:contain}
+.cand .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.cand .acts .btn{padding:8px 12px;font-size:14px;flex:1}
+.tk{background:#fff;color:#111;border-radius:6px;padding:16px 14px;font-family:var(--f-mono),ui-monospace,monospace;font-size:13px;line-height:1.45;max-width:340px;margin:0 auto;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.tk h3{margin:0;text-align:center;font-size:17px;text-transform:uppercase}
+.tk .c{text-align:center}
+.tk hr{border:0;border-top:1px dashed #999;margin:8px 0}
+.tk .l{display:flex;justify-content:space-between;gap:10px}
+.tk .l span:first-child{min-width:0}
+.tk .big{font-size:17px;font-weight:700}
+.tk small{color:#555}
+.acts2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media print{body *{visibility:hidden!important}.tk,.tk *{visibility:visible!important}.tk{position:absolute;left:0;top:0;box-shadow:none;width:72mm;max-width:none}}
+
+.hero{padding:6px 0 2px}
+.hero p{margin:4px 0 0;color:#cfd6d9;font-size:14px}
+.wa{display:flex;align-items:center;justify-content:center;gap:8px;background:#1fa855;color:#fff!important;border:0;border-radius:10px;padding:12px 14px;font-weight:700;font-size:16px;text-decoration:none;text-align:center}
+.wa.sm{padding:8px 10px;font-size:14px;border-radius:8px}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.3);padding:14px 18px}
+.pcard{display:grid;grid-template-columns:96px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;width:100%}
+.pcard .ph{width:96px;height:96px;border-radius:8px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+.pcard .ph img{max-width:100%;max-height:100%;object-fit:contain}
+.pcard .ph img.real{width:100%;height:100%;object-fit:cover}
+.pcard .t{min-width:0;display:flex;flex-direction:column;gap:3px}
+.pcard .es{font-weight:700;font-size:16px;line-height:1.2}
+.pcard .bot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;flex-wrap:wrap}
+.cond{font-size:12px;color:var(--muted)}
+.foot{color:var(--muted);font-size:13px;text-align:center;padding:24px 0 90px}
+.big{background:#fff;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center;min-height:240px;overflow:hidden}
+.big img{max-width:100%;max-height:60vh;object-fit:contain}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="hero"><h1 class="brandname" id="nm" style="margin:0;font-family:var(--f-display);font-size:26px;text-transform:uppercase;color:#fff">Piezas <span style="color:var(--tag)">Honda Accord</span></h1>
+  <p>Piezas usadas originales · Accord 2018–2022 · fotos reales y precio</p></div>
+  <label class="search" for="q" style="margin-top:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <input id="q" type="search" placeholder="¿Qué pieza buscas? Ej. faro, defensa, 33100" autocomplete="off"></label>
+</div></header>
+<main><div class="wrap" id="view"><p class="hint">Cargando piezas…</p></div></main>
+<div class="foot wrap" id="foot"></div>
+<a class="wa fab" id="fab" target="_blank" rel="noopener" href="#">WhatsApp</a>
+<div class="sheet" id="modal" hidden></div>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getFirestore,doc,getDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const fs=getFirestore(initializeApp({"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"}));
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
+const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
+const view=$('#view'),modal=$('#modal');
+let INV,D,BYPN={},ALL=[],st={q:'',cat:'',foto:false,limit:40};
+const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
+const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const im=e.target;io.unobserve(im);
+  if(im.dataset.f)thumb(im.dataset.f).then(u=>{if(u){im.src=u;im.className='real'}else if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})});
+  else if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})}),{rootMargin:'300px'});
+const waLink=txt=>'https://wa.me/'+(INV.wa.length===10?'52'+INV.wa:INV.wa)+'?text='+encodeURIComponent(txt);
+const waFor=it=>waLink(`Hola, me interesa esta pieza de Honda Accord que vi en tu página:\n${it.es}${it.pn?'\nNúmero: '+it.pn:''}\nPrecio: ${it.price?money(it.price):'a consultar'}\n¿Sigue disponible?`);
+function cardHTML(it,k){return `<div class="pcard"><button class="ph" data-det="${k}" style="padding:0;cursor:pointer" aria-label="Ver ${esc(it.es)}">${it.img}</button>
+  <div class="t"><button data-det="${k}" style="all:unset;cursor:pointer"><span class="es">${esc(it.es)}</span></button>${it.pn?`<span class="pn">${esc(it.pn)}</span>`:''}${it.cond?`<span class="cond">Estado: ${esc(it.cond)}</span>`:''}${it.real?'<span class="realtag">📷 Foto real</span>':''}
+  <div class="bot"><span class="price">${it.price?money(it.price):'<span class="price none">Pregunta precio</span>'}</span><a class="wa sm" target="_blank" rel="noopener" href="${waFor(it)}">Pedir por WhatsApp</a></div></div></div>`}
+function render(){const nq=norm(st.q).trim(),words=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
+  let arr=ALL.filter(it=>(!st.cat||it.cat===st.cat)&&(!st.foto||it.real)&&(!words.length||(c.length>=3&&/\d/.test(c)&&it.pnk.includes(c))||words.every(w=>it.key.includes(w))));
+  const cats=[...new Set(ALL.map(i=>i.cat))].filter(Boolean);
+  view.innerHTML=`<div class="row" style="margin:6px 0 10px">${['',...cats].map(x=>`<button class="chip" data-cat="${esc(x)}" aria-pressed="${st.cat===x}">${x||'Todo'}</button>`).join('')}<button class="chip" data-foto aria-pressed="${st.foto}">📷 Con foto real</button></div>
+   <p class="hint">${arr.length} ${arr.length===1?'pieza disponible':'piezas disponibles'}</p>
+   ${arr.length?`<div class="list">${arr.slice(0,st.limit).map(it=>cardHTML(it,ALL.indexOf(it))).join('')}</div>${arr.length>st.limit?`<button class="more" data-more>Ver más (${arr.length-st.limit})</button>`:''}`
+   :`<div class="card"><b>No la veo en la lista.</b><p class="hint">Puede que la tengamos y aún no esté publicada. Pregunta:</p><a class="wa" target="_blank" rel="noopener" href="${waLink('Hola, busco esta pieza de Honda Accord: '+st.q)}">Preguntar por WhatsApp</a></div>`}`;
+  view.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i))}
+async function openDet(k){const it=ALL[k];
+  modal.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button></div></div><div class="wrap body">
+   <div class="big" id="bigph">${it.img}</div>
+   <h2 class="title" style="margin:0">${esc(it.es)}</h2>${it.en?`<p class="hint" style="margin:0">${esc(it.en)}</p>`:''}
+   <dl class="meta">${it.pn?`<dt>Número de parte</dt><dd class="pn">${esc(it.pn)}</dd>`:''}${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Sirve para</dt><dd>Honda Accord 2018–2022 (confirma con tu número de parte o VIN)</dd>${it.n>1?`<dt>Disponibles</dt><dd>${it.n}</dd>`:''}</dl>
+   <div class="price" style="font-size:30px">${it.price?money(it.price):'Pregunta precio'}</div>
+   <a class="wa" target="_blank" rel="noopener" href="${waFor(it)}">Pedir por WhatsApp</a>
+   <p class="hint" style="margin:0">Pieza usada original. Revisa la foto; si quieres más fotos pídelas por WhatsApp.</p></div>`;
+  modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';modal.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i));
+  if(it.f){try{const d=await getDoc(doc(fs,'fotosfull',it.f));const u=d.exists()&&d.data().img;const im=$('#bigph img');if(u&&im){im.src=u;im.className=''}}catch(e){}}}
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+  if(d.det!=null){openDet(+d.det);return}
+  if('close' in d){modal.hidden=true;document.body.style.overflow='';return}
+  if('cat' in d){st.cat=d.cat;st.limit=40;render();return}
+  if('foto' in d){st.foto=!st.foto;st.limit=40;render();return}
+  if('more' in d){st.limit+=40;render();return}});
+let qt;$('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{st.q=e.target.value;st.limit=40;render()},150)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){modal.hidden=true;document.body.style.overflow=''}});
+try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getDoc(doc(fs,'publico','inventario'))]);D=dj;
+  dj.parts.forEach(p=>{if(!BYPN[p.pn])BYPN[p.pn]=p});
+  INV=snap.exists()?snap.data():{wa:'6142637975',items:[],xs:[]};if(!INV.wa)INV.wa='6142637975';
+  for(const [pn,price,n,cars,f,cond] of INV.items||[]){const p=BYPN[pn];if(!p)continue;const s=dj.secs[p.s];
+    ALL.push({pn,es:p.es,en:p.en,price,n,f,cond,real:!!f,cat:s.cat.split(' / ')[0],pnk:pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+pn),
+      img:`<img data-s="${p.s}" data-k="${esc(pn+'|'+p.ref)}" ${f?`data-f="${esc(f)}"`:''} alt="${esc(p.es)}">`})}
+  for(const [id,name,num,price,n,car,f,cond] of INV.xs||[]){ALL.push({pn:num,es:name,en:'',price,n,f,cond,real:!!f,cat:'',pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond),
+      img:f?`<img data-f="${esc(f)}" alt="${esc(name)}">`:'<span style="font-size:34px">📦</span>'})}
+  ALL.sort((a,b)=>(b.real-a.real)||((b.price||0)-(a.price||0)));
+  if(INV.nombre){$('#nm').textContent=INV.nombre;document.title=INV.nombre+' | Piezas Honda Accord 2018–2022'}
+  $('#fab').href=waLink('Hola, vi tu página de piezas de Honda Accord. Busco: ');
+  $('#foot').innerHTML=`${INV.dir?esc(INV.dir)+'<br>':''}${INV.pie?esc(INV.pie)+'<br>':''}Precios en pesos mexicanos. Sujeto a disponibilidad.<br>WhatsApp ${esc(INV.wa)}`;
+  render()}catch(e){view.innerHTML='<div class="card"><b>No se pudo cargar la lista.</b><p class="hint">Revisa tu internet y recarga la página.</p></div>';console.error(e)}
+</script>
+</body>
+</html>

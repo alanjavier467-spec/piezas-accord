@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Piezas Honda Accord 2018–2022 | Usadas originales</title>
+<meta name="description" content="Piezas usadas originales de Honda Accord 2018–2022 con fotos reales y precio. Pide por WhatsApp.">
+<meta property="og:title" content="Piezas Honda Accord 2018–2022">
+<meta property="og:description" content="Piezas usadas originales con fotos y precio. Pide por WhatsApp.">
+<meta name="theme-color" content="#15191B">
+<link rel="icon" href="icon-192.png">
+<style>
+body{margin:0}
+__CSS__
+.hero{padding:6px 0 2px}
+.hero p{margin:4px 0 0;color:#cfd6d9;font-size:14px}
+.wa{display:flex;align-items:center;justify-content:center;gap:8px;background:#1fa855;color:#fff!important;border:0;border-radius:10px;padding:12px 14px;font-weight:700;font-size:16px;text-decoration:none;text-align:center}
+.wa.sm{padding:8px 10px;font-size:14px;border-radius:8px}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.3);padding:14px 18px}
+.pcard{display:grid;grid-template-columns:96px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;width:100%}
+.pcard .ph{width:96px;height:96px;border-radius:8px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+.pcard .ph img{max-width:100%;max-height:100%;object-fit:contain}
+.pcard .ph img.real{width:100%;height:100%;object-fit:cover}
+.pcard .t{min-width:0;display:flex;flex-direction:column;gap:3px}
+.pcard .es{font-weight:700;font-size:16px;line-height:1.2}
+.pcard .bot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;flex-wrap:wrap}
+.cond{font-size:12px;color:var(--muted)}
+.foot{color:var(--muted);font-size:13px;text-align:center;padding:24px 0 90px}
+.big{background:#fff;border-radius:12px;border:1px solid var(--line);display:grid;place-items:center;min-height:240px;overflow:hidden}
+.big img{max-width:100%;max-height:60vh;object-fit:contain}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="hero"><h1 class="brandname" id="nm" style="margin:0;font-family:var(--f-display);font-size:26px;text-transform:uppercase;color:#fff">Piezas <span style="color:var(--tag)">Honda Accord</span></h1>
+  <p>Piezas usadas originales · Accord 2018–2022 · fotos reales y precio</p></div>
+  <label class="search" for="q" style="margin-top:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <input id="q" type="search" placeholder="¿Qué pieza buscas? Ej. faro, defensa, 33100" autocomplete="off"></label>
+</div></header>
+<main><div class="wrap" id="view"><p class="hint">Cargando piezas…</p></div></main>
+<div class="foot wrap" id="foot"></div>
+<a class="wa fab" id="fab" target="_blank" rel="noopener" href="#">WhatsApp</a>
+<div class="sheet" id="modal" hidden></div>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getFirestore,doc,getDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const fs=getFirestore(initializeApp(__FBCONFIG__));
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
+const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
+const view=$('#view'),modal=$('#modal');
+let INV,D,BYPN={},ALL=[],st={q:'',cat:'',foto:false,limit:40};
+const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
+const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const im=e.target;io.unobserve(im);
+  if(im.dataset.f)thumb(im.dataset.f).then(u=>{if(u){im.src=u;im.className='real'}else if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})});
+  else if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})}),{rootMargin:'300px'});
+const waLink=txt=>'https://wa.me/'+(INV.wa.length===10?'52'+INV.wa:INV.wa)+'?text='+encodeURIComponent(txt);
+const waFor=it=>waLink(`Hola, me interesa esta pieza de Honda Accord que vi en tu página:\n${it.es}${it.pn?'\nNúmero: '+it.pn:''}\nPrecio: ${it.price?money(it.price):'a consultar'}\n¿Sigue disponible?`);
+function cardHTML(it,k){return `<div class="pcard"><button class="ph" data-det="${k}" style="padding:0;cursor:pointer" aria-label="Ver ${esc(it.es)}">${it.img}</button>
+  <div class="t"><button data-det="${k}" style="all:unset;cursor:pointer"><span class="es">${esc(it.es)}</span></button>${it.pn?`<span class="pn">${esc(it.pn)}</span>`:''}${it.cond?`<span class="cond">Estado: ${esc(it.cond)}</span>`:''}${it.real?'<span class="realtag">📷 Foto real</span>':''}
+  <div class="bot"><span class="price">${it.price?money(it.price):'<span class="price none">Pregunta precio</span>'}</span><a class="wa sm" target="_blank" rel="noopener" href="${waFor(it)}">Pedir por WhatsApp</a></div></div></div>`}
+function render(){const nq=norm(st.q).trim(),words=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
+  let arr=ALL.filter(it=>(!st.cat||it.cat===st.cat)&&(!st.foto||it.real)&&(!words.length||(c.length>=3&&/\d/.test(c)&&it.pnk.includes(c))||words.every(w=>it.key.includes(w))));
+  const cats=[...new Set(ALL.map(i=>i.cat))].filter(Boolean);
+  view.innerHTML=`<div class="row" style="margin:6px 0 10px">${['',...cats].map(x=>`<button class="chip" data-cat="${esc(x)}" aria-pressed="${st.cat===x}">${x||'Todo'}</button>`).join('')}<button class="chip" data-foto aria-pressed="${st.foto}">📷 Con foto real</button></div>
+   <p class="hint">${arr.length} ${arr.length===1?'pieza disponible':'piezas disponibles'}</p>
+   ${arr.length?`<div class="list">${arr.slice(0,st.limit).map(it=>cardHTML(it,ALL.indexOf(it))).join('')}</div>${arr.length>st.limit?`<button class="more" data-more>Ver más (${arr.length-st.limit})</button>`:''}`
+   :`<div class="card"><b>No la veo en la lista.</b><p class="hint">Puede que la tengamos y aún no esté publicada. Pregunta:</p><a class="wa" target="_blank" rel="noopener" href="${waLink('Hola, busco esta pieza de Honda Accord: '+st.q)}">Preguntar por WhatsApp</a></div>`}`;
+  view.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i))}
+async function openDet(k){const it=ALL[k];
+  modal.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button></div></div><div class="wrap body">
+   <div class="big" id="bigph">${it.img}</div>
+   <h2 class="title" style="margin:0">${esc(it.es)}</h2>${it.en?`<p class="hint" style="margin:0">${esc(it.en)}</p>`:''}
+   <dl class="meta">${it.pn?`<dt>Número de parte</dt><dd class="pn">${esc(it.pn)}</dd>`:''}${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Sirve para</dt><dd>Honda Accord 2018–2022 (confirma con tu número de parte o VIN)</dd>${it.n>1?`<dt>Disponibles</dt><dd>${it.n}</dd>`:''}</dl>
+   <div class="price" style="font-size:30px">${it.price?money(it.price):'Pregunta precio'}</div>
+   <a class="wa" target="_blank" rel="noopener" href="${waFor(it)}">Pedir por WhatsApp</a>
+   <p class="hint" style="margin:0">Pieza usada original. Revisa la foto; si quieres más fotos pídelas por WhatsApp.</p></div>`;
+  modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';modal.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i));
+  if(it.f){try{const d=await getDoc(doc(fs,'fotosfull',it.f));const u=d.exists()&&d.data().img;const im=$('#bigph img');if(u&&im){im.src=u;im.className=''}}catch(e){}}}
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+  if(d.det!=null){openDet(+d.det);return}
+  if('close' in d){modal.hidden=true;document.body.style.overflow='';return}
+  if('cat' in d){st.cat=d.cat;st.limit=40;render();return}
+  if('foto' in d){st.foto=!st.foto;st.limit=40;render();return}
+  if('more' in d){st.limit+=40;render();return}});
+let qt;$('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{st.q=e.target.value;st.limit=40;render()},150)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){modal.hidden=true;document.body.style.overflow=''}});
+try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getDoc(doc(fs,'publico','inventario'))]);D=dj;
+  dj.parts.forEach(p=>{if(!BYPN[p.pn])BYPN[p.pn]=p});
+  INV=snap.exists()?snap.data():{wa:'6142637975',items:[],xs:[]};if(!INV.wa)INV.wa='6142637975';
+  for(const [pn,price,n,cars,f,cond] of INV.items||[]){const p=BYPN[pn];if(!p)continue;const s=dj.secs[p.s];
+    ALL.push({pn,es:p.es,en:p.en,price,n,f,cond,real:!!f,cat:s.cat.split(' / ')[0],pnk:pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+pn),
+      img:`<img data-s="${p.s}" data-k="${esc(pn+'|'+p.ref)}" ${f?`data-f="${esc(f)}"`:''} alt="${esc(p.es)}">`})}
+  for(const [id,name,num,price,n,car,f,cond] of INV.xs||[]){ALL.push({pn:num,es:name,en:'',price,n,f,cond,real:!!f,cat:'',pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond),
+      img:f?`<img data-f="${esc(f)}" alt="${esc(name)}">`:'<span style="font-size:34px">📦</span>'})}
+  ALL.sort((a,b)=>(b.real-a.real)||((b.price||0)-(a.price||0)));
+  if(INV.nombre){$('#nm').textContent=INV.nombre;document.title=INV.nombre+' | Piezas Honda Accord 2018–2022'}
+  $('#fab').href=waLink('Hola, vi tu página de piezas de Honda Accord. Busco: ');
+  $('#foot').innerHTML=`${INV.dir?esc(INV.dir)+'<br>':''}${INV.pie?esc(INV.pie)+'<br>':''}Precios en pesos mexicanos. Sujeto a disponibilidad.<br>WhatsApp ${esc(INV.wa)}`;
+  render()}catch(e){view.innerHTML='<div class="card"><b>No se pudo cargar la lista.</b><p class="hint">Revisa tu internet y recarga la página.</p></div>';console.error(e)}
+</script>
+</body>
+</html>

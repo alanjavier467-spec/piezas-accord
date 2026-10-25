@@ -12,4 +12,6 @@ for sub in ['p','d']:
     if os.path.exists('public/'+sub): shutil.rmtree('public/'+sub)
     shutil.copytree('/home/claude/app/out/'+sub,'public/'+sub)
 open('public/.nojekyll','w').write('')
+t=open('tienda.tpl.html',encoding='utf-8').read().replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG))
+open('public/tienda.html','w',encoding='utf-8').write(t)
 print(V)
