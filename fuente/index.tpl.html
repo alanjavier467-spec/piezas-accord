@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Piezas Accord</title>
+<meta name="theme-color" content="#15191B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Piezas">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+__CSS__
+</style>
+</head>
+<body>
+<div id="login" class="wrap login" hidden>
+  <div class="card">
+    <h1>Piezas <span>Accord</span></h1>
+    <p class="hint" style="margin:0">Entra con tu correo y contraseña.</p>
+    <label class="f" for="l-email">Correo<input id="l-email" type="email" autocomplete="username" inputmode="email"></label>
+    <label class="f" for="l-pass">Contraseña<input id="l-pass" type="password" autocomplete="current-password"></label>
+    <button class="btn" id="l-go">Entrar</button>
+    <button class="btn ghost" id="l-new" hidden>Crear mi cuenta de dueño</button>
+    <button class="btn ghost" id="l-reset">Olvidé mi contraseña</button>
+    <div class="status" id="l-status"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Piezas <span>Accord</span></h1><span class="right"><span class="netchip" id="net">En línea</span><button class="hdr-btn" id="menu-btn" aria-label="Menú">☰</button></span></div>
+    <label class="search" for="q">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="Número de parte, nombre en español o inglés">
+      <button id="qx" type="button" aria-label="Borrar búsqueda" hidden>×</button>
+    </label>
+  </div>
+</header>
+<main><div class="wrap" id="view"></div></main>
+<nav class="tabs" aria-label="Secciones">
+  <div class="wrap">
+    <button data-tab="buscar" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
+    <button data-tab="catalogo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Catálogo</button>
+    <button data-tab="carros"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 16h14M3 16l2-6 3-4h8l3 4 2 6v3H3z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>Carros</button>
+    <button data-tab="carrito"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Comanda<span class="badge" id="badge" hidden>0</span></button>
+    <button data-tab="ventas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Ventas</button>
+  </div>
+</nav>
+<div id="sheet" class="sheet" hidden></div>
+<div id="zoom" class="zoom" hidden></div>
+</div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,query,where,orderBy,limit,writeBatch,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const CFG=__FBCONFIG__;
+const OWNER='alanjavier467@gmail.com';
+const fb=initializeApp(CFG);
+const auth=getAuth(fb);
+const fs=initializeFirestore(fb,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+
+const D=await fetch('data.json').then(r=>r.json());
+const SECS=D.secs, PARTS=D.parts;
+const $=s=>document.querySelector(s);
+const view=$('#view'), sheet=$('#sheet'), zoom=$('#zoom'), qIn=$('#q'), qx=$('#qx');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
+const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const CATS=[...new Set(SECS.map(s=>s.cat))];
+const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
+const UPN=Object.keys(BYPN);
+const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
+PARTS.forEach(p=>{const m=(p.es+' '+p.en).match(/\*(NH731P|NH883P|NH830M|NH797M|R94|B575P)\*/);p.ext=m?m[1]:null});
+const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
+const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
+const AVAIL=s=>s==='esta'||s==='quitada';
+const EMP_MAX_DISC=10;
+
+// ---- estado ----
+let ME=null, OWN=false, PROFILE=null;
+let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], ALT={}, USERS=[];
+const st={tab:'buscar',q:'',cat:'',onlyStock:false,limit:40,catView:null,secView:null,car:null,carSec:null};
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let CART=LS.get('comanda',[]); let DISC=Object.assign({mode:'pct',pct:0,amt:'',target:''},LS.get('desc',{})); let CLIENTE=LS.get('cliente','');
+function saveCart(){LS.set('comanda',CART);LS.set('desc',DISC);LS.set('cliente',CLIENTE);const b=$('#badge');const n=CART.reduce((a,l)=>a+l.qty,0);b.hidden=!n;b.textContent=n}
+const carsSorted=()=>CARS.slice().sort((a,b)=>(a.llegada||'9999').localeCompare(b.llegada||'9999')||a.code.localeCompare(b.code));
+const units=p=>p&&p.cr?p.cr:1;
+function stOf(car,pn){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color)return {s:'na',n:0};
+  const e=(EST[car.id]||{})[pn];const def=car.def||'esta';
+  if(!e)return {s:def,n:AVAIL(def)?units(p):0};
+  return {s:e.s,n:e.n!=null?e.n:(AVAIL(e.s)?units(p):0)}}
+const availCars=pn=>carsSorted().map(c=>({c,x:stOf(c,pn)})).filter(o=>AVAIL(o.x.s)&&o.x.n>0);
+const inCart=(pn,carId)=>CART.filter(l=>l.pn===pn&&l.car===carId).reduce((a,l)=>a+l.qty,0);
+const carCode=id=>(CARS.find(c=>c.id===id)||{}).code||'?';
+const altsOf=pn=>Object.entries(ALT).filter(([k,v])=>v.pn===pn).map(([k])=>k);
+
+// ---- imágenes ----
+const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
+const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').then(r=>r.json()).catch(()=>[]));
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting)return;const img=e.target;io.unobserve(img);bundle(+img.dataset.s).then(b=>{const u=b[img.dataset.k];if(u)img.src=u;else img.alt='Sin foto'})})},{rootMargin:'300px'});
+const hookImgs=root=>root.querySelectorAll('img[data-k]').forEach(i=>io.observe(i));
+const imgTag=p=>`<img data-s="${p.s}" data-k="${esc(p.pn+'|'+p.ref)}" alt="">`;
+
+// ---- búsqueda ----
+function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];
+  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.toLowerCase().includes(compact))altHits.add(v.pn)}
+  for(const p of PARTS){let sc=0;
+    if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
+    else if(altHits.has(p.pn))sc=90;
+    else if(words.every(w=>p.key.includes(w))){sc=10;if(norm(p.es).startsWith(words[0]))sc+=6;if(norm(p.es).includes(nq))sc+=4;if(norm(p.en).includes(nq))sc+=3}
+    if(sc)out.push([sc,p])}
+  out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
+function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
+  return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}</span>`).join('')}</span>`}
+function itemHTML(p,pre){const pr=PRICE[p.pn];
+  return `<button class="item" data-open="${p.i}"><span class="ph">${imgTag(p)}</span>
+   <span class="t">${pre||''}<span class="pn">${esc(p.pn)}</span><span class="es">${esc(p.es)}</span>${p.en?`<span class="en">${esc(p.en)}</span>`:''}</span>
+   <span class="r">${pr?`<span class="price">${money(pr)}</span>`:'<span class="price none">Sin precio</span>'}${availHTML(p.pn)}</span></button>`}
+function renderList(arr){if(!arr.length)return '<div class="empty">No encontré piezas con eso. Prueba otra palabra, en inglés, o parte del número.</div>';
+  return `<div class="list">${arr.slice(0,st.limit).map(p=>itemHTML(p)).join('')}</div>`+(arr.length>st.limit?`<button class="more" data-more>Mostrar más (${arr.length-st.limit} restantes)</button>`:'')}
+
+// ---- vistas ----
+function vBuscar(){let arr=search(st.q);
+  const chips=`<div class="row">${['',...CATS].map(c=>`<button class="chip" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${c?esc(c.split(' / ')[0]):'Todo'}</button>`).join('')}<button class="chip" data-stockonly aria-pressed="${st.onlyStock}">Solo lo que tengo</button></div>`;
+  if(!arr){if(st.onlyStock||st.cat)arr=PARTS;else{
+    const tips=['faro','headlight','espejo','sensor','bomba','defensa','33100','módulo','rin','asiento'];
+    view.innerHTML=chips+`<div class="card"><b>Escribe arriba lo que buscas.</b><p class="hint" style="margin:.4em 0 0">Número completo o un pedazo (con o sin guiones), nombre en español o en inglés, o el número que trae la pieza si lo guardaron como alterno.</p><div class="row" style="margin-top:8px">${tips.map(t=>`<button class="chip" data-try="${t}">${t}</button>`).join('')}</div></div>
+    <div id="offline-card"></div>
+    <p class="sec-h">O explora por categoría</p>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${PARTS.filter(p=>SECS[p.s].cat===c).length} piezas ›</span></button>`).join('')}`;renderOffline();return}}
+  if(st.cat)arr=arr.filter(p=>SECS[p.s].cat===st.cat);
+  if(st.onlyStock)arr=arr.filter(p=>availCars(p.pn).length);
+  const seen=new Set();arr=arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn));
+  view.innerHTML=chips+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}</p>`+renderList(arr)}
+function vCatalogo(){
+  if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
+    view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}
+    <div id="dg" class="list"><div class="hint">Cargando diagrama…</div></div><p class="sec-h">${ps.length} piezas · # = lugar en el diagrama</p>
+    <div class="list">${ps.map(p=>itemHTML(p,`<span class="hint">#${esc(p.ref)}</span>`)).join('')}</div>`;
+    diagrams(s.i).then(ds=>{const el=$('#dg');if(!el)return;el.innerHTML=ds.length?ds.map((u,k)=>`<button class="diag-btn" data-zoom="${s.i}" data-zk="${k}"><img src="${u}" alt="Diagrama de ${esc(s.es)}"><em>Toca para ampliar</em></button>`).join(''):'<div class="hint">Sin diagrama.</div>'});return}
+  if(st.catView){const ss=SECS.filter(s=>s.cat===st.catView);
+    view.innerHTML=`<button class="back" data-back="cat">‹ Categorías</button><h2 class="title">${esc(st.catView)}</h2>${ss.map(s=>`<button class="cat" data-sec="${s.i}"><b>${esc(s.es)}</b><span>${s.n} ›</span></button>`).join('')}`;return}
+  view.innerHTML=`<h2 class="title">Catálogo por diagrama</h2>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${SECS.filter(s=>s.cat===c).length} secciones ›</span></button>`).join('')}`}
+function carCounts(c){const k={esta:0,quitada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});return k}
+const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}catch(e){return s}};
+function vCarros(){
+  if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
+  if(st.car&&st.carSec!=null)return vWalk();
+  if(st.car)return vCar();
+  const cs=carsSorted();
+  view.innerHTML=`<h2 class="title">Carros</h2><p class="hint" style="margin:0">Cada carro es su propio estante. El de arriba es el más viejo: de ese conviene vender primero.</p>
+  ${cs.length?`<div class="card">${cs.map(c=>{const k=carCounts(c);return `<button class="carrow" data-car="${c.id}" style="width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none">
+    <span class="carcode">${esc(c.code)}</span><span style="min-width:0"><b>${esc([c.year,c.trim,EXT[c.color]||c.color].filter(Boolean).join(' · '))}</b><br><span class="hint">${c.llegada?'Llegó '+fmtDate(c.llegada):'Sin fecha de llegada'}${c.vin?' · VIN …'+esc(c.vin.slice(-6)):''}</span></span>
+    <span style="text-align:right"><span class="st st-esta">${k.esta+k.quitada} disp.</span><br>${k.revisar?`<span class="st st-revisar" style="margin-top:4px">${k.revisar} por revisar</span>`:''}</span></button>`}).join('')}</div>`:'<div class="card"><b>Aún no hay carros.</b></div>'}
+  ${OWN?`<details class="card"><summary><b>Agregar carro</b></summary>${carForm({})}</details>`:''}`}
+function carForm(c){const pv=PRIV[c.id]||{};return `<div class="form" style="margin-top:10px">
+  <div class="two"><label class="f" for="c-code">Clave (pintada en el carro)<input id="c-code" value="${esc(c.code||('A'+(CARS.length+1)))}"></label><label class="f" for="c-year">Año<input id="c-year" inputmode="numeric" value="${esc(c.year||'')}"></label></div>
+  <label class="f" for="c-vin">VIN<input id="c-vin" value="${esc(c.vin||'')}" style="font-family:var(--f-mono);text-transform:uppercase"></label>
+  <div class="two"><label class="f" for="c-color">Color exterior<select id="c-color"><option value="">—</option>${Object.entries(EXT).map(([k,v])=>`<option value="${k}" ${c.color===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="f" for="c-km">Kilometraje<input id="c-km" inputmode="numeric" value="${esc(c.km||'')}"></label></div>
+  <div class="two"><label class="f" for="c-llegada">Fecha de llegada<input id="c-llegada" type="date" value="${esc(c.llegada||'')}"></label><label class="f" for="c-costo">Costo (MXN, solo tú lo ves)<input id="c-costo" inputmode="decimal" value="${esc(pv.costo||'')}"></label></div>
+  ${c.id?'':`<label class="f" for="c-def">¿Cómo viene?<select id="c-def"><option value="esta">Completo: todas las piezas en el carro</option><option value="revisar">Ya desarmado: todo "por revisar"</option></select></label>`}
+  <label class="f" for="c-notas">Notas<textarea id="c-notas" rows="3">${esc(c.notas||'')}</textarea></label>
+  <button class="btn" data-savecar="${c.id||''}">${c.id?'Guardar cambios':'Agregar carro'}</button><div class="status" id="c-status"></div></div>`}
+function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const pv=PRIV[c.id]||{};
+  const secs=SECS.map(s=>{const pns=[...new Set(PARTS.filter(p=>p.s===s.i).map(p=>p.pn))];const r=pns.filter(pn=>stOf(c,pn).s==='revisar').length;const a=pns.filter(pn=>AVAIL(stOf(c,pn).s)).length;return {s,r,a,n:pns.length}}).filter(x=>x.n);
+  view.innerHTML=`<button class="back" data-back="car">‹ Carros</button>
+  <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc([c.year,'Accord',c.trim].filter(Boolean).join(' '))}</h2></div>
+  <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
+  ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
+  <div class="kpis"><div class="kpi"><b>${k.esta}</b><span>en el carro</span></div><div class="kpi"><b>${k.quitada}</b><span>quitadas y guardadas</span></div><div class="kpi"><b>${k.vendida}</b><span>vendidas</span></div><div class="kpi"><b>${k.revisar}</b><span>por revisar</span></div></div>
+  <p class="sec-h">Recorrido por sección</p><p class="hint" style="margin:0">Entra a una sección y marca qué piezas siguen en el carro.</p>
+  <div class="list">${secs.map(x=>`<button class="cat" data-walk="${x.s.i}"><b>${esc(x.s.es)}</b><span>${x.r?`<span class="st st-revisar">${x.r} por revisar</span> `:''}${x.a}/${x.n} ›</span></button>`).join('')}</div>
+  ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
+const segHTML=(c,pn,cur)=>`<div class="seg" data-carid="${c.id}" data-pn="${esc(pn)}">${STS.filter(([k])=>k!=='vendida'||cur==='vendida').map(([k,l])=>`<button data-setst="${k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
+function vWalk(){const c=CARS.find(x=>x.id===st.car);const s=SECS[st.carSec];const seen=new Set();const ps=PARTS.filter(p=>p.s===s.i&&!seen.has(p.pn)&&seen.add(p.pn));
+  view.innerHTML=`<button class="back" data-back="walk">‹ ${esc(c.code)}</button><h2 class="title">${esc(s.es)}</h2><p class="hint" style="margin:0">Carro ${esc(c.code)} · toca el estado de cada pieza. Se guarda solo, aunque no haya señal.</p>
+  <div id="dg" class="list"></div>
+  <div class="list">${ps.map(p=>{const x=stOf(c,p.pn);return `<div class="walk"><span class="ph">${imgTag(p)}</span><div class="t"><div><span class="hint">#${esc(p.ref)}</span> <span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b></div>
+   ${x.s==='na'?'<span class="st st-na">No aplica (otro color)</span>':segHTML(c,p.pn,x.s)}</div></div>`}).join('')}</div>`;
+  diagrams(s.i).then(ds=>{const el=$('#dg');if(el&&ds.length)el.innerHTML=`<button class="diag-btn" data-zoom="${s.i}" data-zk="0"><img src="${ds[0]}" alt="Diagrama"><em>Toca para ampliar</em></button>`})}
+// ---- comanda ----
+function calc(){const sub=CART.reduce((a,l)=>a+l.qty*(+l.price||0),0);let desc=0;
+  if(DISC.mode==='pct')desc=sub*(+DISC.pct||0)/100;else if(DISC.mode==='amt')desc=+DISC.amt||0;else if(DISC.mode==='target'&&DISC.target!=='')desc=sub-(+DISC.target||0);
+  desc=Math.max(0,Math.min(sub,Math.round(desc*100)/100));
+  let capped=false;if(!OWN&&desc>sub*EMP_MAX_DISC/100+0.001){desc=Math.floor(sub*EMP_MAX_DISC)/100;capped=true}
+  return {sub,desc,total:Math.round((sub-desc)*100)/100,capped}}
+const sumHTML=t=>`<span>Subtotal</span><span>${money(t.sub)}</span>${t.desc?`<span>Descuento</span><span class="neg">−${money(t.desc)}</span>`:''}<span><b>Total</b></span><span class="tot">${money(t.total)}</span>${t.capped?`<span class="note" style="grid-column:1/-1">Como empleado puedes descontar hasta ${EMP_MAX_DISC}%.</span>`:''}`;
+function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,10];
+  view.innerHTML=`<h2 class="title">Comanda</h2>
+  ${CART.length?`<div class="ticket">${CART.map((l,i)=>`<div class="tline"><div style="min-width:0"><b>${esc(l.es)}</b><br><span class="hint"><span class="pn">${esc(l.pn||'Concepto libre')}</span>${l.car?' · de '+esc(carCode(l.car)):''}</span></div>
+     <div style="text-align:right"><span class="price">${money(l.qty*(+l.price||0))}</span></div>
+     <div class="ctl" style="grid-column:1/-1"><button data-q="${i}" data-d="-1" aria-label="Menos">−</button><b>${l.qty}</b><button data-q="${i}" data-d="1" aria-label="Más">+</button>
+     <span class="hint">×</span><input type="number" inputmode="decimal" min="0" value="${esc(l.price)}" data-lp="${i}" aria-label="Precio unitario"><button data-rm="${i}" aria-label="Quitar">🗑</button></div></div>`).join('')}
+   <div class="sum">${sumHTML(t)}</div></div>
+   <div class="card form"><b>Descuento</b>
+    <div class="pcts">${pcts.map(p=>`<button data-pct="${p}" aria-pressed="${DISC.mode==='pct'&&+DISC.pct===p}">${p?p+'%':'Sin'}</button>`).join('')}</div>
+    <div class="drow"><label class="f" for="d-amt">Descontar $<input id="d-amt" type="number" inputmode="decimal" min="0" placeholder="Ej. 150" value="${DISC.mode==='amt'?esc(DISC.amt):''}"></label>
+    <label class="f" for="d-target">Dejárselo en $<input id="d-target" type="number" inputmode="decimal" min="0" placeholder="Ej. 2500" value="${DISC.mode==='target'?esc(DISC.target):''}"></label></div>
+    <span class="note">Usa solo una forma: porcentaje, monto o precio final.</span></div>
+   <div class="card form"><label class="f" for="cli">Cliente (opcional)<input id="cli" value="${esc(CLIENTE)}" placeholder="Nombre o teléfono"></label>
+    <button class="btn alt" data-checkout>Cobrar ${money(t.total)} y descontar del inventario</button>
+    <button class="btn ghost" data-clear>Vaciar comanda</button><div class="status" id="co-status"></div></div>`
+  :`<div class="card"><b>La comanda está vacía.</b><p class="hint" style="margin:.4em 0 0">Abre una pieza y toca “+ Comanda”. Aquí se suman precios, haces descuento y cobras todo junto.</p></div>`}
+  <details class="card"><summary><b>Agregar concepto libre</b> <span class="hint">(mano de obra, pieza sin número…)</span></summary><div class="form" style="margin-top:10px">
+   <label class="f" for="fx-d">Descripción<input id="fx-d" placeholder="Ej. Mano de obra"></label><div class="two"><label class="f" for="fx-q">Cantidad<input id="fx-q" type="number" min="1" value="1"></label><label class="f" for="fx-p">Precio (MXN)<input id="fx-p" type="number" inputmode="decimal" min="0"></label></div>
+   <button class="btn ghost" data-addfree>Agregar</button></div></details>`}
+function vVentas(){
+  const now=new Date();const ym=now.toISOString().slice(0,7), today=now.toISOString().slice(0,10);const tot=a=>a.reduce((s,x)=>s+(x.total||0),0);
+  const list=OWN?SALES:SALES.filter(s=>(s.date||'').slice(0,10)===today);
+  const hoy=SALES.filter(s=>(s.date||'').slice(0,10)===today), mes=SALES.filter(s=>(s.date||'').slice(0,7)===ym);
+  view.innerHTML=`<h2 class="title">${OWN?'Ventas':'Mis ventas de hoy'}</h2>
+  <div class="kpis"><div class="kpi"><b>${money(tot(hoy))}</b><span>hoy</span></div><div class="kpi"><b>${hoy.length}</b><span>ventas hoy</span></div>${OWN?`<div class="kpi"><b>${money(tot(mes))}</b><span>este mes</span></div><div class="kpi"><b>${money(tot(SALES))}</b><span>en total</span></div>`:''}</div>
+  ${list.length?`<div class="card">${list.map(s=>`<div class="sale"><div style="min-width:0"><b>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</b>${s.cliente?' · '+esc(s.cliente):''}<br>
+    ${(s.items||[]).map(it=>`<small>${it.qty}× ${esc(it.es)}${it.car?' ('+esc(carCode(it.car))+')':''} · ${money(it.qty*it.price)}</small>`).join('<br>')}${s.desc?`<br><small>Descuento −${money(s.desc)}</small>`:''}${s.byName?`<br><span class="who">Vendió: ${esc(s.byName)}</span>`:''}</div>
+    <div style="text-align:right"><span class="price">${money(s.total)}</span>${OWN?`<br><button class="copy" data-delsale="${s.id}">Cancelar</button>`:''}</div></div>`).join('')}</div>`
+  :`<div class="card"><b>Aún no hay ventas${OWN?'':' hoy'}.</b><p class="hint" style="margin:.4em 0 0">Arma una comanda y cobra: aparecerá aquí.</p></div>`}
+  ${OWN?'<button class="btn ghost" data-export>Exportar ventas a Excel (CSV)</button>':''}`}
+function render(){document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===st.tab?'page':'false'));
+  ({buscar:vBuscar,catalogo:vCatalogo,carros:vCarros,carrito:vCarrito,ventas:vVentas})[st.tab]();hookImgs(view)}
+// ---- ficha ----
+let openIdx=null;
+function openPart(i){openIdx=i;const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
+  const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">${esc(s.cat.split(' / ')[0])}</span></div></div>
+  <div class="wrap body"><div class="photo">${imgTag(p)}</div>
+   <div class="tagline"><span class="tag">${esc(p.pn)}</span><button class="copy" data-copy="${esc(p.pn)}">Copiar número</button></div>
+   <div><h2 class="title">${esc(p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
+   <dl class="meta"><dt>Sección</dt><dd>${esc(s.es)} · #${esc(p.ref)}</dd>${others.length?`<dt>También en</dt><dd>${others.map(o=>esc(SECS[o.s].es)+' (#'+esc(o.ref)+')').join(', ')}</dd>`:''}
+    ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>
+   <button class="btn ghost" data-zoom="${p.s}" data-zk="0" data-ref="${esc(p.ref)}">Ver diagrama (busca el #${esc(p.ref)})</button>
+   <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
+    <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
+    <div class="drow"><input id="alt-in" placeholder="Ej. 71110-TVA-A20" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);text-transform:uppercase;min-width:0"><button class="btn ghost" data-addalt>Agregar</button></div></div>
+   ${OWN?`<div class="card form"><label class="f" for="f-price">Mi precio de venta (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Ej. 450" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
+     :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${pr?money(pr):'Sin precio — pregunta al encargado'}</div></div>`}
+   <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
+    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
+      ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado</summary>${segHTML(c,p.pn,x.s)}</details>`}</div>
+      <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
+  </div>`;
+  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+function closeSheet(){sheet.hidden=true;openIdx=null;document.body.style.overflow='';render()}
+function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;const s=SECS[si];
+  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ref?'Busca el #'+esc(ref)+' · ':''}${esc(s.es)}</span><span class="row" style="flex-wrap:nowrap"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button>${ds.length>1?`<button data-zn>${k+1}/${ds.length}</button>`:''}<button data-zclose>Cerrar</button></span></div><div class="zarea"><img alt="Diagrama"></div>`;
+  const img=zoom.querySelector('img'),area=zoom.querySelector('.zarea');const apply=()=>{img.style.width=(z*100)+'%'};img.src=ds[k];apply();zoom.hidden=false;
+  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.z){z=Math.min(4,Math.max(1,z+(+t.dataset.z)*.75));apply()}if(t.hasAttribute('data-zn'))openZoom(si,(k+1)%ds.length,ref);if(t.hasAttribute('data-zclose'))zoom.hidden=true};
+  area.ondblclick=()=>{z=z>1?1:2.5;apply()}})}
+// ---- menú (usuarios, cuenta) ----
+function openMenu(){
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
+   <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(ME.email)} · ${OWN?'Dueño':'Empleado'}</span></div>
+   <div class="card" id="offline-card2"></div>
+   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados</b>
+     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b><br><span class="hint">${esc(u.email)}</span></div>
+       <button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
+     <details><summary><b>Agregar empleado</b></summary><div class="form" style="margin-top:10px">
+      <label class="f" for="u-name">Nombre<input id="u-name" placeholder="Ej. Juan"></label>
+      <label class="f" for="u-email">Correo (con el que va a entrar)<input id="u-email" type="email" inputmode="email"></label>
+      <label class="f" for="u-pass">Contraseña inicial (mínimo 6)<input id="u-pass" type="text" autocomplete="off"></label>
+      <button class="btn" data-adduser>Crear empleado</button><div class="status" id="u-status"></div>
+      <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su correo y contraseña; él la puede cambiar con “Olvidé mi contraseña”.</p></div></details></div>`:''}
+   <button class="btn ghost" data-logout>Cerrar sesión</button>
+   <p class="note">Versión __VERSION__</p></div>`;
+  sheet.hidden=false;document.body.style.overflow='hidden';renderOffline()}
+// ---- escrituras ----
+const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
+const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
+function setStatus(carId,pn,s){const p=BYPN[pn];const val={s,n:AVAIL(s)?units(p):0};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
+  setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
+async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
+  const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:'Sport'};
+  const costo=parseFloat(v('costo'))||0;
+  try{let cid=id;if(id){body.def=(CARS.find(c=>c.id===id)||{}).def||'esta';setDoc(doc(fs,'carros',id),body)}else{body.def=v('def')||'esta';cid=body.code.replace(/[^A-Z0-9_-]/g,'')||('C'+Date.now());if(CARS.find(c=>c.id===cid))cid=cid+'-'+Date.now().toString(36);setDoc(doc(fs,'carros',cid),body);st.car=cid;st.carSec=null}
+   setDoc(doc(fs,'privado',cid),{costo});stt.className='status ok';stt.textContent='Guardado';if(!id){render();window.scrollTo(0,0)}}catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
+let pendingDelCar=null;
+function delCar(id,btn){if(pendingDelCar!==id){pendingDelCar=id;btn.textContent='¿Seguro? Se borra el carro y su recorrido. Toca otra vez';return}
+  deleteDoc(doc(fs,'carros',id)).catch(e=>toast(errMsg(e)));deleteDoc(doc(fs,'estado',id)).catch(()=>{});deleteDoc(doc(fs,'privado',id)).catch(()=>{});st.car=null;pendingDelCar=null;render()}
+function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:PRICE[p.pn]||''});saveCart();toast('Agregado a la comanda');openPart(openIdx)}
+async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.length)return;
+  if(CART.some(l=>l.price===''||isNaN(+l.price))){stt.className='status err';stt.textContent='Pon precio a todas las líneas.';return}
+  const items=CART.map(l=>({pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price}));
+  const venta={items,sub:t.sub,desc:t.desc,total:t.total,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email};
+  try{const b=writeBatch(fs);b.set(doc(collection(fs,'ventas')),venta);
+    const byCar={};items.forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
+    for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
+      its.forEach(it=>{const x=stOf(c,it.pn);const n=Math.max(0,x.n-it.qty);m[it.pn]={s:n>0?x.s:'vendida',n,prev:x.s}});
+      EST[cid]=Object.assign({},EST[cid]||{},m);b.set(doc(fs,'estado',cid),{m},{merge:true})}
+    b.commit().catch(e=>toast(errMsg(e)));
+    CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';saveCart();st.tab='ventas';render();toast(navigator.onLine?'Venta registrada':'Venta guardada en el teléfono; se sube cuando haya señal')}
+  catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
+let pendingDel=null;
+function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Cancelar venta? Toca otra vez';return}
+  const s=SALES.find(x=>x.id===id);if(!s)return;const b=writeBatch(fs);
+  const byCar={};(s.items||[]).forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
+  for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
+    its.forEach(it=>{const x=stOf(c,it.pn);const cur=(EST[cid]||{})[it.pn]||{};const back=cur.prev||'esta';m[it.pn]={s:AVAIL(x.s)?x.s:back,n:x.n+it.qty}});b.set(doc(fs,'estado',cid),{m},{merge:true})}
+  b.delete(doc(fs,'ventas',id));b.commit().then(()=>toast('Venta cancelada; las piezas regresaron'),e=>toast(errMsg(e)));pendingDel=null}
+function exportCSV(){const rows=[['Fecha','Cliente','Vendedor','Numero de parte','Pieza','Carro','Cantidad','Precio','Importe','Descuento venta','Total venta']];
+  SALES.forEach(s=>(s.items||[]).forEach((it,k)=>rows.push([s.date.slice(0,16).replace('T',' '),s.cliente||'',s.byName||'',it.pn,it.es,carCode(it.car),it.qty,it.price,it.qty*it.price,k?'':s.desc||0,k?'':s.total])));
+  const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ventas-accord.csv';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500)}
+async function addUser(){const name=$('#u-name').value.trim(),email=$('#u-email').value.trim().toLowerCase(),pass=$('#u-pass').value;const stt=$('#u-status');
+  if(!name||!email||pass.length<6){stt.className='status err';stt.textContent='Llena nombre, correo y una contraseña de 6 o más.';return}
+  stt.className='status';stt.textContent='Creando…';
+  try{const sec=initializeApp(CFG,'sec'+Date.now());const sa=getAuth(sec);const cred=await createUserWithEmailAndPassword(sa,email,pass);
+    await setDoc(doc(fs,'users',cred.user.uid),{name,email,role:'empleado',active:true,created:new Date().toISOString()});await signOut(sa);
+    stt.className='status ok';stt.textContent='Listo. Pásale a '+name+' su correo y contraseña.'}
+  catch(e){stt.className='status err';stt.textContent=e.code==='auth/email-already-in-use'?'Ese correo ya tiene cuenta.':e.code==='auth/invalid-email'?'Correo no válido.':'No se pudo crear: '+(e.code||e.message)}}
+// ---- sin señal: descarga de fotos y diagramas ----
+let OFF={done:0,total:0,state:'idle'};
+function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin señal</b><p class="hint" style="margin:.3em 0 0">Fotos y diagramas guardados en este teléfono.</p>'
+   :OFF.state==='run'?`<b>Guardando fotos para usar sin señal… ${Math.round(OFF.done/OFF.total*100)}%</b><p class="hint" style="margin:.3em 0 0">Déjala abierta con señal (de preferencia WiFi) hasta que llegue a 100%.</p>`
+   :OFF.state==='err'?'<b>Faltan fotos por guardar</b><p class="hint" style="margin:.3em 0 0">Se reintentará cuando haya señal.</p>':'';
+  ['#offline-card','#offline-card2'].forEach(id=>{const el=$(id);if(el){el.innerHTML=html;el.className=html&&id==='#offline-card'?'card':el.className;el.hidden=!html}})}
+async function prefetchAll(){if(!('caches' in window))return;const urls=['data.json'];for(let i=0;i<SECS.length;i++){urls.push('p/'+i+'.json','d/'+i+'.json')}
+  const c=await caches.open('piezas-data-__VERSION__');let missing=[];for(const u of urls){if(!(await c.match(u)))missing.push(u)}
+  OFF={done:urls.length-missing.length,total:urls.length,state:missing.length?'run':'ok'};renderOffline();if(!missing.length)return;
+  for(const u of missing){try{const r=await fetch(u,{cache:'no-cache'});if(r.ok){await c.put(u,r.clone());OFF.done++;if(OFF.done%8===0)renderOffline()}}catch(e){OFF.state='err';renderOffline();return}}
+  OFF.state='ok';renderOffline()}
+// ---- eventos ----
+let qt;
+qIn.addEventListener('input',()=>{clearTimeout(qt);qt=setTimeout(()=>{st.q=qIn.value;st.limit=40;qx.hidden=!qIn.value;if(st.tab!=='buscar')st.tab='buscar';if(!sheet.hidden)closeSheet();render();window.scrollTo(0,0)},120)});
+qx.addEventListener('click',()=>{qIn.value='';st.q='';qx.hidden=true;render();qIn.focus()});
+$('#menu-btn').addEventListener('click',openMenu);
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.lp!=null){CART[+t.dataset.lp].price=t.value;saveCart();const tt=calc();const su=view.querySelector('.sum');if(su)su.innerHTML=sumHTML(tt);const b=view.querySelector('[data-checkout]');if(b)b.textContent='Cobrar '+money(tt.total)+' y descontar del inventario'}
+  if(t.id==='cli'){CLIENTE=t.value;saveCart()}});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.id==='d-amt'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'amt',amt:t.value,pct:0,target:''};saveCart();render()}
+  if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
+  if(t.dataset.lp!=null)render()});
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
+  if(d.tab){st.tab=d.tab;st.limit=40;if(!sheet.hidden){sheet.hidden=true;document.body.style.overflow=''}render();window.scrollTo(0,0);return}
+  if(d.open){openPart(+d.open);return}
+  if('close' in d){closeSheet();return}
+  if('more' in d){st.limit+=40;render();return}
+  if('cat' in d&&t.classList.contains('chip')){st.cat=d.cat;st.limit=40;render();return}
+  if('stockonly' in d){st.onlyStock=!st.onlyStock;render();return}
+  if(d.try){qIn.value=d.try;st.q=d.try;qx.hidden=false;render();return}
+  if(d.gocat){st.tab='catalogo';st.catView=d.gocat;st.secView=null;render();window.scrollTo(0,0);return}
+  if(d.sec){st.secView=+d.sec;render();window.scrollTo(0,0);return}
+  if(d.back==='sec'){st.secView=null;render();return}
+  if(d.back==='cat'){st.catView=null;render();return}
+  if(d.back==='car'){st.car=null;render();return}
+  if(d.back==='walk'){st.carSec=null;render();return}
+  if(d.car){st.car=d.car;st.carSec=null;render();window.scrollTo(0,0);return}
+  if(d.walk){st.carSec=+d.walk;render();window.scrollTo(0,0);return}
+  if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
+  if('savecar' in d){saveCar(d.savecar);return}
+  if(d.delcar){delCar(d.delcar,t);return}
+  if(d.zoom!=null){openZoom(+d.zoom,+(d.zk||0),d.ref);return}
+  if(d.copy){navigator.clipboard&&navigator.clipboard.writeText(d.copy).then(()=>{t.textContent='Copiado'},()=>{});return}
+  if('saveprice' in d){const p=PARTS[openIdx];const v=parseFloat($('#f-price').value)||0;const stt=$('#p-status');PRICE[p.pn]=v;
+    setDoc(doc(fs,'precios',p.pn),{price:v,es:p.es}).catch(e=>{stt.className='status err';stt.textContent=errMsg(e)});stt.className='status ok';stt.textContent='Guardado';return}
+  if('addalt' in d){const v=$('#alt-in').value.trim().toUpperCase().replace(/\s+/g,'');const p=PARTS[openIdx];if(v.length<4){toast('Escribe el número completo');return}
+    const key=v.replace(/[^A-Z0-9-]/g,'');ALT[key]={pn:p.pn};setDoc(doc(fs,'alternos',key),{pn:p.pn,es:p.es,by:PROFILE?.name||ME.email,date:new Date().toISOString()}).catch(e=>toast(errMsg(e)));openPart(openIdx);return}
+  if(d.delalt){delete ALT[d.delalt];deleteDoc(doc(fs,'alternos',d.delalt)).catch(e=>toast(errMsg(e)));openPart(openIdx);return}
+  if(d.add){addToCart(d.add);return}
+  if(d.q!=null){const l=CART[+d.q];const max=l.car?(()=>{const c=CARS.find(x=>x.id===l.car);return c?stOf(c,l.pn).n:99})():999;l.qty=Math.max(1,Math.min(max,l.qty+(+d.d)));saveCart();render();return}
+  if(d.rm!=null){CART.splice(+d.rm,1);saveCart();render();return}
+  if(d.pct!=null){DISC={mode:'pct',pct:+d.pct,amt:'',target:''};saveCart();render();return}
+  if('clear' in d){CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};saveCart();render();return}
+  if('addfree' in d){const de=$('#fx-d').value.trim(),q=Math.max(1,parseInt($('#fx-q').value)||1),pr=$('#fx-p').value;if(!de){toast('Escribe una descripción');return}CART.push({pn:'',es:de,car:'',qty:q,price:pr});saveCart();render();return}
+  if('checkout' in d){checkout();return}
+  if(d.delsale){delSale(d.delsale,t);return}
+  if('export' in d){exportCSV();return}
+  if('adduser' in d){addUser();return}
+  if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if('logout' in d){signOut(auth);return}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!zoom.hidden)zoom.hidden=true;else if(!sheet.hidden)closeSheet()}});
+const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin señal';n.classList.toggle('off',!navigator.onLine)};
+window.addEventListener('online',()=>{net();prefetchAll()});window.addEventListener('offline',net);net();
+// ---- login ----
+const L={box:$('#login'),email:$('#l-email'),pass:$('#l-pass'),st:$('#l-status'),neu:$('#l-new')};
+L.email.addEventListener('input',()=>{L.neu.hidden=L.email.value.trim().toLowerCase()!==OWNER});
+const lmsg=(m,ok)=>{L.st.className='status '+(ok?'ok':'err');L.st.textContent=m};
+const authErr=e=>({'auth/invalid-credential':'Correo o contraseña incorrectos.','auth/wrong-password':'Contraseña incorrecta.','auth/user-not-found':'No existe una cuenta con ese correo.','auth/too-many-requests':'Demasiados intentos. Espera unos minutos.','auth/network-request-failed':'Sin señal. La primera vez necesitas internet para entrar.','auth/email-already-in-use':'Ese correo ya tiene cuenta: usa Entrar.','auth/weak-password':'La contraseña debe tener 6 o más caracteres.'}[e.code]||('Error: '+(e.code||e.message)));
+$('#l-go').addEventListener('click',()=>{lmsg('Entrando…',true);signInWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
+L.neu.addEventListener('click',()=>{lmsg('Creando…',true);createUserWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
+$('#l-reset').addEventListener('click',()=>{const em=L.email.value.trim();if(!em){lmsg('Escribe tu correo arriba primero.');return}sendPasswordResetEmail(auth,em).then(()=>lmsg('Te mandamos un correo para cambiar la contraseña.',true),e=>lmsg(authErr(e)))});
+let unsubs=[];
+onAuthStateChanged(auth,async u=>{unsubs.forEach(f=>f());unsubs=[];ME=u;
+  if(!u){$('#app').hidden=true;L.box.hidden=false;return}
+  OWN=(u.email||'').toLowerCase()===OWNER;PROFILE=OWN?{name:'Alan'}:null;
+  if(!OWN){try{const s=await getDoc(doc(fs,'users',u.uid));PROFILE=s.exists()?s.data():null}catch(e){PROFILE=null}
+    if(!PROFILE||!PROFILE.active){lmsg(PROFILE?'Tu usuario está desactivado. Habla con el encargado.':'Tu cuenta no está dada de alta. Pide al encargado que te agregue.');await signOut(auth);return}}
+  L.box.hidden=true;$('#app').hidden=false;saveCart();
+  const rr=()=>{if(sheet.hidden){const y=window.scrollY;render();window.scrollTo(0,y)}};
+  const sub=(q,f)=>unsubs.push(onSnapshot(q,f,e=>console.warn(e)));
+  sub(collection(fs,'carros'),s=>{CARS=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
+  sub(collection(fs,'estado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
+  sub(collection(fs,'precios'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
+  sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;rr()});
+  if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
+    sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
+    sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data()));if(!sheet.hidden&&openIdx==null)openMenu()})}
+  else sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
+  render();prefetchAll()});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

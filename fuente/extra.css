@@ -1,0 +1,12 @@
+
+.login{min-height:100%;display:grid;place-items:center;padding-block:40px}
+.login .card{width:100%;max-width:420px;display:grid;gap:12px}
+.login h1{margin:0;font-family:var(--f-display);font-size:34px;text-transform:uppercase;letter-spacing:.02em}
+.login h1 span{color:var(--warn)}
+.hdr-btn{border:1px solid #3a4246;background:transparent;color:#fff;border-radius:8px;padding:4px 8px;font-size:12px}
+.netchip{font-size:11px;border-radius:999px;padding:2px 8px;background:#2a3135;color:#cfd6d9;white-space:nowrap}
+.netchip.off{background:#5a2a12;color:#ffd9bf}
+.brand .right{display:flex;gap:6px;align-items:center}
+.alt{display:inline-flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:13px;background:var(--sunk);border-radius:6px;padding:4px 8px}
+.alt button{border:0;background:none;color:var(--danger);font-size:14px;padding:0 2px}
+.who{font-size:12px;color:var(--muted)}
