@@ -58,7 +58,7 @@ __CSS__
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,query,where,orderBy,limit,writeBatch,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG=__FBCONFIG__;
 const OWNER='alanjavier467@gmail.com';
@@ -74,6 +74,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
+const VERSION='__VERSION__';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -86,6 +87,11 @@ const EMP_MAX_DISC=10;
 // ---- estado ----
 let ME=null, OWN=false, PROFILE=null;
 let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], ALT={}, USERS=[];
+let FOTOS={}, FOTOLIST=[], EXTRAS=[], NEG={};
+const priceOf=pn=>{const v=PRICE[pn];return v?v:((BYPN[pn]||{}).sp||0)};
+const isSug=pn=>!PRICE[pn];
+const xById=id=>EXTRAS.find(x=>x.id===id);
+const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
 const st={tab:'buscar',q:'',cat:'',onlyStock:false,limit:40,catView:null,secView:null,car:null,carSec:null};
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let CART=LS.get('comanda',[]); let DISC=Object.assign({mode:'pct',pct:0,amt:'',target:''},LS.get('desc',{})); let CLIENTE=LS.get('cliente','');
@@ -107,6 +113,7 @@ const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').th
 const io=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting)return;const img=e.target;io.unobserve(img);bundle(+img.dataset.s).then(b=>{const u=b[img.dataset.k];if(u)img.src=u;else img.alt='Sin foto'})})},{rootMargin:'300px'});
 const hookImgs=root=>root.querySelectorAll('img[data-k]').forEach(i=>io.observe(i));
 const imgTag=p=>`<img data-s="${p.s}" data-k="${esc(p.pn+'|'+p.ref)}" alt="">`;
+const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?`<img src="${f[0].thumb}" alt="Foto real">`:imgTag(p)};
 
 // ---- búsqueda ----
 function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];
@@ -119,11 +126,18 @@ function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.r
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
   return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}</span>`).join('')}</span>`}
-function itemHTML(p,pre){const pr=PRICE[p.pn];
-  return `<button class="item" data-open="${p.i}"><span class="ph">${imgTag(p)}</span>
-   <span class="t">${pre||''}<span class="pn">${esc(p.pn)}</span><span class="es">${esc(p.es)}</span>${p.en?`<span class="en">${esc(p.en)}</span>`:''}</span>
-   <span class="r">${pr?`<span class="price">${money(pr)}</span>`:'<span class="price none">Sin precio</span>'}${availHTML(p.pn)}</span></button>`}
-function renderList(arr){if(!arr.length)return '<div class="empty">No encontré piezas con eso. Prueba otra palabra, en inglés, o parte del número.</div>';
+function priceHTML(pn){const pr=priceOf(pn);return pr?`<span class="price">${money(pr)}</span>${isSug(pn)?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}
+function itemHTML(p,pre){const nf=(FOTOS[p.pn]||[]).length;
+  return `<button class="item" data-open="${p.i}"><span class="ph">${phTag(p)}</span>
+   <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.pn)}</span><span class="es">${esc(p.es)}</span>${p.en?`<span class="en">${esc(p.en)}</span>`:''}</span>
+   <span class="r">${priceHTML(p.pn)}${availHTML(p.pn)}</span></button>`}
+function xItemHTML(x){const f=FOTOS['X:'+x.id]||[];
+  return `<button class="item" data-openx="${esc(x.id)}"><span class="ph">${f.length?`<img src="${f[0].thumb}" alt="">`:'📦'}</span>
+   <span class="t"><span class="realtag">Agregada</span>${x.num?`<span class="pn">${esc(x.num)}</span>`:''}<span class="es">${esc(x.name)}</span>${x.cond?`<span class="en">${esc(x.cond)}</span>`:''}</span>
+   <span class="r">${x.price?`<span class="price">${money(x.price)}</span>${x.sug?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}${xAvail(x)?`<span class="avail"><span class="cb">${esc(x.car?carCode(x.car):'Bodega')}${x.qty>1?'×'+x.qty:''}</span></span>`:'<span class="stock n">Vendida</span>'}</span></button>`}
+function searchExtras(q){const nq=norm(q).trim();if(!nq)return [];const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
+  return EXTRAS.filter(x=>{const k=norm(x.name+' '+x.num+' '+x.cond+' '+(x.nota||''));return (c.length>=3&&norm(x.num).replace(/[\s-]/g,'').includes(c))||w.every(t=>k.includes(t))})}
+function renderList(arr){if(!arr.length)return '<div class="empty">No encontré piezas con eso en el catálogo. Prueba otra palabra, en inglés, o parte del número.<br><br><button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button></div>';
   return `<div class="list">${arr.slice(0,st.limit).map(p=>itemHTML(p)).join('')}</div>`+(arr.length>st.limit?`<button class="more" data-more>Mostrar más (${arr.length-st.limit} restantes)</button>`:'')}
 
 // ---- vistas ----
@@ -131,13 +145,14 @@ function vBuscar(){let arr=search(st.q);
   const chips=`<div class="row">${['',...CATS].map(c=>`<button class="chip" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${c?esc(c.split(' / ')[0]):'Todo'}</button>`).join('')}<button class="chip" data-stockonly aria-pressed="${st.onlyStock}">Solo lo que tengo</button></div>`;
   if(!arr){if(st.onlyStock||st.cat)arr=PARTS;else{
     const tips=['faro','headlight','espejo','sensor','bomba','defensa','33100','módulo','rin','asiento'];
-    view.innerHTML=chips+`<div class="card"><b>Escribe arriba lo que buscas.</b><p class="hint" style="margin:.4em 0 0">Número completo o un pedazo (con o sin guiones), nombre en español o en inglés, o el número que trae la pieza si lo guardaron como alterno.</p><div class="row" style="margin-top:8px">${tips.map(t=>`<button class="chip" data-try="${t}">${t}</button>`).join('')}</div></div>
+    view.innerHTML=`<button class="btn alt" data-intake style="width:100%;margin-bottom:10px;font-size:17px;padding:14px">📷 Agregar pieza con foto</button>`+chips+(EXTRAS.filter(xAvail).length?`<p class="sec-h">Piezas que agregaste con foto (${EXTRAS.filter(xAvail).length})</p><div class="list">${EXTRAS.filter(xAvail).slice(0,6).map(xItemHTML).join('')}</div>`:'')+`<div class="card"><b>Escribe arriba lo que buscas.</b><p class="hint" style="margin:.4em 0 0">Número completo o un pedazo (con o sin guiones), nombre en español o en inglés, o el número que trae la pieza si lo guardaron como alterno.</p><div class="row" style="margin-top:8px">${tips.map(t=>`<button class="chip" data-try="${t}">${t}</button>`).join('')}</div></div>
     <div id="offline-card"></div>
     <p class="sec-h">O explora por categoría</p>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${PARTS.filter(p=>SECS[p.s].cat===c).length} piezas ›</span></button>`).join('')}`;renderOffline();return}}
   if(st.cat)arr=arr.filter(p=>SECS[p.s].cat===st.cat);
   if(st.onlyStock)arr=arr.filter(p=>availCars(p.pn).length);
   const seen=new Set();arr=arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn));
-  view.innerHTML=chips+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}</p>`+renderList(arr)}
+  const xs=st.q?searchExtras(st.q).filter(x=>!st.onlyStock||xAvail(x)):[];
+  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}</p>`+renderList(arr)}
 function vCatalogo(){
   if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
     view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}
@@ -193,7 +208,7 @@ function calc(){const sub=CART.reduce((a,l)=>a+l.qty*(+l.price||0),0);let desc=0
 const sumHTML=t=>`<span>Subtotal</span><span>${money(t.sub)}</span>${t.desc?`<span>Descuento</span><span class="neg">−${money(t.desc)}</span>`:''}<span><b>Total</b></span><span class="tot">${money(t.total)}</span>${t.capped?`<span class="note" style="grid-column:1/-1">Como empleado puedes descontar hasta ${EMP_MAX_DISC}%.</span>`:''}`;
 function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,10];
   view.innerHTML=`<h2 class="title">Comanda</h2>
-  ${CART.length?`<div class="ticket">${CART.map((l,i)=>`<div class="tline"><div style="min-width:0"><b>${esc(l.es)}</b><br><span class="hint"><span class="pn">${esc(l.pn||'Concepto libre')}</span>${l.car?' · de '+esc(carCode(l.car)):''}</span></div>
+  ${CART.length?`<div class="ticket">${CART.map((l,i)=>`<div class="tline"><div style="min-width:0"><b>${esc(l.es)}</b><br><span class="hint"><span class="pn">${esc(l.pn||(l.xid?'Pieza agregada':'Concepto libre'))}</span>${l.car?' · de '+esc(carCode(l.car)):''}</span></div>
      <div style="text-align:right"><span class="price">${money(l.qty*(+l.price||0))}</span></div>
      <div class="ctl" style="grid-column:1/-1"><button data-q="${i}" data-d="-1" aria-label="Menos">−</button><b>${l.qty}</b><button data-q="${i}" data-d="1" aria-label="Más">+</button>
      <span class="hint">×</span><input type="number" inputmode="decimal" min="0" value="${esc(l.price)}" data-lp="${i}" aria-label="Precio unitario"><button data-rm="${i}" aria-label="Quitar">🗑</button></div></div>`).join('')}
@@ -218,17 +233,18 @@ function vVentas(){
   <div class="kpis"><div class="kpi"><b>${money(tot(hoy))}</b><span>hoy</span></div><div class="kpi"><b>${hoy.length}</b><span>ventas hoy</span></div>${OWN?`<div class="kpi"><b>${money(tot(mes))}</b><span>este mes</span></div><div class="kpi"><b>${money(tot(SALES))}</b><span>en total</span></div>`:''}</div>
   ${list.length?`<div class="card">${list.map(s=>`<div class="sale"><div style="min-width:0"><b>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</b>${s.cliente?' · '+esc(s.cliente):''}<br>
     ${(s.items||[]).map(it=>`<small>${it.qty}× ${esc(it.es)}${it.car?' ('+esc(carCode(it.car))+')':''} · ${money(it.qty*it.price)}</small>`).join('<br>')}${s.desc?`<br><small>Descuento −${money(s.desc)}</small>`:''}${s.byName?`<br><span class="who">Vendió: ${esc(s.byName)}</span>`:''}</div>
-    <div style="text-align:right"><span class="price">${money(s.total)}</span>${OWN?`<br><button class="copy" data-delsale="${s.id}">Cancelar</button>`:''}</div></div>`).join('')}</div>`
+    <div style="text-align:right"><span class="price">${money(s.total)}</span>${s.folio?`<br><span class="hint">#${esc(s.folio)}</span>`:''}<br><button class="copy" data-ticket="${s.id}">🧾 Ticket</button>${OWN?`<br><button class="copy" data-delsale="${s.id}">Cancelar</button>`:''}</div></div>`).join('')}</div>`
   :`<div class="card"><b>Aún no hay ventas${OWN?'':' hoy'}.</b><p class="hint" style="margin:.4em 0 0">Arma una comanda y cobra: aparecerá aquí.</p></div>`}
   ${OWN?'<button class="btn ghost" data-export>Exportar ventas a Excel (CSV)</button>':''}`}
 function render(){document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===st.tab?'page':'false'));
   ({buscar:vBuscar,catalogo:vCatalogo,carros:vCarros,carrito:vCarrito,ventas:vVentas})[st.tab]();hookImgs(view)}
 // ---- ficha ----
-let openIdx=null;
-function openPart(i){openIdx=i;const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
+let openIdx=null, SHEET='';
+function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
   const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">${esc(s.cat.split(' / ')[0])}</span></div></div>
   <div class="wrap body"><div class="photo">${imgTag(p)}</div>
+   ${galHTML(p.pn)}
    <div class="tagline"><span class="tag">${esc(p.pn)}</span><button class="copy" data-copy="${esc(p.pn)}">Copiar número</button></div>
    <div><h2 class="title">${esc(p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
    <dl class="meta"><dt>Sección</dt><dd>${esc(s.es)} · #${esc(p.ref)}</dd>${others.length?`<dt>También en</dt><dd>${others.map(o=>esc(SECS[o.s].es)+' (#'+esc(o.ref)+')').join(', ')}</dd>`:''}
@@ -237,25 +253,27 @@ function openPart(i){openIdx=i;const p=PARTS[i];const s=SECS[p.s];const others=P
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
     <div class="drow"><input id="alt-in" placeholder="Ej. 71110-TVA-A20" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);text-transform:uppercase;min-width:0"><button class="btn ghost" data-addalt>Agregar</button></div></div>
-   ${OWN?`<div class="card form"><label class="f" for="f-price">Mi precio de venta (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Ej. 450" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
-     :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${pr?money(pr):'Sin precio — pregunta al encargado'}</div></div>`}
+   ${OWN?`<div class="card form"><span class="hint">Precio de venta${isSug(p.pn)?' (sugerido, comparado con eBay usado)':''}</span><div class="price">${money(priceOf(p.pn))}</div>
+     <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(p.sp||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
+     :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div></div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
     ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado</summary>${segHTML(c,p.pn,x.s)}</details>`}</div>
       <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
   sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
-function closeSheet(){sheet.hidden=true;openIdx=null;document.body.style.overflow='';render()}
+function closeSheet(){sheet.hidden=true;SHEET='';openIdx=null;openX=null;document.body.style.overflow='';render()}
 function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;const s=SECS[si];
   zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ref?'Busca el #'+esc(ref)+' · ':''}${esc(s.es)}</span><span class="row" style="flex-wrap:nowrap"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button>${ds.length>1?`<button data-zn>${k+1}/${ds.length}</button>`:''}<button data-zclose>Cerrar</button></span></div><div class="zarea"><img alt="Diagrama"></div>`;
   const img=zoom.querySelector('img'),area=zoom.querySelector('.zarea');const apply=()=>{img.style.width=(z*100)+'%'};img.src=ds[k];apply();zoom.hidden=false;
   zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.z){z=Math.min(4,Math.max(1,z+(+t.dataset.z)*.75));apply()}if(t.hasAttribute('data-zn'))openZoom(si,(k+1)%ds.length,ref);if(t.hasAttribute('data-zclose'))zoom.hidden=true};
   area.ondblclick=()=>{z=z>1?1:2.5;apply()}})}
 // ---- menú (usuarios, cuenta) ----
-function openMenu(){
+function openMenu(){SHEET='menu';
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
    <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(ME.email)} · ${OWN?'Dueño':'Empleado'}</span></div>
    <div class="card" id="offline-card2"></div>
+   <button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button>
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados</b>
      ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b><br><span class="hint">${esc(u.email)}</span></div>
        <button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
@@ -265,6 +283,17 @@ function openMenu(){
       <label class="f" for="u-pass">Contraseña inicial (mínimo 6)<input id="u-pass" type="text" autocomplete="off"></label>
       <button class="btn" data-adduser>Crear empleado</button><div class="status" id="u-status"></div>
       <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su correo y contraseña; él la puede cambiar con “Olvidé mi contraseña”.</p></div></details></div>`:''}
+   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Respaldo</b>
+     <p class="hint" style="margin:0">Descarga una copia de todo (carros, recorridos, precios, ventas, piezas agregadas). Hazlo cada semana y guárdalo en tu Drive o WhatsApp.${LS.get('ultRespaldo','')?' Último en este teléfono: '+fmtDate(LS.get('ultRespaldo','').slice(0,10))+'.':''}</p>
+     <button class="btn" data-backup>Descargar respaldo</button><button class="btn ghost" data-backupfull>Respaldo con fotos grandes (pesa más)</button>
+     <label class="btn ghost" style="text-align:center;cursor:pointer">Restaurar desde archivo<input id="bk-file" type="file" accept=".json,application/json" hidden></label>
+     <div class="status" id="bk-status"></div></div>
+   <details class="card form"><summary><b>Datos del ticket</b> <span class="hint">(nombre y teléfono del negocio)</span></summary><div class="form" style="margin-top:10px">
+     <label class="f" for="n-nombre">Nombre del negocio<input id="n-nombre" value="${esc(NEG.nombre||'')}" placeholder="Ej. Yonke Accord Alan"></label>
+     <label class="f" for="n-tel">Teléfono / WhatsApp<input id="n-tel" inputmode="tel" value="${esc(NEG.tel||'')}"></label>
+     <label class="f" for="n-dir">Dirección<input id="n-dir" value="${esc(NEG.dir||'')}"></label>
+     <label class="f" for="n-pie">Mensaje al final<input id="n-pie" value="${esc(NEG.pie||'')}" placeholder="Ej. Garantía de 7 días por pieza dañada. Gracias por su compra."></label>
+     <button class="btn ghost" data-saveneg>Guardar</button><div class="status" id="n-status"></div></div></details>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
    <p class="note">Versión __VERSION__</p></div>`;
@@ -282,18 +311,20 @@ async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c
 let pendingDelCar=null;
 function delCar(id,btn){if(pendingDelCar!==id){pendingDelCar=id;btn.textContent='¿Seguro? Se borra el carro y su recorrido. Toca otra vez';return}
   deleteDoc(doc(fs,'carros',id)).catch(e=>toast(errMsg(e)));deleteDoc(doc(fs,'estado',id)).catch(()=>{});deleteDoc(doc(fs,'privado',id)).catch(()=>{});st.car=null;pendingDelCar=null;render()}
-function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:PRICE[p.pn]||''});saveCart();toast('Agregado a la comanda');openPart(openIdx)}
+function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:priceOf(p.pn)||''});saveCart();toast('Agregado a la comanda');openPart(openIdx)}
 async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.length)return;
   if(CART.some(l=>l.price===''||isNaN(+l.price))){stt.className='status err';stt.textContent='Pon precio a todas las líneas.';return}
-  const items=CART.map(l=>({pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price}));
-  const venta={items,sub:t.sub,desc:t.desc,total:t.total,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email};
-  try{const b=writeBatch(fs);b.set(doc(collection(fs,'ventas')),venta);
+  const items=CART.map(l=>({pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price,xid:l.xid||''}));
+  const ref=doc(collection(fs,'ventas'));const folio=ref.id.slice(-6).toUpperCase();
+  const venta={items,sub:t.sub,desc:t.desc,total:t.total,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,folio};
+  try{const b=writeBatch(fs);b.set(ref,venta);
+    items.forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;const q=Math.max(0,(x.qty||1)-it.qty);x.qty=q;x.status=q?'disponible':'vendida';b.set(doc(fs,'extras',it.xid),{qty:q,status:x.status},{merge:true})});
     const byCar={};items.forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
     for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
       its.forEach(it=>{const x=stOf(c,it.pn);const n=Math.max(0,x.n-it.qty);m[it.pn]={s:n>0?x.s:'vendida',n,prev:x.s}});
       EST[cid]=Object.assign({},EST[cid]||{},m);b.set(doc(fs,'estado',cid),{m},{merge:true})}
     b.commit().catch(e=>toast(errMsg(e)));
-    CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';saveCart();st.tab='ventas';render();toast(navigator.onLine?'Venta registrada':'Venta guardada en el teléfono; se sube cuando haya señal')}
+    CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';saveCart();st.tab='ventas';render();toast(navigator.onLine?'Venta registrada':'Venta guardada en el teléfono; se sube cuando haya señal');openTicket(Object.assign({id:ref.id},venta))}
   catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
 let pendingDel=null;
 function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Cancelar venta? Toca otra vez';return}
@@ -301,9 +332,10 @@ function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Ca
   const byCar={};(s.items||[]).forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
   for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
     its.forEach(it=>{const x=stOf(c,it.pn);const cur=(EST[cid]||{})[it.pn]||{};const back=cur.prev||'esta';m[it.pn]={s:AVAIL(x.s)?x.s:back,n:x.n+it.qty}});b.set(doc(fs,'estado',cid),{m},{merge:true})}
+  (s.items||[]).forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;b.set(doc(fs,'extras',it.xid),{qty:(x.qty||0)+it.qty,status:'disponible'},{merge:true})});
   b.delete(doc(fs,'ventas',id));b.commit().then(()=>toast('Venta cancelada; las piezas regresaron'),e=>toast(errMsg(e)));pendingDel=null}
 function exportCSV(){const rows=[['Fecha','Cliente','Vendedor','Numero de parte','Pieza','Carro','Cantidad','Precio','Importe','Descuento venta','Total venta']];
-  SALES.forEach(s=>(s.items||[]).forEach((it,k)=>rows.push([s.date.slice(0,16).replace('T',' '),s.cliente||'',s.byName||'',it.pn,it.es,carCode(it.car),it.qty,it.price,it.qty*it.price,k?'':s.desc||0,k?'':s.total])));
+  SALES.forEach(s=>(s.items||[]).forEach((it,k)=>rows.push([s.date.slice(0,16).replace('T',' '),s.cliente||'',s.byName||'',it.pn||(it.xid?(xById(it.xid)||{}).num||'(agregada)':''),it.es,it.car?carCode(it.car):'',it.qty,it.price,it.qty*it.price,k?'':s.desc||0,k?'':s.total])));
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ventas-accord.csv';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500)}
 async function addUser(){const name=$('#u-name').value.trim(),email=$('#u-email').value.trim().toLowerCase(),pass=$('#u-pass').value;const stt=$('#u-status');
@@ -322,6 +354,128 @@ async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=
     for(const [id,p] of Object.entries(J.precios||{}))b.set(doc(fs,'precios',id),p);
     await b.commit();stt.className='status ok';stt.textContent='Listo: '+n+' carros y '+Object.keys(J.precios||{}).length+' precios importados.'}
   catch(e){stt.className='status err';stt.textContent=errMsg(e)}impArmed=false}
+// ---- fotos reales ----
+function galHTML(key,canAdd=true){const f=FOTOS[key]||[];
+  return `<div class="card form"><b>Fotos reales${f.length?' ('+f.length+')':''}</b>
+   ${f.length?`<div class="gal">${f.map(x=>`<button data-foto="${esc(x.id)}" aria-label="Ver foto"><img src="${x.thumb}" alt=""><em>${esc([x.car?carCode(x.car):'',x.cond].filter(Boolean).join(' · ')||fmtDate((x.date||'').slice(0,10)))}</em></button>`).join('')}</div>`:'<span class="hint">Todavía no hay fotos de esta pieza.</span>'}
+   ${canAdd?`<button class="btn ghost" data-intakefor="${esc(key)}">📷 Agregar foto de esta pieza</button>`:''}</div>`}
+const fullCache={};
+async function showFoto(id){const meta=FOTOLIST.find(x=>x.id===id)||{};
+  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${meta.thumb||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}`;
+  zoom.hidden=false;let pend=false;
+  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.hasAttribute('data-zclose'))zoom.hidden=true;
+    if(t.dataset.delfoto){if(!pend){pend=true;t.textContent='¿Seguro? Toca otra vez';return}deleteDoc(doc(fs,'fotosfull',id)).catch(()=>{}).then(()=>deleteDoc(doc(fs,'fotos',id))).catch(e=>toast(errMsg(e)));zoom.hidden=true;toast('Foto borrada')}};
+  try{const u=fullCache[id]||(fullCache[id]=(await getDoc(doc(fs,'fotosfull',id))).data()?.img);const im=zoom.querySelector('img');if(u&&im)im.src=u}catch(e){}}
+async function shrink(file,max,q){let src,w,h;
+  try{src=await createImageBitmap(file);w=src.width;h=src.height}catch(e){src=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)});w=src.naturalWidth;h=src.naturalHeight}
+  const k=Math.min(1,max/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)}
+function savePhotos(key,imgs,meta){imgs.forEach(im=>{const r=doc(collection(fs,'fotos'));
+  setDoc(r,Object.assign({pn:key,thumb:im.thumb,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email},meta)).catch(e=>toast(errMsg(e)));
+  setDoc(doc(fs,'fotosfull',r.id),{pn:key,img:im.full}).catch(()=>{})})}
+// ---- piezas agregadas (fuera del catálogo) ----
+let openX=null;
+function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';openIdx=null;const ic=CART.filter(l=>l.xid===id).reduce((a,l)=>a+l.qty,0);
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Pieza agregada con foto</span></div></div>
+  <div class="wrap body">${galHTML('X:'+id)}
+   ${x.num?`<div class="tagline"><span class="tag">${esc(x.num)}</span><button class="copy" data-copy="${esc(x.num)}">Copiar número</button></div>`:''}
+   <div><h2 class="title">${esc(x.name)}</h2>${x.cond?`<p class="hint" style="margin:.3em 0 0;font-size:15px">Estado: ${esc(x.cond)}</p>`:''}</div>
+   <dl class="meta"><dt>Dónde está</dt><dd>${esc(x.car?'Carro '+carCode(x.car):'Bodega')}</dd><dt>Cantidad</dt><dd>${xAvail(x)?x.qty:'Vendida'}</dd>${x.nota?`<dt>Nota</dt><dd>${esc(x.nota)}</dd>`:''}<dt>La agregó</dt><dd>${esc(x.byName||'')} · ${fmtDate((x.date||'').slice(0,10))}</dd></dl>
+   <div class="card form"><span class="hint">Precio de venta${x.sug?' (sugerido)':''}</span><div class="price">${money(x.price)}</div>
+    ${OWN?`<label class="f" for="x-price">Poner mi precio (MXN)<input id="x-price" type="number" inputmode="decimal" min="0" value="${esc(x.sug?'':x.price)}" placeholder="${esc(x.price)}"></label>
+    <div class="two"><label class="f" for="x-qty">Cantidad<input id="x-qty" type="number" min="0" value="${esc(x.qty)}"></label><label class="f" for="x-name">Nombre<input id="x-name" value="${esc(x.name)}"></label></div>
+    <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
+   ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">+ Comanda</button>`:ic?`<p class="hint">${ic} en la comanda</p>`:''}
+   ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
+  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden'}
+// ---- agregar pieza con foto ----
+let INT=null;const CONDS=['Sanita','Buen estado','Detalles leves','Raspada','Para reparar'];
+function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
+  INT={imgs:[],forKey:forKey||null,cands:null,cond:INT&&INT.keep?INT.cond:''};
+  const fp=forKey&&!forKey.startsWith('X:')?BYPN[forKey]:null, fx=forKey&&forKey.startsWith('X:')?xById(forKey.slice(2)):null;
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Agregar pieza con foto</span></div></div>
+  <div class="wrap body">
+   ${fp||fx?`<div class="card"><span class="hint">Foto para:</span><br><b>${esc(fp?fp.es:fx.name)}</b> <span class="pn">${esc(fp?fp.pn:fx.num)}</span></div>`:'<p class="hint" style="margin:0">1) Toma la foto. 2) Escribe lo que sepas. 3) Te busco si ya existe en el catálogo.</p>'}
+   <label class="shot" for="i-file"><input id="i-file" type="file" accept="image/*" capture="environment" multiple><span style="font-size:34px">📷</span><b>Tomar foto</b><span class="hint">Puedes tomar varias</span></label>
+   <div class="gal" id="i-prev"></div>
+   <div class="card form">
+    ${fp||fx?'':`<label class="f" for="i-num">Número que trae la pieza<input id="i-num" placeholder="Ej. 33100-TVA-A01" style="font-family:var(--f-mono);text-transform:uppercase" autocomplete="off"></label>
+    <label class="f" for="i-name">Nombre (como tú le dices)<input id="i-name" placeholder="Ej. faro derecho" autocomplete="off"></label>`}
+    <div><span class="hint">¿Cómo está?</span><div class="row" style="margin-top:6px">${CONDS.map(c=>`<button class="chip" data-cond="${esc(c)}" aria-pressed="${INT.cond===c}">${esc(c)}</button>`).join('')}</div></div>
+    <label class="f" for="i-nota">Detalles (opcional)<input id="i-nota" placeholder="Ej. le falta un tornillo, mica sin rayas"></label>
+    <label class="f" for="i-car">¿De qué carro salió?<select id="i-car"><option value="">Bodega / no sé</option>${carsSorted().map(c=>`<option value="${c.id}">${esc(c.code)} · ${esc(c.year||'')}</option>`).join('')}</select></label>
+    ${fp||fx?'':`<label class="f" for="i-price">Precio (opcional${OWN?'':', lo revisa el dueño'})<input id="i-price" type="number" inputmode="decimal" min="0" placeholder="Si lo dejas vacío pongo uno sugerido"></label>`}
+    ${fp||fx?`<button class="btn alt" data-intsave>Guardar foto</button>`:`<button class="btn alt" data-intsearch>Buscar en el catálogo</button>`}
+    <div class="status" id="i-status"></div></div>
+   <div id="i-cands"></div></div>`;
+  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden';
+  $('#i-file').addEventListener('change',async e=>{const fsel=[...e.target.files];const pv=$('#i-prev');const stt=$('#i-status');stt.className='status';stt.textContent='Preparando fotos…';
+    for(const f of fsel){try{const full=await shrink(f,1100,.72),thumb=await shrink(f,200,.6);INT.imgs.push({full,thumb})}catch(err){}}
+    pv.innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');stt.textContent=INT.imgs.length?INT.imgs.length+' foto(s) lista(s)':'No se pudo leer la foto';e.target.value=''})}
+function intakeVals(){const g=id=>($(id)||{}).value||'';return {num:g('#i-num').trim().toUpperCase().replace(/\s+/g,''),name:g('#i-name').trim(),nota:g('#i-nota').trim(),car:g('#i-car'),price:g('#i-price'),cond:INT.cond}}
+function candidates(num,name){const m=new Map();const add=(p,sc)=>{const o=m.get(p.pn);if(!o||o.sc<sc)m.set(p.pn,{p:BYPN[p.pn],sc})};
+  const c=num.replace(/[^A-Z0-9]/gi,'').toLowerCase();
+  if(c.length>=4){for(const p of PARTS){if(p.pnk===c)add(p,100);else if(p.pnk.includes(c)||(c.length>=10&&c.includes(p.pnk.slice(0,10))))add(p,85);else if(c.length>=8&&p.pnk.startsWith(c.slice(0,8)))add(p,55)}
+    for(const [a,v] of Object.entries(ALT)){const ak=a.replace(/[^A-Z0-9]/gi,'').toLowerCase();if(ak===c||ak.includes(c))BYPN[v.pn]&&add(BYPN[v.pn],95)}}
+  if(name){(search(name)||[]).slice(0,10).forEach((p,k)=>add(p,40-k))}
+  const xs=EXTRAS.filter(x=>(c.length>=4&&norm(x.num).replace(/[^a-z0-9]/g,'')===c)||(name&&norm(x.name)===norm(name)));
+  return {parts:[...m.values()].sort((a,b)=>b.sc-a.sc).slice(0,8),xs}}
+function intakeSearch(){const v=intakeVals();const stt=$('#i-status');
+  if(!INT.imgs.length){stt.className='status err';stt.textContent='Primero toma la foto.';return}
+  if(!v.num&&!v.name){stt.className='status err';stt.textContent='Escribe el número o el nombre.';return}
+  stt.className='status';stt.textContent='';const r=candidates(v.num,v.name);INT.cands=r;const box=$('#i-cands');
+  const carN=v.car?carCode(v.car):'';
+  box.innerHTML=`<p class="sec-h">${r.parts.length||r.xs.length?'¿Es alguna de estas?':'No encontré nada parecido'}</p>
+   <div class="list">${r.xs.map(x=>`<div class="cand"><span class="ph">${(FOTOS['X:'+x.id]||[])[0]?`<img src="${FOTOS['X:'+x.id][0].thumb}" alt="">`:'📦'}</span><div><span class="realtag">Ya la agregaste</span><b>${esc(x.name)}</b><br><span class="pn">${esc(x.num)}</span> · ${money(x.price)}</div>
+     <div class="acts"><button class="btn ghost" data-intx="${esc(x.id)}" data-plus="0">Es la misma (solo foto)</button><button class="btn alt" data-intx="${esc(x.id)}" data-plus="1">Es otra igual (+1)</button></div></div>`).join('')}
+   ${r.parts.map(({p,sc})=>`<div class="cand"><span class="ph">${phTag(p)}</span><div>${sc>=95?'<span class="realtag">Mismo número</span>':''}<span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b><br><span class="hint">${esc(SECS[p.s].es)} · ${money(priceOf(p.pn))}</span></div>
+     <div class="acts"><button class="btn alt" data-intpart="${esc(p.pn)}">Sí, es esta</button><button class="btn ghost" data-open="${p.i}">Ver ficha</button></div></div>`).join('')}</div>
+   <div class="card form" style="margin-top:10px"><b>¿No es ninguna?</b><p class="hint" style="margin:0">Se guarda como pieza nueva disponible${carN?' del carro '+esc(carN):''}, con su foto y precio.</p><button class="btn" data-intnew>Crear pieza nueva</button></div>`;
+  hookImgs(box);box.scrollIntoView({behavior:'smooth',block:'start'})}
+function intakeAttachPart(pn,v){const p=BYPN[pn];
+  savePhotos(pn,INT.imgs,{cond:v.cond,nota:v.nota,car:v.car});
+  if(v.num){const k=v.num.replace(/[^A-Z0-9-]/g,'');if(k.replace(/-/g,'')!==pn.replace(/-/g,'')&&k.length>=4&&!ALT[k]){ALT[k]={pn};setDoc(doc(fs,'alternos',k),{pn,es:p.es,by:PROFILE?.name||ME.email,date:new Date().toISOString()}).catch(()=>{})}}
+  if(v.car){const c=CARS.find(x=>x.id===v.car);if(c){const x=stOf(c,pn);if(x.s!=='na'&&!AVAIL(x.s))setStatus(v.car,pn,'quitada')}}
+  if(OWN&&v.price!==''&&+v.price>0){PRICE[pn]=+v.price;setDoc(doc(fs,'precios',pn),{price:+v.price,es:p.es}).catch(()=>{})}
+  toast('Foto guardada en '+p.es);openPart(p.i)}
+function intakeNew(v){const r=doc(collection(fs,'extras'));let price=+v.price||0,sug=false;
+  if(!price){const c=INT.cands&&INT.cands.parts[0];price=c?priceOf(c.p.pn):300;sug=true}
+  const x={name:v.name||v.num||'Pieza sin nombre',num:v.num,cond:v.cond,nota:v.nota,car:v.car,qty:1,status:'disponible',price,sug,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email};
+  setDoc(r,x).catch(e=>toast(errMsg(e)));EXTRAS.push(Object.assign({id:r.id},x));savePhotos('X:'+r.id,INT.imgs,{cond:v.cond,nota:v.nota,car:v.car});
+  toast('Pieza nueva guardada');openExtra(r.id)}
+// ---- ticket ----
+function ticketText(s){const L=[];if(NEG.nombre)L.push('*'+NEG.nombre+'*');if(NEG.tel)L.push('Tel. '+NEG.tel);if(NEG.dir)L.push(NEG.dir);
+  L.push('Ticket #'+(s.folio||s.id.slice(-6).toUpperCase()),new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}));if(s.cliente)L.push('Cliente: '+s.cliente);L.push('------------------------');
+  (s.items||[]).forEach(it=>{L.push(it.qty+'x '+it.es+'  '+money(it.qty*it.price));if(it.pn)L.push('   '+it.pn)});L.push('------------------------');
+  if(s.desc){L.push('Subtotal: '+money(s.sub),'Descuento: -'+money(s.desc))}L.push('*TOTAL: '+money(s.total)+'*');if(s.byName)L.push('Atendió: '+s.byName);if(NEG.pie)L.push('',NEG.pie);return L.join('\n')}
+function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio||s.id.slice(-6).toUpperCase();const ph=(s.cliente||'').replace(/\D/g,'');
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Ticket #${esc(fol)}</span></div></div>
+  <div class="wrap body"><div class="tk">${NEG.nombre?`<h3>${esc(NEG.nombre)}</h3>`:'<h3>Piezas Accord</h3>'}${NEG.tel?`<div class="c">Tel. ${esc(NEG.tel)}</div>`:''}${NEG.dir?`<div class="c">${esc(NEG.dir)}</div>`:''}<hr>
+   <div class="l"><span>Ticket</span><span>#${esc(fol)}</span></div><div class="l"><span>Fecha</span><span>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span></div>${s.cliente?`<div class="l"><span>Cliente</span><span>${esc(s.cliente)}</span></div>`:''}<hr>
+   ${(s.items||[]).map(it=>`<div class="l"><span>${it.qty}× ${esc(it.es)}${it.pn?`<br><small>${esc(it.pn)}</small>`:''}</span><span>${money(it.qty*it.price)}</span></div>`).join('')}<hr>
+   ${s.desc?`<div class="l"><span>Subtotal</span><span>${money(s.sub)}</span></div><div class="l"><span>Descuento</span><span>−${money(s.desc)}</span></div>`:''}
+   <div class="l big"><span>TOTAL</span><span>${money(s.total)}</span></div>${s.byName?`<div class="c"><small>Atendió: ${esc(s.byName)}</small></div>`:''}${NEG.pie?`<hr><div class="c"><small>${esc(NEG.pie)}</small></div>`:''}</div>
+   <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${ph.length===10?'52'+ph:ph.length>10?ph:''}?text=${encodeURIComponent(ticketText(s))}">WhatsApp</a>
+    <button class="btn ghost" data-tkshare="${esc(s.id)}">Compartir</button><button class="btn ghost" data-tkcopy="${esc(s.id)}">Copiar texto</button><button class="btn ghost" data-tkprint>Imprimir</button></div>
+   ${NEG.nombre||!OWN?'':'<p class="note">Pon el nombre y teléfono de tu negocio en el menú ☰ → Datos del ticket.</p>'}</div>`;
+  sheet._sale=s;sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden'}
+// ---- respaldo ----
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
+async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
+  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST};
+    if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()})}
+    const day=new Date().toISOString().slice(0,10);download('respaldo-piezas-'+day+'.json',JSON.stringify(out),'application/json');LS.set('ultRespaldo',new Date().toISOString());
+    stt.className='status ok';stt.textContent='Listo. Guarda el archivo en tu Google Drive o mándatelo por WhatsApp.'}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
+let rsArmed=null;
+async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(await file.text());if(J.app!=='piezas-accord')throw new Error('Ese archivo no es un respaldo de esta app');
+  if(rsArmed!==file.name){rsArmed=file.name;stt.className='status err';stt.textContent='Respaldo del '+fmtDate(J.fecha.slice(0,10))+': '+(J.ventas||[]).length+' ventas, '+(J.carros||[]).length+' carros. Vuelve a elegir el archivo para confirmar (lo que hay se sobrescribe).';return}
+  stt.className='status';stt.textContent='Restaurando…';const ops=[];const strip=o=>{const c=Object.assign({},o);delete c.id;return c};
+  (J.carros||[]).forEach(c=>ops.push(['carros',c.id,strip(c)]));Object.entries(J.privado||{}).forEach(([k,v])=>ops.push(['privado',k,v]));
+  Object.entries(J.estado||{}).forEach(([k,v])=>ops.push(['estado',k,{m:v}]));Object.entries(J.precios||{}).forEach(([k,v])=>ops.push(['precios',k,{price:v,es:(BYPN[k]||{}).es||''}]));
+  Object.entries(J.alternos||{}).forEach(([k,v])=>ops.push(['alternos',k,v]));(J.ventas||[]).forEach(v=>ops.push(['ventas',v.id,strip(v)]));(J.extras||[]).forEach(v=>ops.push(['extras',v.id,strip(v)]));
+  (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
+  if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
+  for(let i=0;i<ops.length;i+=50){const b=writeBatch(fs);ops.slice(i,i+50).forEach(([c,id,d])=>b.set(doc(fs,c,id),d));await b.commit();stt.textContent='Restaurando… '+Math.min(100,Math.round((i+50)/ops.length*100))+'%'}
+  stt.className='status ok';stt.textContent='Respaldo restaurado.';rsArmed=null}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
 // ---- sin señal: descarga de fotos y diagramas ----
 let OFF={done:0,total:0,state:'idle'};
 function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin señal</b><p class="hint" style="margin:.3em 0 0">Fotos y diagramas guardados en este teléfono.</p>'
@@ -329,7 +483,7 @@ function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin
    :OFF.state==='err'?'<b>Faltan fotos por guardar</b><p class="hint" style="margin:.3em 0 0">Se reintentará cuando haya señal.</p>':'';
   ['#offline-card','#offline-card2'].forEach(id=>{const el=$(id);if(el){el.innerHTML=html;el.className=html&&id==='#offline-card'?'card':el.className;el.hidden=!html}})}
 async function prefetchAll(){if(!('caches' in window))return;const urls=['data.json'];for(let i=0;i<SECS.length;i++){urls.push('p/'+i+'.json','d/'+i+'.json')}
-  const c=await caches.open('piezas-data-__VERSION__');let missing=[];for(const u of urls){if(!(await c.match(u)))missing.push(u)}
+  const c=await caches.open('piezas-data-v1');let missing=[];for(const u of urls){if(!(await c.match(u)))missing.push(u)}
   OFF={done:urls.length-missing.length,total:urls.length,state:missing.length?'run':'ok'};renderOffline();if(!missing.length)return;
   for(const u of missing){try{const r=await fetch(u,{cache:'no-cache'});if(r.ok){await c.put(u,r.clone());OFF.done++;if(OFF.done%8===0)renderOffline()}}catch(e){OFF.state='err';renderOffline();return}}
   OFF.state='ok';renderOffline()}
@@ -341,6 +495,7 @@ $('#menu-btn').addEventListener('click',openMenu);
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.lp!=null){CART[+t.dataset.lp].price=t.value;saveCart();const tt=calc();const su=view.querySelector('.sum');if(su)su.innerHTML=sumHTML(tt);const b=view.querySelector('[data-checkout]');if(b)b.textContent='Cobrar '+money(tt.total)+' y descontar del inventario'}
   if(t.id==='cli'){CLIENTE=t.value;saveCart()}});
+document.addEventListener('change',e=>{if(e.target.id==='bk-file'&&e.target.files[0]){restore(e.target.files[0]);e.target.value=''}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-amt'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'amt',amt:t.value,pct:0,target:''};saveCart();render()}
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
@@ -348,6 +503,34 @@ document.addEventListener('change',e=>{const t=e.target;
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
   if(d.tab){st.tab=d.tab;st.limit=40;if(!sheet.hidden){sheet.hidden=true;document.body.style.overflow=''}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
+  if(d.openx){openExtra(d.openx);return}
+  if('intake' in d){openIntake();return}
+  if(d.intakefor){openIntake(d.intakefor);return}
+  if(d.foto){showFoto(d.foto);return}
+  if(d.rmimg!=null){INT.imgs.splice(+d.rmimg,1);$('#i-prev').innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');return}
+  if(d.cond){INT.cond=INT.cond===d.cond?'':d.cond;t.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.cond===INT.cond));return}
+  if('intsearch' in d){intakeSearch();return}
+  if('intsave' in d){const v=intakeVals();if(!INT.imgs.length){const s2=$('#i-status');s2.className='status err';s2.textContent='Primero toma la foto.';return}
+    if(INT.forKey.startsWith('X:')){savePhotos(INT.forKey,INT.imgs,{cond:v.cond,nota:v.nota,car:v.car});toast('Foto guardada');openExtra(INT.forKey.slice(2))}else intakeAttachPart(INT.forKey,v);return}
+  if(d.intpart){intakeAttachPart(d.intpart,intakeVals());return}
+  if(d.intx){const v=intakeVals();const x=xById(d.intx);savePhotos('X:'+d.intx,INT.imgs,{cond:v.cond,nota:v.nota,car:v.car});
+    if(d.plus==='1'&&x){x.qty=(xAvail(x)?x.qty:0)+1;x.status='disponible';setDoc(doc(fs,'extras',x.id),{qty:x.qty,status:'disponible'},{merge:true}).catch(e=>toast(errMsg(e)))}
+    toast(d.plus==='1'?'Sumada una más':'Foto agregada');openExtra(d.intx);return}
+  if('intnew' in d){intakeNew(intakeVals());return}
+  if(d.addx){const x=xById(d.addx);CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:x.price||''});saveCart();toast('Agregado a la comanda');openExtra(x.id);return}
+  if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida'};if(pr!==''){up.price=+pr;up.sug=false}
+    Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)));toast('Guardado');openExtra(x.id);return}
+  if(d.delx){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Seguro? Toca otra vez';return}
+    deleteDoc(doc(fs,'extras',d.delx)).catch(e=>toast(errMsg(e)));FOTOLIST.filter(f=>f.pn==='X:'+d.delx).forEach(f=>{deleteDoc(doc(fs,'fotos',f.id)).catch(()=>{});deleteDoc(doc(fs,'fotosfull',f.id)).catch(()=>{})});
+    EXTRAS=EXTRAS.filter(x=>x.id!==d.delx);closeSheet();return}
+  if(d.ticket){const s2=SALES.find(x=>x.id===d.ticket);if(s2)openTicket(s2);return}
+  if(d.tkcopy){navigator.clipboard&&navigator.clipboard.writeText(ticketText(sheet._sale)).then(()=>{t.textContent='Copiado'},()=>{});return}
+  if(d.tkshare){const tx=ticketText(sheet._sale);if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiado'});return}
+  if('tkprint' in d){window.print();return}
+  if('backup' in d){backup(false);return}
+  if('backupfull' in d){backup(true);return}
+  if('saveneg' in d){const g=id=>$(id).value.trim();NEG={nombre:g('#n-nombre'),tel:g('#n-tel'),dir:g('#n-dir'),pie:g('#n-pie')};const s2=$('#n-status');
+    setDoc(doc(fs,'config','negocio'),NEG).then(()=>{},e=>{s2.className='status err';s2.textContent=errMsg(e)});s2.className='status ok';s2.textContent='Guardado';return}
   if('close' in d){closeSheet();return}
   if('more' in d){st.limit+=40;render();return}
   if('cat' in d&&t.classList.contains('chip')){st.cat=d.cat;st.limit=40;render();return}
@@ -408,9 +591,12 @@ onAuthStateChanged(auth,async u=>{unsubs.forEach(f=>f());unsubs=[];ME=u;
   sub(collection(fs,'estado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
   sub(collection(fs,'precios'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
   sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;rr()});
+  sub(collection(fs,'fotos'),s=>{FOTOLIST=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr()});
+  sub(collection(fs,'extras'),s=>{EXTRAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));rr()});
+  sub(collection(fs,'config'),s=>{const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{}});
   if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
-    sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data()));if(!sheet.hidden&&openIdx==null)openMenu()})}
+    sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data()));if(!sheet.hidden&&SHEET==='menu')openMenu()})}
   else sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
   render();prefetchAll()});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

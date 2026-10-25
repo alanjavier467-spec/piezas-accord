@@ -41,5 +41,21 @@ service cloud.firestore {
             && request.resource.data.desc <= request.resource.data.sub * 0.10 + 0.01);
       allow update, delete: if isOwner();
     }
+    match /fotos/{id} {
+      allow read, create: if member();
+      allow update, delete: if isOwner() || (member() && resource.data.by == request.auth.uid);
+    }
+    match /fotosfull/{id} {
+      allow read, create: if member();
+      allow update, delete: if isOwner() || (member() && get(/databases/$(database)/documents/fotos/$(id)).data.by == request.auth.uid);
+    }
+    match /extras/{id} {
+      allow read, create, update: if member();
+      allow delete: if isOwner();
+    }
+    match /config/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
   }
 }
