@@ -433,8 +433,9 @@ function openMenu(){
       <label class="f" for="u-pass">Contraseña inicial (mínimo 6)<input id="u-pass" type="text" autocomplete="off"></label>
       <button class="btn" data-adduser>Crear empleado</button><div class="status" id="u-status"></div>
       <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su correo y contraseña; él la puede cambiar con “Olvidé mi contraseña”.</p></div></details></div>`:''}
+   ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261025-0008</p></div>`;
+   <p class="note">Versión 20261025-0025</p></div>`;
   sheet.hidden=false;document.body.style.overflow='hidden';renderOffline()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -480,6 +481,15 @@ async function addUser(){const name=$('#u-name').value.trim(),email=$('#u-email'
     await setDoc(doc(fs,'users',cred.user.uid),{name,email,role:'empleado',active:true,created:new Date().toISOString()});await signOut(sa);
     stt.className='status ok';stt.textContent='Listo. Pásale a '+name+' su correo y contraseña.'}
   catch(e){stt.className='status err';stt.textContent=e.code==='auth/email-already-in-use'?'Ese correo ya tiene cuenta.':e.code==='auth/invalid-email'?'Correo no válido.':'No se pudo crear: '+(e.code||e.message)}}
+let impArmed=false;
+async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=true;btn.textContent='Toca otra vez para confirmar';return}
+  stt.className='status';stt.textContent='Importando…';
+  try{const J=await fetch('import.json',{cache:'no-cache'}).then(r=>r.json());const b=writeBatch(fs);let n=0;
+    for(const [id,c] of Object.entries(J.carros||{})){const body=Object.assign({},c);const costo=body.costo||0;delete body.costo;b.set(doc(fs,'carros',id),body);b.set(doc(fs,'privado',id),{costo});n++}
+    for(const [id,e] of Object.entries(J.estado||{}))b.set(doc(fs,'estado',id),e,{merge:true});
+    for(const [id,p] of Object.entries(J.precios||{}))b.set(doc(fs,'precios',id),p);
+    await b.commit();stt.className='status ok';stt.textContent='Listo: '+n+' carros y '+Object.keys(J.precios||{}).length+' precios importados.'}
+  catch(e){stt.className='status err';stt.textContent=errMsg(e)}impArmed=false}
 // ---- sin señal: descarga de fotos y diagramas ----
 let OFF={done:0,total:0,state:'idle'};
 function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin señal</b><p class="hint" style="margin:.3em 0 0">Fotos y diagramas guardados en este teléfono.</p>'
@@ -487,7 +497,7 @@ function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin
    :OFF.state==='err'?'<b>Faltan fotos por guardar</b><p class="hint" style="margin:.3em 0 0">Se reintentará cuando haya señal.</p>':'';
   ['#offline-card','#offline-card2'].forEach(id=>{const el=$(id);if(el){el.innerHTML=html;el.className=html&&id==='#offline-card'?'card':el.className;el.hidden=!html}})}
 async function prefetchAll(){if(!('caches' in window))return;const urls=['data.json'];for(let i=0;i<SECS.length;i++){urls.push('p/'+i+'.json','d/'+i+'.json')}
-  const c=await caches.open('piezas-data-20261025-0008');let missing=[];for(const u of urls){if(!(await c.match(u)))missing.push(u)}
+  const c=await caches.open('piezas-data-20261025-0025');let missing=[];for(const u of urls){if(!(await c.match(u)))missing.push(u)}
   OFF={done:urls.length-missing.length,total:urls.length,state:missing.length?'run':'ok'};renderOffline();if(!missing.length)return;
   for(const u of missing){try{const r=await fetch(u,{cache:'no-cache'});if(r.ok){await c.put(u,r.clone());OFF.done++;if(OFF.done%8===0)renderOffline()}}catch(e){OFF.state='err';renderOffline();return}}
   OFF.state='ok';renderOffline()}
@@ -540,6 +550,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('export' in d){exportCSV();return}
   if('adduser' in d){addUser();return}
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if('import' in d){importOld(t);return}
   if('logout' in d){signOut(auth);return}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!zoom.hidden)zoom.hidden=true;else if(!sheet.hidden)closeSheet()}});
 const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin señal';n.classList.toggle('off',!navigator.onLine)};

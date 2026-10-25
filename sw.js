@@ -1,4 +1,4 @@
-const V='20261025-0008';
+const V='20261025-0025';
 const SHELL='piezas-shell-'+V;
 const DATA='piezas-data-v1';
 const FB=['https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js','https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js','https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'];
