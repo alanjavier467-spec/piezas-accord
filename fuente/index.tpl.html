@@ -20,12 +20,14 @@ __CSS__
 <div id="login" class="wrap login" hidden>
   <div class="card">
     <h1>Piezas <span>Accord</span></h1>
-    <p class="hint" style="margin:0">Entra con tu correo y contraseña.</p>
-    <label class="f" for="l-email">Correo<input id="l-email" type="email" autocomplete="username" inputmode="email"></label>
-    <label class="f" for="l-pass">Contraseña<input id="l-pass" type="password" autocomplete="current-password"></label>
+    <p class="hint" style="margin:0" id="l-hint">Entra con tu usuario y tu PIN de 4 números.</p>
+    <label class="f" for="l-email">Usuario<input id="l-email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+    <label class="f" for="l-pass"><span id="l-plabel">PIN (4 números)</span><input id="l-pass" type="password" autocomplete="current-password" inputmode="numeric"></label>
+    <label class="f" for="l-pass2" id="l-p2box" hidden>Repite tu PIN<input id="l-pass2" type="password" inputmode="numeric" autocomplete="new-password"></label>
     <button class="btn" id="l-go">Entrar</button>
+    <button class="btn ghost" id="l-signup">Soy nuevo: crear mi cuenta</button>
     <button class="btn ghost" id="l-new" hidden>Crear mi cuenta de dueño</button>
-    <button class="btn ghost" id="l-reset">Olvidé mi contraseña</button>
+    <button class="btn ghost" id="l-reset" hidden>Olvidé mi contraseña</button>
     <div class="status" id="l-status"></div>
   </div>
 </div>
@@ -57,11 +59,15 @@ __CSS__
 
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updatePassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG=__FBCONFIG__;
 const OWNER='alanjavier467@gmail.com';
+const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFC');
+async function userEmail(u){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normUser(u)));return 'u'+[...new Uint8Array(h)].slice(0,16).map(b=>b.toString(16).padStart(2,'0')).join('')+'@usuarios.piezas-accord.app'}
+const pinPass=p=>'pin-'+p+'-pz';
+const okPin=p=>/^\d{4}$/.test(p);
 const fb=initializeApp(CFG);
 const auth=getAuth(fb);
 const fs=initializeFirestore(fb,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
@@ -283,7 +289,7 @@ function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;
 // ---- menú (usuarios, cuenta) ----
 function openMenu(){SHEET='menu';
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
-   <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(ME.email)} · ${OWN?'Dueño':'Empleado'}</span></div>
+   <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Dueño':'Empleado'}</span></div>
    <div class="card" id="offline-card2"></div>
    <button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button>
    <div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Página para clientes</b>
@@ -291,14 +297,14 @@ function openMenu(){SHEET='menu';
      <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" href="${pubURL()}" target="_blank" rel="noopener">Abrir</a><button class="btn ghost" data-pubshare>Compartir liga</button>
      <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Checa las piezas de Honda Accord 2018-2022 que tengo disponibles, con fotos y precio: '+pubURL())}">Mandar por WhatsApp</a><button class="btn ghost" data-pubcopy>Copiar liga</button></div></div>
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados</b>
-     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b><br><span class="hint">${esc(u.email)}</span></div>
+     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b>${u.active?'':' <span class="st st-revisar">'+(u.pending?'Nueva: actívala':'Desactivado')+'</span>'}<br><span class="hint">${esc(u.user?'Usuario: '+u.user:u.email)}</span></div>
        <button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
      <details><summary><b>Agregar empleado</b></summary><div class="form" style="margin-top:10px">
       <label class="f" for="u-name">Nombre<input id="u-name" placeholder="Ej. Juan"></label>
-      <label class="f" for="u-email">Correo (con el que va a entrar)<input id="u-email" type="email" inputmode="email"></label>
-      <label class="f" for="u-pass">Contraseña inicial (mínimo 6)<input id="u-pass" type="text" autocomplete="off"></label>
+      <label class="f" for="u-email">Usuario (con el que va a entrar)<input id="u-email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ej. juan, El Güero, juan2"></label>
+      <label class="f" for="u-pass">PIN de 4 números<input id="u-pass" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ej. 4821"></label>
       <button class="btn" data-adduser>Crear empleado</button><div class="status" id="u-status"></div>
-      <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su correo y contraseña; él la puede cambiar con “Olvidé mi contraseña”.</p></div></details></div>`:''}
+      <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su usuario y PIN; él puede cambiar su PIN desde su menú ☰. También pueden crear su cuenta ellos mismos en la pantalla de entrada; te aparece aquí para que la actives.</p></div></details></div>`:''}
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Respaldo</b>
      <p class="hint" style="margin:0">Descarga una copia de todo (carros, recorridos, precios, ventas, piezas agregadas). Hazlo cada semana y guárdalo en tu Drive o WhatsApp.${LS.get('ultRespaldo','')?' Último en este teléfono: '+fmtDate(LS.get('ultRespaldo','').slice(0,10))+'.':''}</p>
      <button class="btn" data-backup>Descargar respaldo</button><button class="btn ghost" data-backupfull>Respaldo con fotos grandes (pesa más)</button>
@@ -312,6 +318,10 @@ function openMenu(){SHEET='menu';
      <label class="f" for="n-pie">Mensaje al final<input id="n-pie" value="${esc(NEG.pie||'')}" placeholder="Ej. Garantía de 7 días por pieza dañada. Gracias por su compra."></label>
      <button class="btn ghost" data-saveneg>Guardar</button><div class="status" id="n-status"></div></div></details>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
+   ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
+     <label class="f" for="pin-new">PIN nuevo (4 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="4"></label>
+     <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
+     <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
    <p class="note">Versión __VERSION__</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline()}
@@ -355,13 +365,18 @@ function exportCSV(){const rows=[['Fecha','Cliente','Vendedor','Numero de parte'
   SALES.forEach(s=>(s.items||[]).forEach((it,k)=>rows.push([s.date.slice(0,16).replace('T',' '),s.cliente||'',s.byName||'',it.pn||(it.xid?(xById(it.xid)||{}).num||'(agregada)':''),it.es,it.car?carCode(it.car):'',it.qty,it.price,it.qty*it.price,k?'':s.desc||0,k?'':s.total])));
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ventas-accord.csv';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500)}
-async function addUser(){const name=$('#u-name').value.trim(),email=$('#u-email').value.trim().toLowerCase(),pass=$('#u-pass').value;const stt=$('#u-status');
-  if(!name||!email||pass.length<6){stt.className='status err';stt.textContent='Llena nombre, correo y una contraseña de 6 o más.';return}
+async function addUser(){const user=$('#u-email').value.trim(),pin=$('#u-pass').value.trim();const name=$('#u-name').value.trim()||user;const stt=$('#u-status');
+  if(!user){stt.className='status err';stt.textContent='Escribe el usuario.';return}
+  if(!okPin(pin)){stt.className='status err';stt.textContent='El PIN debe ser de 4 números.';return}
   stt.className='status';stt.textContent='Creando…';
-  try{const sec=initializeApp(CFG,'sec'+Date.now());const sa=getAuth(sec);const cred=await createUserWithEmailAndPassword(sa,email,pass);
-    await setDoc(doc(fs,'users',cred.user.uid),{name,email,role:'empleado',active:true,created:new Date().toISOString()});await signOut(sa);
-    stt.className='status ok';stt.textContent='Listo. Pásale a '+name+' su correo y contraseña.'}
-  catch(e){stt.className='status err';stt.textContent=e.code==='auth/email-already-in-use'?'Ese correo ya tiene cuenta.':e.code==='auth/invalid-email'?'Correo no válido.':'No se pudo crear: '+(e.code||e.message)}}
+  try{const email=await userEmail(user);const sec=initializeApp(CFG,'sec'+Date.now());const sa=getAuth(sec);const cred=await createUserWithEmailAndPassword(sa,email,pinPass(pin));
+    await setDoc(doc(fs,'users',cred.user.uid),{name,user,email,role:'empleado',active:true,created:new Date().toISOString()});await signOut(sa);
+    stt.className='status ok';stt.textContent='Listo. Pásale a '+name+' su usuario «'+user+'» y su PIN.'}
+  catch(e){stt.className='status err';stt.textContent=e.code==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':'No se pudo crear: '+(e.code||e.message)}}
+async function changePin(){const a=$('#pin-new').value.trim(),b=$('#pin-new2').value.trim();const stt=$('#pin-status');
+  if(!okPin(a)){stt.className='status err';stt.textContent='El PIN debe ser de 4 números.';return}if(a!==b){stt.className='status err';stt.textContent='Los dos PIN no son iguales.';return}
+  try{await updatePassword(ME,pinPass(a));stt.className='status ok';stt.textContent='Listo, tu PIN nuevo ya funciona.'}
+  catch(e){stt.className='status err';stt.textContent=e.code==='auth/requires-recent-login'?'Por seguridad: cierra sesión, vuelve a entrar y cámbialo enseguida.':'No se pudo: '+(e.code||e.message)}}
 let impArmed=false;
 async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=true;btn.textContent='Toca otra vez para confirmar';return}
   stt.className='status';stt.textContent='Importando…';
@@ -594,7 +609,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.delsale){delSale(d.delsale,t);return}
   if('export' in d){exportCSV();return}
   if('adduser' in d){addUser();return}
-  if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if('changepin' in d){changePin();return}
+  if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active,pending:false},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('import' in d){importOld(t);return}
   if('logout' in d){signOut(auth);return}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
@@ -602,18 +618,36 @@ const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin
 window.addEventListener('online',()=>{net();prefetchAll()});window.addEventListener('offline',net);net();
 // ---- login ----
 const L={box:$('#login'),email:$('#l-email'),pass:$('#l-pass'),st:$('#l-status'),neu:$('#l-new')};
-L.email.addEventListener('input',()=>{L.neu.hidden=L.email.value.trim().toLowerCase()!==OWNER});
+let SIGNUP=false,SIGNING=false;
+const isMail=()=>L.email.value.includes('@');
+function loginMode(){const m=isMail();L.neu.hidden=L.email.value.trim().toLowerCase()!==OWNER;$('#l-reset').hidden=!m;$('#l-signup').hidden=m;
+  $('#l-plabel').textContent=m?'Contraseña':'PIN (4 números)';L.pass.inputMode=m?'text':'numeric';
+  $('#l-p2box').hidden=!SIGNUP||m;$('#l-go').textContent=SIGNUP&&!m?'Crear mi cuenta':'Entrar';$('#l-signup').textContent=SIGNUP?'Ya tengo cuenta: entrar':'Soy nuevo: crear mi cuenta';
+  $('#l-hint').textContent=m?'Entra con tu correo y contraseña.':SIGNUP?'Elige un usuario (el que quieras, que nadie más tenga) y un PIN de 4 números.':'Entra con tu usuario y tu PIN de 4 números.'}
+L.email.addEventListener('input',loginMode);
+$('#l-signup').addEventListener('click',()=>{SIGNUP=!SIGNUP;loginMode()});
 const lmsg=(m,ok)=>{L.st.className='status '+(ok?'ok':'err');L.st.textContent=m};
-const authErr=e=>({'auth/invalid-credential':'Correo o contraseña incorrectos.','auth/wrong-password':'Contraseña incorrecta.','auth/user-not-found':'No existe una cuenta con ese correo.','auth/too-many-requests':'Demasiados intentos. Espera unos minutos.','auth/network-request-failed':'Sin señal. La primera vez necesitas internet para entrar.','auth/email-already-in-use':'Ese correo ya tiene cuenta: usa Entrar.','auth/weak-password':'La contraseña debe tener 6 o más caracteres.'}[e.code]||('Error: '+(e.code||e.message)));
-$('#l-go').addEventListener('click',()=>{lmsg('Entrando…',true);signInWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
+const authErr=e=>({'auth/invalid-credential':isMail()?'Correo o contraseña incorrectos.':'Usuario o PIN incorrectos.','auth/wrong-password':'Contraseña incorrecta.','auth/user-not-found':'No existe esa cuenta.','auth/too-many-requests':'Demasiados intentos. Espera unos minutos.','auth/network-request-failed':'Sin señal. La primera vez necesitas internet para entrar.','auth/email-already-in-use':'Ese correo ya tiene cuenta: usa Entrar.','auth/weak-password':'La contraseña debe tener 6 o más caracteres.'}[e.code]||('Error: '+(e.code||e.message)));
+$('#l-go').addEventListener('click',async()=>{const u=L.email.value.trim(),p=L.pass.value.trim();
+  if(!u){lmsg('Escribe tu usuario.');return}
+  if(isMail()){lmsg('Entrando…',true);signInWithEmailAndPassword(auth,u,L.pass.value).catch(e=>lmsg(authErr(e)));return}
+  if(!okPin(p)){lmsg('El PIN es de 4 números.');return}
+  const email=await userEmail(u);
+  if(!SIGNUP){lmsg('Entrando…',true);signInWithEmailAndPassword(auth,email,pinPass(p)).catch(e=>lmsg(authErr(e)));return}
+  if(p!==$('#l-pass2').value.trim()){lmsg('Los dos PIN no son iguales.');return}
+  lmsg('Creando tu cuenta…',true);SIGNING=true;
+  try{const cred=await createUserWithEmailAndPassword(auth,email,pinPass(p));
+    await setDoc(doc(fs,'users',cred.user.uid),{name:u,user:u,email,role:'empleado',active:false,pending:true,created:new Date().toISOString()});
+    await signOut(auth);SIGNING=false;SIGNUP=false;loginMode();L.pass.value='';lmsg('¡Cuenta creada! Pídele al encargado que te active; luego entra con tu usuario y PIN.',true)}
+  catch(e){SIGNING=false;if(auth.currentUser)await signOut(auth).catch(()=>{});lmsg(e.code==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':authErr(e))}});
 L.neu.addEventListener('click',()=>{lmsg('Creando…',true);createUserWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
 $('#l-reset').addEventListener('click',()=>{const em=L.email.value.trim();if(!em){lmsg('Escribe tu correo arriba primero.');return}sendPasswordResetEmail(auth,em).then(()=>lmsg('Te mandamos un correo para cambiar la contraseña.',true),e=>lmsg(authErr(e)))});
 let unsubs=[];
-onAuthStateChanged(auth,async u=>{unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=new Set();PUBLAST=null;
+onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=new Set();PUBLAST=null;
   if(!u){$('#app').hidden=true;L.box.hidden=false;return}
   OWN=(u.email||'').toLowerCase()===OWNER;PROFILE=OWN?{name:'Alan'}:null;
   if(!OWN){try{const s=await getDoc(doc(fs,'users',u.uid));PROFILE=s.exists()?s.data():null}catch(e){PROFILE=null}
-    if(!PROFILE||!PROFILE.active){lmsg(PROFILE?'Tu usuario está desactivado. Habla con el encargado.':'Tu cuenta no está dada de alta. Pide al encargado que te agregue.');await signOut(auth);return}}
+    if(!PROFILE||!PROFILE.active){lmsg(PROFILE?(PROFILE.pending?'Tu cuenta está esperando que el encargado la active.':'Tu usuario está desactivado. Habla con el encargado.'):'Tu cuenta no está dada de alta. Pide al encargado que te agregue.');await signOut(auth);return}}
   L.box.hidden=true;$('#app').hidden=false;saveCart();
   const rr=()=>{if(sheet.hidden){const y=window.scrollY;render();window.scrollTo(0,y)}};
   const sub=(q,f)=>unsubs.push(onSnapshot(q,f,e=>console.warn(e)));
@@ -627,7 +661,7 @@ onAuthStateChanged(auth,async u=>{unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=n
   unsubs.push(onSnapshot(doc(fs,'publico','inventario'),d=>{LOADED.add('publico');if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));
   if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
-    sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data()));if(!sheet.hidden&&SHEET==='menu')openMenu()})}
+    sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}
   else sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
   render();prefetchAll()});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

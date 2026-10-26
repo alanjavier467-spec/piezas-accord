@@ -12,7 +12,11 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwner() || (signed() && request.auth.uid == uid);
-      allow write: if isOwner();
+      allow create: if isOwner()
+        || (signed() && request.auth.uid == uid
+            && request.resource.data.active == false
+            && request.resource.data.role == 'empleado');
+      allow update, delete: if isOwner();
     }
     match /carros/{id} {
       allow read: if member();
