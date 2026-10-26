@@ -317,6 +317,7 @@ function openMenu(){SHEET='menu';
      <label class="f" for="n-dir">Dirección<input id="n-dir" value="${esc(NEG.dir||'')}"></label>
      <label class="f" for="n-pie">Mensaje al final<input id="n-pie" value="${esc(NEG.pie||'')}" placeholder="Ej. Garantía de 7 días por pieza dañada. Gracias por su compra."></label>
      <button class="btn ghost" data-saveneg>Guardar</button><div class="status" id="n-status"></div></div></details>`:''}
+   ${OWN?`<div id="lote-card"></div>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
      <label class="f" for="pin-new">PIN nuevo (4 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="4"></label>
@@ -324,7 +325,7 @@ function openMenu(){SHEET='menu';
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
    <p class="note">Versión __VERSION__</p></div>`;
-  showSheet();document.body.style.overflow='hidden';renderOffline()}
+  showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
@@ -377,6 +378,25 @@ async function changePin(){const a=$('#pin-new').value.trim(),b=$('#pin-new2').v
   if(!okPin(a)){stt.className='status err';stt.textContent='El PIN debe ser de 4 números.';return}if(a!==b){stt.className='status err';stt.textContent='Los dos PIN no son iguales.';return}
   try{await updatePassword(ME,pinPass(a));stt.className='status ok';stt.textContent='Listo, tu PIN nuevo ya funciona.'}
   catch(e){stt.className='status err';stt.textContent=e.code==='auth/requires-recent-login'?'Por seguridad: cierra sesión, vuelve a entrar y cámbialo enseguida.':'No se pudo: '+(e.code||e.message)}}
+// ---- lotes preparados por Claude (inventario desde el chat) ----
+let LOTE=null;
+async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=await fetch('lote.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);LOTE=J;
+  const done=LS.get('lotesHechos',[]);if(!J||!J.id||done.includes(J.id)){el.innerHTML='';return}
+  const n=(J.estado||[]).length+(J.extras||[]).length;
+  el.innerHTML=`<div class="card form" style="border:2px solid var(--tag)"><b>📦 Lote de inventario listo para subir</b><p class="hint" style="margin:0">${esc(J.titulo||'Inventario')}: ${n} piezas${(J.fotos||[]).length?', '+J.fotos.length+' fotos':''}. Revísalo y toca para subirlo.</p>
+   <div class="hint" style="max-height:180px;overflow:auto">${(J.estado||[]).map(e=>`• ${esc(e.car)} · ${esc(e.pn)} · ${esc((BYPN[e.pn]||{}).es||'')} ×${e.n||1}`).join('<br>')}${(J.extras||[]).map(x=>`<br>• Nueva: ${esc(x.name)} ×${x.qty||1}`).join('')}</div>
+   <button class="btn alt" data-lote>Subir lote a la app</button><div class="status" id="lote-status"></div></div>`}catch(e){el.innerHTML=''}}
+let loteArmed=false;
+async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)return;if(!loteArmed){loteArmed=true;btn.textContent='Toca otra vez para confirmar';return}
+  stt.className='status';stt.textContent='Subiendo…';const ops=[];const now=new Date().toISOString();const by={by:ME.uid,byName:PROFILE?.name||ME.email};
+  try{for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
+      ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:{s:e.s||'quitada',n:e.n||1}}},{merge:true}]);
+      if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
+    for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,date:now,...by}])}
+    for(const f of J.fotos||[]){const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:now,...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])}
+    for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
+    LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.';btn.remove()}
+  catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}loteArmed=false}
 let impArmed=false;
 async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=true;btn.textContent='Toca otra vez para confirmar';return}
   stt.className='status';stt.textContent='Importando…';
@@ -612,6 +632,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('changepin' in d){changePin();return}
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active,pending:false},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('import' in d){importOld(t);return}
+  if('lote' in d){importLote(t);return}
   if('logout' in d){signOut(auth);return}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
 const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin señal';n.classList.toggle('off',!navigator.onLine)};
