@@ -34,3 +34,7 @@
 .tk small{color:#555}
 .acts2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media print{body *{visibility:hidden!important}.tk,.tk *{visibility:visible!important}.tk{position:absolute;left:0;top:0;box-shadow:none;width:72mm;max-width:none}}
+.zoom{grid-template-columns:minmax(0,1fr)}
+.zoom .zbar{min-width:0;position:relative;z-index:2}
+.zoom .zarea{min-width:0;min-height:0;touch-action:pan-x pan-y;padding-bottom:90px}
+.zoom .zx{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:3;background:#15191B;color:#fff;border:2px solid #fff;border-radius:999px;padding:14px 26px;font-size:17px;font-weight:700;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.35)}

@@ -205,6 +205,10 @@ nav.tabs button{position:relative}
 .tk small{color:#555}
 .acts2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media print{body *{visibility:hidden!important}.tk,.tk *{visibility:visible!important}.tk{position:absolute;left:0;top:0;box-shadow:none;width:72mm;max-width:none}}
+.zoom{grid-template-columns:minmax(0,1fr)}
+.zoom .zbar{min-width:0;position:relative;z-index:2}
+.zoom .zarea{min-width:0;min-height:0;touch-action:pan-x pan-y;padding-bottom:90px}
+.zoom .zx{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:3;background:#15191B;color:#fff;border:2px solid #fff;border-radius:999px;padding:14px 26px;font-size:17px;font-weight:700;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 
 </style>
 </head>
@@ -266,7 +270,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261025-0209';
+const VERSION='20261025-1813';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -453,12 +457,24 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado</summary>${segHTML(c,p.pn,x.s)}</details>`}</div>
       <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
-  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
-function closeSheet(){sheet.hidden=true;SHEET='';openIdx=null;openX=null;document.body.style.overflow='';render()}
+  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+// capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
+let LAYERS=0;
+function showSheet(){if(sheet.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}sheet.hidden=false}
+function showZoom(){if(zoom.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}zoom.hidden=false}
+function doCloseSheet(){sheet.hidden=true;SHEET='';openIdx=null;openX=null;document.body.style.overflow='';render()}
+function closeTop(){if(LAYERS>0){history.back();return}if(!zoom.hidden)zoom.hidden=true;else if(!sheet.hidden)doCloseSheet()}
+function closeSheet(){if(sheet.hidden&&zoom.hidden)return;if(LAYERS>0){history.go(-LAYERS);return}zoom.hidden=true;if(!sheet.hidden)doCloseSheet()}
+window.addEventListener('popstate',e=>{const target=(e.state&&e.state.layer)||0;const was=LAYERS;LAYERS=Math.min(LAYERS,target);if(was-LAYERS>=2){zoom.hidden=true;if(!sheet.hidden)doCloseSheet();return}if(!zoom.hidden){zoom.hidden=true;return}if(!sheet.hidden)doCloseSheet()});
+function pinch(area,get,set){let d0=0,z0=1;const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  area.addEventListener('touchstart',e=>{if(e.touches.length===2){d0=dist(e.touches);z0=get()}},{passive:true});
+  area.addEventListener('touchmove',e=>{if(e.touches.length===2&&d0){e.preventDefault();set(z0*dist(e.touches)/d0)}},{passive:false});
+  area.addEventListener('touchend',()=>{d0=0},{passive:true})}
 function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;const s=SECS[si];
-  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ref?'Busca el #'+esc(ref)+' · ':''}${esc(s.es)}</span><span class="row" style="flex-wrap:nowrap"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button>${ds.length>1?`<button data-zn>${k+1}/${ds.length}</button>`:''}<button data-zclose>Cerrar</button></span></div><div class="zarea"><img alt="Diagrama"></div>`;
-  const img=zoom.querySelector('img'),area=zoom.querySelector('.zarea');const apply=()=>{img.style.width=(z*100)+'%'};img.src=ds[k];apply();zoom.hidden=false;
-  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.z){z=Math.min(4,Math.max(1,z+(+t.dataset.z)*.75));apply()}if(t.hasAttribute('data-zn'))openZoom(si,(k+1)%ds.length,ref);if(t.hasAttribute('data-zclose'))zoom.hidden=true};
+  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ref?'Busca el #'+esc(ref)+' · ':''}${esc(s.es)}</span><span class="row" style="flex-wrap:nowrap"><button data-z="-1" aria-label="Alejar">−</button><button data-z="1" aria-label="Acercar">+</button>${ds.length>1?`<button data-zn>${k+1}/${ds.length}</button>`:''}<button data-zclose>✕ Cerrar</button></span></div><div class="zarea"><img alt="Diagrama"></div><button class="zx" data-zclose>✕ Cerrar diagrama</button>`;
+  const img=zoom.querySelector('img'),area=zoom.querySelector('.zarea');const apply=()=>{img.style.width=(z*100)+'%'};img.src=ds[k];apply();showZoom();
+  pinch(area,()=>z,v=>{z=Math.min(5,Math.max(1,v));apply()});
+  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.z){z=Math.min(4,Math.max(1,z+(+t.dataset.z)*.75));apply()}if(t.hasAttribute('data-zn'))openZoom(si,(k+1)%ds.length,ref);if(t.hasAttribute('data-zclose'))closeTop()};
   area.ondblclick=()=>{z=z>1?1:2.5;apply()}})}
 // ---- menú (usuarios, cuenta) ----
 function openMenu(){SHEET='menu';
@@ -493,8 +509,8 @@ function openMenu(){SHEET='menu';
      <button class="btn ghost" data-saveneg>Guardar</button><div class="status" id="n-status"></div></div></details>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261025-0209</p></div>`;
-  sheet.hidden=false;document.body.style.overflow='hidden';renderOffline()}
+   <p class="note">Versión 20261025-1813</p></div>`;
+  showSheet();document.body.style.overflow='hidden';renderOffline()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
@@ -558,10 +574,10 @@ function galHTML(key,canAdd=true){const f=FOTOS[key]||[];
    ${canAdd?`<button class="btn ghost" data-intakefor="${esc(key)}">📷 Agregar foto de esta pieza</button>`:''}</div>`}
 const fullCache={};
 async function showFoto(id){const meta=FOTOLIST.find(x=>x.id===id)||{};
-  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${meta.thumb||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}`;
-  zoom.hidden=false;let pend=false;
-  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.hasAttribute('data-zclose'))zoom.hidden=true;
-    if(t.dataset.delfoto){if(!pend){pend=true;t.textContent='¿Seguro? Toca otra vez';return}deleteDoc(doc(fs,'fotosfull',id)).catch(()=>{}).then(()=>deleteDoc(doc(fs,'fotos',id))).catch(e=>toast(errMsg(e)));zoom.hidden=true;toast('Foto borrada')}};
+  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>✕ Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${meta.thumb||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}<button class="zx" data-zclose>✕ Cerrar foto</button>`;
+  showZoom();let pend=false;{let z=1;const area=zoom.querySelector('.zarea'),im=zoom.querySelector('.zarea img');pinch(area,()=>z,v=>{z=Math.min(5,Math.max(1,v));im.style.width=(z*100)+'%'})}
+  zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.hasAttribute('data-zclose'))closeTop();
+    if(t.dataset.delfoto){if(!pend){pend=true;t.textContent='¿Seguro? Toca otra vez';return}deleteDoc(doc(fs,'fotosfull',id)).catch(()=>{}).then(()=>deleteDoc(doc(fs,'fotos',id))).catch(e=>toast(errMsg(e)));closeTop();toast('Foto borrada')}};
   try{const u=fullCache[id]||(fullCache[id]=(await getDoc(doc(fs,'fotosfull',id))).data()?.img);const im=zoom.querySelector('img');if(u&&im)im.src=u}catch(e){}}
 async function shrink(file,max,q){let src,w,h;
   try{src=await createImageBitmap(file);w=src.width;h=src.height}catch(e){src=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)});w=src.naturalWidth;h=src.naturalHeight}
@@ -583,7 +599,7 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
     <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
    ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">+ Comanda</button>`:ic?`<p class="hint">${ic} en la comanda</p>`:''}
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
-  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden'}
+  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- agregar pieza con foto ----
 let INT=null;const CONDS=['Sanita','Buen estado','Detalles leves','Raspada','Para reparar'];
 function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
@@ -604,7 +620,7 @@ function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
     ${fp||fx?`<button class="btn alt" data-intsave>Guardar foto</button>`:`<button class="btn alt" data-intsearch>Buscar en el catálogo</button>`}
     <div class="status" id="i-status"></div></div>
    <div id="i-cands"></div></div>`;
-  sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden';
+  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';
   $('#i-file').addEventListener('change',async e=>{const fsel=[...e.target.files];const pv=$('#i-prev');const stt=$('#i-status');stt.className='status';stt.textContent='Preparando fotos…';
     for(const f of fsel){try{const full=await shrink(f,1100,.72),thumb=await shrink(f,200,.6);INT.imgs.push({full,thumb})}catch(err){}}
     pv.innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');stt.textContent=INT.imgs.length?INT.imgs.length+' foto(s) lista(s)':'No se pudo leer la foto';e.target.value=''})}
@@ -654,7 +670,7 @@ function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio|
    <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${ph.length===10?'52'+ph:ph.length>10?ph:''}?text=${encodeURIComponent(ticketText(s))}">WhatsApp</a>
     <button class="btn ghost" data-tkshare="${esc(s.id)}">Compartir</button><button class="btn ghost" data-tkcopy="${esc(s.id)}">Copiar texto</button><button class="btn ghost" data-tkprint>Imprimir</button></div>
    ${NEG.nombre||!OWN?'':'<p class="note">Pon el nombre y teléfono de tu negocio en el menú ☰ → Datos del ticket.</p>'}</div>`;
-  sheet._sale=s;sheet.hidden=false;sheet.scrollTop=0;document.body.style.overflow='hidden'}
+  sheet._sale=s;showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- respaldo ----
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
 async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
@@ -709,7 +725,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
   if(t.dataset.lp!=null)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
-  if(d.tab){st.tab=d.tab;st.limit=40;if(!sheet.hidden){sheet.hidden=true;document.body.style.overflow=''}render();window.scrollTo(0,0);return}
+  if(d.tab){st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
   if(d.openx){openExtra(d.openx);return}
   if('intake' in d){openIntake();return}
@@ -777,7 +793,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('import' in d){importOld(t);return}
   if('logout' in d){signOut(auth);return}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!zoom.hidden)zoom.hidden=true;else if(!sheet.hidden)closeSheet()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
 const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin señal';n.classList.toggle('off',!navigator.onLine)};
 window.addEventListener('online',()=>{net();prefetchAll()});window.addEventListener('offline',net);net();
 // ---- login ----
