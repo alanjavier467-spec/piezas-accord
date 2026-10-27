@@ -276,11 +276,21 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261025-2310';
+const VERSION='20261027-1443';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
 PARTS.forEach(p=>{const m=(p.es+' '+p.en).match(/\*(NH731P|NH883P|NH830M|NH797M|R94|B575P)\*/);p.ext=m?m[1]:null});
+// números por año/versión: p.y = {'18':..,'19':..,'20T':..}; '' = no existe en esa versión; sin clave = mismo número
+const YL={'18':'2018 1.5T','19':'2019 1.5T','20':'2020 1.5T','20T':'2020 2.0T'};const YK=['18','19','20','20T'];
+PARTS.forEach(p=>{if(p.y)p.ypk=Object.values(p.y).flat().filter(Boolean).map(x=>x.replace(/-/g,'').toLowerCase()).join(' ')});
+function verOf(c){if(!c)return null;if(c._v!==undefined)return c._v;let r=null;
+  if(c.ver)r=c.ver;else{const v=(c.vin||'').toUpperCase().trim();
+    if(v.length===17){const yc=v[9];const yr=yc==='J'?'18':yc==='K'?'19':/[L-N]/.test(yc)?'20':null;r=v[5]==='2'?'20T':yr}
+    if(!r){const y=String(c.year||'');r=y==='2018'?'18':y==='2019'?'19':/^20(2\d)$/.test(y)?'20':null}}
+  try{Object.defineProperty(c,'_v',{value:r,enumerable:false})}catch(e){}return r}
+function yNum(p,ver){if(!ver||ver==='20'||!p.y||!(ver in p.y))return p.pn;const y=p.y[ver];return y===''?null:[].concat(y).join(' / ')}
+function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
 const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
 const AVAIL=s=>s==='esta'||s==='quitada';
@@ -301,6 +311,7 @@ function saveCart(){LS.set('comanda',CART);LS.set('desc',DISC);LS.set('cliente',
 const carsSorted=()=>CARS.slice().sort((a,b)=>(a.llegada||'9999').localeCompare(b.llegada||'9999')||a.code.localeCompare(b.code));
 const units=p=>p&&p.cr?p.cr:1;
 function stOf(car,pn){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color)return {s:'na',n:0};
+  if(p&&p.y){const vr=verOf(car);if(vr&&p.y[vr]==='')return {s:'na',n:0}}
   const e=(EST[car.id]||{})[pn];const def=car.def||'esta';
   if(!e)return {s:def,n:AVAIL(def)?units(p):0};
   return {s:e.s,n:e.n!=null?e.n:(AVAIL(e.s)?units(p):0)}}
@@ -322,6 +333,7 @@ function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.r
   const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.toLowerCase().includes(compact))altHits.add(v.pn)}
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
+    else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
     else if(altHits.has(p.pn))sc=90;
     else if(words.every(w=>p.key.includes(w))){sc=10;if(norm(p.es).startsWith(words[0]))sc+=6;if(norm(p.es).includes(nq))sc+=4;if(norm(p.en).includes(nq))sc+=3}
     if(sc)out.push([sc,p])}
@@ -379,6 +391,7 @@ function vCarros(){
 function carForm(c){const pv=PRIV[c.id]||{};return `<div class="form" style="margin-top:10px">
   <div class="two"><label class="f" for="c-code">Clave (pintada en el carro)<input id="c-code" value="${esc(c.code||('A'+(CARS.length+1)))}"></label><label class="f" for="c-year">Año<input id="c-year" inputmode="numeric" value="${esc(c.year||'')}"></label></div>
   <label class="f" for="c-vin">VIN<input id="c-vin" value="${esc(c.vin||'')}" style="font-family:var(--f-mono);text-transform:uppercase"></label>
+  <label class="f" for="c-ver">Versión (para los números de pieza)<select id="c-ver"><option value="">Automática (por el VIN)</option>${YK.map(k=>`<option value="${k}" ${c.ver===k?'selected':''}>${YL[k]}</option>`).join('')}</select></label>
   <div class="two"><label class="f" for="c-color">Color exterior<select id="c-color"><option value="">—</option>${Object.entries(EXT).map(([k,v])=>`<option value="${k}" ${c.color===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="f" for="c-km">Kilometraje<input id="c-km" inputmode="numeric" value="${esc(c.km||'')}"></label></div>
   <div class="two"><label class="f" for="c-llegada">Fecha de llegada<input id="c-llegada" type="date" value="${esc(c.llegada||'')}"></label><label class="f" for="c-costo">Costo (MXN, solo tú lo ves)<input id="c-costo" inputmode="decimal" value="${esc(pv.costo||'')}"></label></div>
   ${c.id?'':`<label class="f" for="c-def">¿Cómo viene?<select id="c-def"><option value="esta">Completo: todas las piezas en el carro</option><option value="revisar">Ya desarmado: todo "por revisar"</option></select></label>`}
@@ -398,8 +411,8 @@ const segHTML=(c,pn,cur)=>`<div class="seg" data-carid="${c.id}" data-pn="${esc(
 function vWalk(){const c=CARS.find(x=>x.id===st.car);const s=SECS[st.carSec];const seen=new Set();const ps=PARTS.filter(p=>p.s===s.i&&!seen.has(p.pn)&&seen.add(p.pn));
   view.innerHTML=`<button class="back" data-back="walk">‹ ${esc(c.code)}</button><h2 class="title">${esc(s.es)}</h2><p class="hint" style="margin:0">Carro ${esc(c.code)} · toca el estado de cada pieza. Se guarda solo, aunque no haya señal.</p>
   <div id="dg" class="list"></div>
-  <div class="list">${ps.map(p=>{const x=stOf(c,p.pn);return `<div class="walk"><span class="ph">${imgTag(p)}</span><div class="t"><div><span class="hint">#${esc(p.ref)}</span> <span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b></div>
-   ${x.s==='na'?'<span class="st st-na">No aplica (otro color)</span>':segHTML(c,p.pn,x.s)}</div></div>`}).join('')}</div>`;
+  <div class="list">${ps.map(p=>{const x=stOf(c,p.pn);return `<div class="walk"><span class="ph">${imgTag(p)}</span><div class="t"><div><span class="hint">#${esc(p.ref)}</span> <span class="pn">${esc(yNum(p,verOf(c))||p.pn)}</span><br><b>${esc(p.es)}</b></div>
+   ${x.s==='na'?`<span class="st st-na">No aplica (${naWhy(c,p)})</span>`:segHTML(c,p.pn,x.s)}</div></div>`}).join('')}</div>`;
   diagrams(s.i).then(ds=>{const el=$('#dg');if(el&&ds.length)el.innerHTML=`<button class="diag-btn" data-zoom="${s.i}" data-zk="0"><img src="${ds[0]}" alt="Diagrama"><em>Toca para ampliar</em></button>`})}
 // ---- comanda ----
 function calc(){const sub=CART.reduce((a,l)=>a+l.qty*(+l.price||0),0);let desc=0;
@@ -442,6 +455,9 @@ function render(){document.querySelectorAll('nav.tabs button').forEach(b=>b.setA
   ({buscar:vBuscar,catalogo:vCatalogo,carros:vCarros,carrito:vCarrito,ventas:vVentas})[st.tab]();hookImgs(view)}
 // ---- ficha ----
 let openIdx=null, SHEET='';
+function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?p.pn:(p.y&&k in p.y?(p.y[k]===''?null:[].concat(p.y[k]).join(' / ')):p.pn);return [k,n]});
+  if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">Mismo número en 2018, 2019 y 2020 (1.5T y 2.0T).</p>`;
+  return `<div class="card"><b>Número según el año</b><dl class="meta" style="margin-top:6px">${rows.map(([k,n])=>`<dt>${YL[k]}</dt><dd>${n?`<span class="pn">${esc(n)}</span>${n===p.pn&&k!=='20'?' <span class="hint">igual</span>':''}`:'<span class="hint">No viene en esta versión</span>'}</dd>`).join('')}</dl></div>`}
 function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
   const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">${esc(s.cat.split(' / ')[0])}</span></div></div>
@@ -451,6 +467,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
    <div><h2 class="title">${esc(p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
    <dl class="meta"><dt>Sección</dt><dd>${esc(s.es)} · #${esc(p.ref)}</dd>${others.length?`<dt>También en</dt><dd>${others.map(o=>esc(SECS[o.s].es)+' (#'+esc(o.ref)+')').join(', ')}</dd>`:''}
     ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>
+   ${yHTML(p)}
    <button class="btn ghost" data-zoom="${p.s}" data-zk="0" data-ref="${esc(p.ref)}">Ver diagrama (busca el #${esc(p.ref)})</button>
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
@@ -459,7 +476,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
      <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(p.sp||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
      :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div></div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
-    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
+    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado</summary>${segHTML(c,p.pn,x.s)}</details>`}</div>
       <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
@@ -520,7 +537,7 @@ function openMenu(){SHEET='menu';
      <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261025-2310</p></div>`;
+   <p class="note">Versión 20261027-1443</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -528,7 +545,7 @@ const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso p
 function setStatus(carId,pn,s){const p=BYPN[pn];const val={s,n:AVAIL(s)?units(p):0};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
-  const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:'Sport'};
+  const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver')};
   const costo=parseFloat(v('costo'))||0;
   try{let cid=id;if(id){body.def=(CARS.find(c=>c.id===id)||{}).def||'esta';setDoc(doc(fs,'carros',id),body)}else{body.def=v('def')||'esta';cid=body.code.replace(/[^A-Z0-9_-]/g,'')||('C'+Date.now());if(CARS.find(c=>c.id===cid))cid=cid+'-'+Date.now().toString(36);setDoc(doc(fs,'carros',cid),body);st.car=cid;st.carSec=null}
    setDoc(doc(fs,'privado',cid),{costo});stt.className='status ok';stt.textContent='Guardado';if(!id){render();window.scrollTo(0,0)}}catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
@@ -578,15 +595,16 @@ async function changePin(){const a=$('#pin-new').value.trim(),b=$('#pin-new2').v
 let LOTE=null;
 async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=await fetch('lote.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);LOTE=J;
   const done=LS.get('lotesHechos',[]);if(!J||!J.id||done.includes(J.id)){el.innerHTML='';return}
-  const n=(J.estado||[]).length+(J.extras||[]).length;
+  const n=(J.estado||[]).length+(J.extras||[]).length;const nc=Object.keys(J.carros||{}).length;
   el.innerHTML=`<div class="card form" style="border:2px solid var(--tag)"><b>📦 Lote de inventario listo para subir</b><p class="hint" style="margin:0">${esc(J.titulo||'Inventario')}: ${n} piezas${(J.fotos||[]).length?', '+J.fotos.length+' fotos':''}. Revísalo y toca para subirlo.</p>
-   <div class="hint" style="max-height:180px;overflow:auto">${(J.estado||[]).map(e=>`• ${esc(e.car)} · ${esc(e.pn)} · ${esc((BYPN[e.pn]||{}).es||'')} ×${e.n||1}`).join('<br>')}${(J.extras||[]).map(x=>`<br>• Nueva: ${esc(x.name)} ×${x.qty||1}`).join('')}</div>
+   <div class="hint" style="max-height:180px;overflow:auto">${nc?`• Datos de carros: ${Object.keys(J.carros).map(esc).join(', ')}<br>`:''}${(J.estado||[]).map(e=>`• ${esc(e.car)} · ${esc(e.pn)} · ${esc((BYPN[e.pn]||{}).es||'')} · ${esc(STL[e.s]||e.s)}`).join('<br>')}${(J.extras||[]).map(x=>`<br>• Nueva: ${esc(x.name)} ×${x.qty||1}`).join('')}</div>
    <button class="btn alt" data-lote>Subir lote a la app</button><div class="status" id="lote-status"></div></div>`}catch(e){el.innerHTML=''}}
 let loteArmed=false;
 async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)return;if(!loteArmed){loteArmed=true;btn.textContent='Toca otra vez para confirmar';return}
   stt.className='status';stt.textContent='Subiendo…';const ops=[];const now=new Date().toISOString();const by={by:ME.uid,byName:PROFILE?.name||ME.email};
-  try{for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
-      ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:{s:e.s||'quitada',n:e.n||1}}},{merge:true}]);
+  try{for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c)throw new Error('No existe el carro '+code);ops.push([doc(fs,'carros',c.id),body,{merge:true}])}
+    for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
+      {const es=e.s||'quitada';ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:{s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)}}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
     for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,date:now,...by}])}
     for(const f of J.fotos||[]){const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:now,...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])}
