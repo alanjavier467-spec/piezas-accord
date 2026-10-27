@@ -125,6 +125,8 @@ const carCode=id=>(CARS.find(c=>c.id===id)||{}).code||'?';
 const ubiOf=(carId,pn)=>((EST[carId]||{})[pn]||{}).u||'';
 const UBIS=()=>{const set=new Set(['T-1','T-2','T-3','T-4','T-5','T-6','T-7','T-8','G-1','G-2','G-3','G-4']);Object.values(EST).forEach(m=>Object.values(m||{}).forEach(v=>v&&v.u&&set.add(v.u)));EXTRAS.forEach(x=>x.ubi&&set.add(x.ubi));return [...set].sort()};
 const ubiList=()=>`<datalist id="ubis">${UBIS().map(u=>`<option value="${esc(u)}">`).join('')}</datalist>`;
+const maxDuenos=()=>Math.min(4,Math.max(1,+(NEG.maxDuenos||2)));
+const nDuenos=()=>1+USERS.filter(u=>u.role==='dueño'&&u.active).length;
 const altsOf=pn=>Object.entries(ALT).filter(([k,v])=>v.pn===pn).map(([k])=>k);
 
 // ---- imágenes ----
@@ -319,9 +321,12 @@ function openMenu(){SHEET='menu';
      <p class="hint" style="margin:0">Tus clientes ven lo disponible con fotos y precio, y te piden por WhatsApp al ${esc((NEG.wa||WA_DEF))}. Se actualiza sola.</p>
      <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" href="${pubURL()}" target="_blank" rel="noopener">Abrir</a><button class="btn ghost" data-pubshare>Compartir liga</button>
      <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Checa las piezas de Honda Accord 2018-2022 que tengo disponibles, con fotos y precio: '+pubURL())}">Mandar por WhatsApp</a><button class="btn ghost" data-pubcopy>Copiar liga</button></div></div>
-   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados</b>
-     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b>${u.active?'':' <span class="st st-revisar">'+(u.pending?'Nueva: actívala':'Desactivado')+'</span>'}<br><span class="hint">${esc(u.user?'Usuario: '+u.user:u.email)}</span></div>
-       <button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
+   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados y dueños</b>
+     <p class="hint" style="margin:0">Dueños: ${nDuenos()} de ${maxDuenos()}. Todos se registran como empleados; un dueño los puede hacer dueños aquí.</p>
+     <div class="drow"><label class="f" for="n-maxd" style="flex:1">Máximo de dueños<select id="n-maxd">${[1,2,3,4].map(n=>`<option ${n===maxDuenos()?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn ghost" data-savemaxd>Guardar</button></div>
+     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b>${u.role==='dueño'?' <span class="st st-esta">Dueño</span>':''}${u.active?'':' <span class="st st-revisar">'+(u.pending?'Nueva: actívala':'Desactivado')+'</span>'}<br><span class="hint">${esc(u.user?'Usuario: '+u.user:u.email)}</span></div>
+       <div style="display:grid;gap:6px"><button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button>
+       ${u.id!==ME.uid?(u.role==='dueño'?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="empleado">Quitar dueño</button>`:(u.active&&nDuenos()<maxDuenos()?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="dueño">Hacer dueño</button>`:'')):''}</div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
      <details><summary><b>Agregar empleado</b></summary><div class="form" style="margin-top:10px">
       <label class="f" for="u-name">Nombre<input id="u-name" placeholder="Ej. Juan"></label>
       <label class="f" for="u-email">Usuario (con el que va a entrar)<input id="u-email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ej. juan, El Güero, juan2"></label>
@@ -414,7 +419,7 @@ async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=aw
 let loteArmed=false;
 async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)return;if(!loteArmed){loteArmed=true;btn.textContent='Toca otra vez para confirmar';return}
   stt.className='status';stt.textContent='Subiendo…';const ops=[];const now=new Date().toISOString();const by={by:ME.uid,byName:PROFILE?.name||ME.email};
-  try{for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c)throw new Error('No existe el carro '+code);ops.push([doc(fs,'carros',c.id),body,{merge:true}])}
+  try{for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c&&!body.crear)throw new Error('No existe el carro '+code);const b=Object.assign({},body);delete b.crear;if(!c){b.code=b.code||code;CARS.push(Object.assign({id:code},b))}ops.push([doc(fs,'carros',c?c.id:code),b,{merge:true}])}
     for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
       {const es=e.s||'quitada';const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
@@ -622,7 +627,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('pubshare' in d){const tx='Piezas de Honda Accord 2018-2022 disponibles, con fotos y precio: '+pubURL();if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiada'});return}
   if('backup' in d){backup(false);return}
   if('backupfull' in d){backup(true);return}
-  if('saveneg' in d){const g=id=>$(id).value.trim();NEG={nombre:g('#n-nombre'),tel:g('#n-tel'),wa:g('#n-wa').replace(/\D/g,''),dir:g('#n-dir'),pie:g('#n-pie')};const s2=$('#n-status');
+  if('saveneg' in d){const g=id=>$(id).value.trim();NEG=Object.assign({},NEG,{nombre:g('#n-nombre'),tel:g('#n-tel'),wa:g('#n-wa').replace(/\D/g,''),dir:g('#n-dir'),pie:g('#n-pie')});const s2=$('#n-status');
     setDoc(doc(fs,'config','negocio'),NEG).then(()=>{},e=>{s2.className='status err';s2.textContent=errMsg(e)});s2.className='status ok';s2.textContent='Guardado';return}
   if('close' in d){closeSheet();return}
   if('more' in d){st.limit+=40;render();return}
@@ -658,6 +663,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('export' in d){exportCSV();return}
   if('adduser' in d){addUser();return}
   if('changepin' in d){changePin();return}
+  if(d.setrole){const r=t.dataset.r;if(r==='dueño'&&nDuenos()>=maxDuenos()){toast('Ya hay '+maxDuenos()+' dueños. Sube el máximo primero.');return}
+    setDoc(doc(fs,'users',d.setrole),{role:r},{merge:true}).then(()=>toast(r==='dueño'?'Ahora es dueño. Que cierre sesión y vuelva a entrar.':'Ya no es dueño.'),e=>toast(errMsg(e)));return}
+  if('savemaxd' in d){const n=+$('#n-maxd').value;if(n<nDuenos()){toast('Ya hay '+nDuenos()+' dueños; quita uno antes de bajar el máximo.');return}NEG=Object.assign({},NEG,{maxDuenos:n});setDoc(doc(fs,'config','negocio'),{maxDuenos:n},{merge:true}).then(()=>{toast('Guardado: máximo '+n+' dueños');openMenu()},e=>toast(errMsg(e)));return}
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active,pending:false},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('import' in d){importOld(t);return}
   if('lote' in d){importLote(t);return}
@@ -696,6 +704,7 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   if(!u){$('#app').hidden=true;L.box.hidden=false;return}
   OWN=(u.email||'').toLowerCase()===OWNER;PROFILE=OWN?{name:'Alan'}:null;
   if(!OWN){try{const s=await getDoc(doc(fs,'users',u.uid));PROFILE=s.exists()?s.data():null}catch(e){PROFILE=null}
+    if(PROFILE&&PROFILE.active&&PROFILE.role==='dueño')OWN=true;
     if(!PROFILE||!PROFILE.active){lmsg(PROFILE?(PROFILE.pending?'Tu cuenta está esperando que el encargado la active.':'Tu usuario está desactivado. Habla con el encargado.'):'Tu cuenta no está dada de alta. Pide al encargado que te agregue.');await signOut(auth);return}}
   L.box.hidden=true;$('#app').hidden=false;saveCart();
   const rr=()=>{if(sheet.hidden){const y=window.scrollY;render();window.scrollTo(0,y)}};
