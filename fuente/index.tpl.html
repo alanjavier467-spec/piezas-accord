@@ -122,6 +122,9 @@ function stOf(car,pn){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color
 const availCars=pn=>carsSorted().map(c=>({c,x:stOf(c,pn)})).filter(o=>AVAIL(o.x.s)&&o.x.n>0);
 const inCart=(pn,carId)=>CART.filter(l=>l.pn===pn&&l.car===carId).reduce((a,l)=>a+l.qty,0);
 const carCode=id=>(CARS.find(c=>c.id===id)||{}).code||'?';
+const ubiOf=(carId,pn)=>((EST[carId]||{})[pn]||{}).u||'';
+const UBIS=()=>{const set=new Set(['T-1','T-2','T-3','T-4','T-5','T-6','T-7','T-8','G-1','G-2','G-3','G-4']);Object.values(EST).forEach(m=>Object.values(m||{}).forEach(v=>v&&v.u&&set.add(v.u)));EXTRAS.forEach(x=>x.ubi&&set.add(x.ubi));return [...set].sort()};
+const ubiList=()=>`<datalist id="ubis">${UBIS().map(u=>`<option value="${esc(u)}">`).join('')}</datalist>`;
 const altsOf=pn=>Object.entries(ALT).filter(([k,v])=>v.pn===pn).map(([k])=>k);
 
 // ---- imágenes ----
@@ -143,7 +146,7 @@ function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.r
     if(sc)out.push([sc,p])}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
-  return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}</span>`).join('')}</span>`}
+  return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}${ubiOf(o.c.id,pn)?' · '+esc(ubiOf(o.c.id,pn)):''}</span>`).join('')}</span>`}
 function priceHTML(pn){const pr=priceOf(pn);return pr?`<span class="price">${money(pr)}</span>${isSug(pn)?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}
 function itemHTML(p,pre){const nf=(FOTOS[p.pn]||[]).length;
   return `<button class="item" data-open="${p.i}"><span class="ph">${phTag(p)}</span>
@@ -216,7 +219,7 @@ function vWalk(){const c=CARS.find(x=>x.id===st.car);const s=SECS[st.carSec];con
   view.innerHTML=`<button class="back" data-back="walk">‹ ${esc(c.code)}</button><h2 class="title">${esc(s.es)}</h2><p class="hint" style="margin:0">Carro ${esc(c.code)} · toca el estado de cada pieza. Se guarda solo, aunque no haya señal.</p>
   <div id="dg" class="list"></div>
   <div class="list">${ps.map(p=>{const x=stOf(c,p.pn);return `<div class="walk"><span class="ph">${imgTag(p)}</span><div class="t"><div><span class="hint">#${esc(p.ref)}</span> <span class="pn">${esc(yNum(p,verOf(c))||p.pn)}</span><br><b>${esc(p.es)}</b></div>
-   ${x.s==='na'?`<span class="st st-na">No aplica (${naWhy(c,p)})</span>`:segHTML(c,p.pn,x.s)}</div></div>`}).join('')}</div>`;
+   ${x.s==='na'?`<span class="st st-na">No aplica (${naWhy(c,p)})</span>`:segHTML(c,p.pn,x.s)}${ubiOf(c.id,p.pn)?`<span class="hint">📍 ${esc(ubiOf(c.id,p.pn))}</span>`:''}</div></div>`}).join('')}</div>`;
   diagrams(s.i).then(ds=>{const el=$('#dg');if(el&&ds.length)el.innerHTML=`<button class="diag-btn" data-zoom="${s.i}" data-zk="0"><img src="${ds[0]}" alt="Diagrama"><em>Toca para ampliar</em></button>`})}
 // ---- comanda ----
 function calc(){const sub=CART.reduce((a,l)=>a+l.qty*(+l.price||0),0);let desc=0;
@@ -281,9 +284,12 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
      :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div></div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
     ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
-      ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado</summary>${segHTML(c,p.pn,x.s)}</details>`}</div>
+      ${AVAIL(x.s)?`<div class="hint" style="margin-top:4px">📍 ${ubiOf(c.id,p.pn)?`<b>${esc(ubiOf(c.id,p.pn))}</b>`:(x.s==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
+      ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado o lugar</summary>${segHTML(c,p.pn,x.s)}
+       <div class="drow" style="margin-top:8px"><input id="ubi-${c.id}" list="ubis" placeholder="Lugar: T-3, G-1…" value="${esc(ubiOf(c.id,p.pn))}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0"><button class="btn ghost" data-saveubi="${c.id}">Guardar lugar</button></div></details>`}</div>
       <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
+  sheet.insertAdjacentHTML('beforeend',ubiList());
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
 // capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
 let LAYERS=0;
@@ -346,7 +352,9 @@ function openMenu(){SHEET='menu';
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
-function setStatus(carId,pn,s){const p=BYPN[pn];const val={s,n:AVAIL(s)?units(p):0};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
+function setUbi(carId,pn,u){u=String(u||'').trim().toUpperCase();const cur=Object.assign({},(EST[carId]||{})[pn]||stOf(CARS.find(c=>c.id===carId),pn));cur.u=u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:cur});
+  setDoc(doc(fs,'estado',carId),{m:{[pn]:{s:cur.s,n:cur.n!=null?cur.n:0,u}}},{merge:true}).catch(e=>toast(errMsg(e)))}
+function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const val={s,n:AVAIL(s)?units(p):0};if(old.u&&AVAIL(s))val.u=old.u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
   const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver')};
@@ -408,9 +416,9 @@ async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)re
   stt.className='status';stt.textContent='Subiendo…';const ops=[];const now=new Date().toISOString();const by={by:ME.uid,byName:PROFILE?.name||ME.email};
   try{for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c)throw new Error('No existe el carro '+code);ops.push([doc(fs,'carros',c.id),body,{merge:true}])}
     for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
-      {const es=e.s||'quitada';ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:{s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)}}},{merge:true}])}
+      {const es=e.s||'quitada';const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
-    for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,date:now,...by}])}
+    for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
     for(const f of J.fotos||[]){const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:now,...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])}
     for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
     LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.';btn.remove()}
@@ -449,10 +457,11 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
   <div class="wrap body">${galHTML('X:'+id)}
    ${x.num?`<div class="tagline"><span class="tag">${esc(x.num)}</span><button class="copy" data-copy="${esc(x.num)}">Copiar número</button></div>`:''}
    <div><h2 class="title">${esc(x.name)}</h2>${x.cond?`<p class="hint" style="margin:.3em 0 0;font-size:15px">Estado: ${esc(x.cond)}</p>`:''}</div>
-   <dl class="meta"><dt>Dónde está</dt><dd>${esc(x.car?'Carro '+carCode(x.car):'Bodega')}</dd><dt>Cantidad</dt><dd>${xAvail(x)?x.qty:'Vendida'}</dd>${x.nota?`<dt>Nota</dt><dd>${esc(x.nota)}</dd>`:''}<dt>La agregó</dt><dd>${esc(x.byName||'')} · ${fmtDate((x.date||'').slice(0,10))}</dd></dl>
+   <dl class="meta"><dt>Dónde está</dt><dd>${esc(x.car?'Carro '+carCode(x.car):'Bodega')}${x.ubi?' · 📍 '+esc(x.ubi):''}</dd><dt>Cantidad</dt><dd>${xAvail(x)?x.qty:'Vendida'}</dd>${x.nota?`<dt>Nota</dt><dd>${esc(x.nota)}</dd>`:''}<dt>La agregó</dt><dd>${esc(x.byName||'')} · ${fmtDate((x.date||'').slice(0,10))}</dd></dl>
    <div class="card form"><span class="hint">Precio de venta${x.sug?' (sugerido)':''}</span><div class="price">${money(x.price)}</div>
     ${OWN?`<label class="f" for="x-price">Poner mi precio (MXN)<input id="x-price" type="number" inputmode="decimal" min="0" value="${esc(x.sug?'':x.price)}" placeholder="${esc(x.price)}"></label>
     <div class="two"><label class="f" for="x-qty">Cantidad<input id="x-qty" type="number" min="0" value="${esc(x.qty)}"></label><label class="f" for="x-name">Nombre<input id="x-name" value="${esc(x.name)}"></label></div>
+    <label class="f" for="x-ubi">Lugar (T-3, G-1…)<input id="x-ubi" list="ubis" value="${esc(x.ubi||'')}" style="text-transform:uppercase"></label>${ubiList()}
     <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
    ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">+ Comanda</button>`:ic?`<p class="hint">${ic} en la comanda</p>`:''}
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
@@ -599,7 +608,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
     toast(d.plus==='1'?'Sumada una más':'Foto agregada');openExtra(d.intx);return}
   if('intnew' in d){intakeNew(intakeVals());return}
   if(d.addx){const x=xById(d.addx);CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:x.price||''});saveCart();toast('Agregado a la comanda');openExtra(x.id);return}
-  if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida'};if(pr!==''){up.price=+pr;up.sug=false}
+  if(d.saveubi){const p=PARTS[openIdx];const v=($('#ubi-'+d.saveubi)||{}).value||'';const x=stOf(CARS.find(c=>c.id===d.saveubi),p.pn);if(!AVAIL(x.s))setStatus(d.saveubi,p.pn,'quitada');setUbi(d.saveubi,p.pn,v);toast(v?'Lugar guardado: '+v.toUpperCase():'Lugar borrado');openPart(openIdx);return}
+  if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida',ubi:(($('#x-ubi')||{}).value||'').trim().toUpperCase()};if(pr!==''){up.price=+pr;up.sug=false}
     Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)));toast('Guardado');openExtra(x.id);return}
   if(d.delx){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Seguro? Toca otra vez';return}
     deleteDoc(doc(fs,'extras',d.delx)).catch(e=>toast(errMsg(e)));FOTOLIST.filter(f=>f.pn==='X:'+d.delx).forEach(f=>{deleteDoc(doc(fs,'fotos',f.id)).catch(()=>{});deleteDoc(doc(fs,'fotosfull',f.id)).catch(()=>{})});
