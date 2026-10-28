@@ -305,7 +305,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261028-0142';
+const VERSION='20261028-0146';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -627,7 +627,7 @@ function openMenu(){SHEET='menu';
    <a class="btn ghost" style="text-align:center;text-decoration:none" href="tienda.html">👁 Ver la tienda como cliente</a>
    ${OWN?`<details class="card form"><summary><b>Clientes registrados (${CLIENTES.length})</b></summary>${CLIENTES.length?CLIENTES.map(c=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((c.name||c.user||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(c.name||'')}</b><br><span class="hint">⭐ ${c.puntos||0} puntos · ${c.compras||0} compras · Usuario: ${esc(c.user)}</span></div>${c.tel?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/52${esc(c.tel.slice(-10))}">WhatsApp</a>`:''}</div>`).join(''):'<p class="hint" style="margin:0">Aún no hay clientes registrados.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261028-0142</p></div>`;
+   <p class="note">Versión 20261028-0146</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
