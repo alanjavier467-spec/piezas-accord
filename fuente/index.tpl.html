@@ -194,7 +194,7 @@ function vCarros(){
   const cs=carsSorted();
   view.innerHTML=`<h2 class="title">Carros</h2><p class="hint" style="margin:0">Cada carro es su propio estante. El de arriba es el más viejo: de ese conviene vender primero.</p>
   ${cs.length?`<div class="card">${cs.map(c=>{const k=carCounts(c);return `<button class="carrow" data-car="${c.id}" style="width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none">
-    <span class="carcode">${esc(c.code)}</span><span style="min-width:0"><b>${esc([c.year,c.trim,EXT[c.color]||c.color].filter(Boolean).join(' · '))}</b><br><span class="hint">${c.llegada?'Llegó '+fmtDate(c.llegada):'Sin fecha de llegada'}${c.vin?' · VIN …'+esc(c.vin.slice(-6)):''}</span></span>
+    <span class="carside"><span class="carcode">${esc(c.code)}</span>${c.foto?`<img class="carpic" src="${c.foto}" alt="">`:''}</span><span style="min-width:0"><b>${esc([c.year,c.trim,EXT[c.color]||c.color].filter(Boolean).join(' · '))}</b><br><span class="hint">${c.llegada?'Llegó '+fmtDate(c.llegada):'Sin fecha de llegada'}${c.vin?' · VIN …'+esc(c.vin.slice(-6)):''}</span></span>
     <span style="text-align:right"><span class="st st-esta">${k.esta+k.quitada} disp.</span><br>${k.revisar?`<span class="st st-revisar" style="margin-top:4px">${k.revisar} por revisar</span>`:''}</span></button>`}).join('')}</div>`:'<div class="card"><b>Aún no hay carros.</b></div>'}
   ${OWN?`<details class="card"><summary><b>Agregar carro</b></summary>${carForm({})}</details>`:''}`}
 function carForm(c){const pv=PRIV[c.id]||{};return `<div class="form" style="margin-top:10px">
@@ -204,11 +204,13 @@ function carForm(c){const pv=PRIV[c.id]||{};return `<div class="form" style="mar
   <div class="two"><label class="f" for="c-color">Color exterior<select id="c-color"><option value="">—</option>${Object.entries(EXT).map(([k,v])=>`<option value="${k}" ${c.color===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="f" for="c-km">Kilometraje<input id="c-km" inputmode="numeric" value="${esc(c.km||'')}"></label></div>
   <div class="two"><label class="f" for="c-llegada">Fecha de llegada<input id="c-llegada" type="date" value="${esc(c.llegada||'')}"></label><label class="f" for="c-costo">Costo (MXN, solo tú lo ves)<input id="c-costo" inputmode="decimal" value="${esc(pv.costo||'')}"></label></div>
   ${c.id?'':`<label class="f" for="c-def">¿Cómo viene?<select id="c-def"><option value="esta">Completo: todas las piezas en el carro</option><option value="revisar">Ya desarmado: todo "por revisar"</option></select></label>`}
+  <label class="f" for="c-foto">Foto del carro${c.foto?' (ya tiene; elige otra para cambiarla)':''}<input id="c-foto" type="file" accept="image/*"></label>
   <label class="f" for="c-notas">Notas<textarea id="c-notas" rows="3">${esc(c.notas||'')}</textarea></label>
   <button class="btn" data-savecar="${c.id||''}">${c.id?'Guardar cambios':'Agregar carro'}</button><div class="status" id="c-status"></div></div>`}
 function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const pv=PRIV[c.id]||{};
   const secs=SECS.map(s=>{const pns=[...new Set(PARTS.filter(p=>p.s===s.i).map(p=>p.pn))];const r=pns.filter(pn=>stOf(c,pn).s==='revisar').length;const a=pns.filter(pn=>AVAIL(stOf(c,pn).s)).length;return {s,r,a,n:pns.length}}).filter(x=>x.n);
   view.innerHTML=`<button class="back" data-back="car">‹ Carros</button>
+  ${c.foto?`<img class="carpic big" src="${c.foto}" alt="Foto del carro">`:''}
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc([c.year,'Accord',c.trim].filter(Boolean).join(' '))}</h2></div>
   <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
   ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
@@ -363,6 +365,7 @@ function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
   const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver')};
+  const ff=($('#c-foto')||{}).files;if(ff&&ff[0]){try{body.foto=await shrink(ff[0],480,0.62)}catch(e){}}else{const old=(CARS.find(c=>c.id===id)||{}).foto;if(old)body.foto=old}
   const costo=parseFloat(v('costo'))||0;
   try{let cid=id;if(id){body.def=(CARS.find(c=>c.id===id)||{}).def||'esta';setDoc(doc(fs,'carros',id),body)}else{body.def=v('def')||'esta';cid=body.code.replace(/[^A-Z0-9_-]/g,'')||('C'+Date.now());if(CARS.find(c=>c.id===cid))cid=cid+'-'+Date.now().toString(36);setDoc(doc(fs,'carros',cid),body);st.car=cid;st.carSec=null}
    setDoc(doc(fs,'privado',cid),{costo});stt.className='status ok';stt.textContent='Guardado';if(!id){render();window.scrollTo(0,0)}}catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
@@ -499,21 +502,23 @@ function intakeVals(){const g=id=>($(id)||{}).value||'';return {num:g('#i-num').
 function candidates(num,name){const m=new Map();const add=(p,sc)=>{const o=m.get(p.pn);if(!o||o.sc<sc)m.set(p.pn,{p:BYPN[p.pn],sc})};
   const c=num.replace(/[^A-Z0-9]/gi,'').toLowerCase();
   if(c.length>=4){for(const p of PARTS){if(p.pnk===c)add(p,100);else if(p.pnk.includes(c)||(c.length>=10&&c.includes(p.pnk.slice(0,10))))add(p,85);else if(c.length>=8&&p.pnk.startsWith(c.slice(0,8)))add(p,55)}
+    for(const p of PARTS){if(p.ypk&&p.ypk.split(' ').some(y=>y===c))add(p,98);else if(p.ypk&&c.length>=8&&p.ypk.includes(c))add(p,80)}
     for(const [a,v] of Object.entries(ALT)){const ak=a.replace(/[^A-Z0-9]/gi,'').toLowerCase();if(ak===c||ak.includes(c))BYPN[v.pn]&&add(BYPN[v.pn],95)}}
   if(name){(search(name)||[]).slice(0,10).forEach((p,k)=>add(p,40-k))}
-  const xs=EXTRAS.filter(x=>(c.length>=4&&norm(x.num).replace(/[^a-z0-9]/g,'')===c)||(name&&norm(x.name)===norm(name)));
+  const nw=norm(name).split(/\s+/).filter(w=>w.length>2);
+  const xs=EXTRAS.filter(x=>{const xn=norm(x.num).replace(/[^a-z0-9]/g,'');if(c.length>=4&&xn&&(xn===c||xn.includes(c)||c.includes(xn)))return true;if(nw.length){const xw=norm(x.name+' '+(x.nota||''));return nw.filter(w=>xw.includes(w)).length>=Math.max(1,Math.ceil(nw.length*0.6))}return false});
   return {parts:[...m.values()].sort((a,b)=>b.sc-a.sc).slice(0,8),xs}}
 function intakeSearch(){const v=intakeVals();const stt=$('#i-status');
   if(!INT.imgs.length){stt.className='status err';stt.textContent='Primero toma la foto.';return}
   if(!v.num&&!v.name){stt.className='status err';stt.textContent='Escribe el número o el nombre.';return}
   stt.className='status';stt.textContent='';const r=candidates(v.num,v.name);INT.cands=r;const box=$('#i-cands');
   const carN=v.car?carCode(v.car):'';
-  box.innerHTML=`<p class="sec-h">${r.parts.length||r.xs.length?'¿Es alguna de estas?':'No encontré nada parecido'}</p>
-   <div class="list">${r.xs.map(x=>`<div class="cand"><span class="ph">${(FOTOS['X:'+x.id]||[])[0]?`<img src="${FOTOS['X:'+x.id][0].thumb}" alt="">`:'📦'}</span><div><span class="realtag">Ya la agregaste</span><b>${esc(x.name)}</b><br><span class="pn">${esc(x.num)}</span> · ${money(x.price)}</div>
+  box.innerHTML=`<p class="sec-h">${r.parts.length||r.xs.length?(r.parts[0]&&r.parts[0].sc>=95?'Esta pieza ya está en el catálogo: únela para no duplicarla':'Encontré piezas parecidas. ¿Es alguna?'):'No encontré nada parecido'}</p>
+   <div class="list">${r.xs.map(x=>`<div class="cand"><span class="ph">${(FOTOS['X:'+x.id]||[])[0]?`<img src="${FOTOS['X:'+x.id][0].thumb}" alt="">`:'📦'}</span><div><span class="realtag">Parecida a una que ya agregaste</span><b>${esc(x.name)}</b><br><span class="pn">${esc(x.num)}</span> · ${money(x.price)}</div>
      <div class="acts"><button class="btn ghost" data-intx="${esc(x.id)}" data-plus="0">Es la misma (solo foto)</button><button class="btn alt" data-intx="${esc(x.id)}" data-plus="1">Es otra igual (+1)</button></div></div>`).join('')}
-   ${r.parts.map(({p,sc})=>`<div class="cand"><span class="ph">${phTag(p)}</span><div>${sc>=95?'<span class="realtag">Mismo número</span>':''}<span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b><br><span class="hint">${esc(SECS[p.s].es)} · ${money(priceOf(p.pn))}</span></div>
-     <div class="acts"><button class="btn alt" data-intpart="${esc(p.pn)}">Sí, es esta</button><button class="btn ghost" data-open="${p.i}">Ver ficha</button></div></div>`).join('')}</div>
-   <div class="card form" style="margin-top:10px"><b>¿No es ninguna?</b><p class="hint" style="margin:0">Se guarda como pieza nueva disponible${carN?' del carro '+esc(carN):''}, con su foto y precio.</p><button class="btn" data-intnew>Crear pieza nueva</button></div>`;
+   ${r.parts.map(({p,sc})=>`<div class="cand"><span class="ph">${phTag(p)}</span><div>${sc>=98&&sc<100?'<span class="realtag">Mismo número (otro año)</span>':sc>=95?'<span class="realtag">Mismo número</span>':'<span class="realtag" style="background:var(--sunk);color:var(--muted)">Parecida</span>'}<span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b><br><span class="hint">${esc(SECS[p.s].es)} · ${money(priceOf(p.pn))}</span></div>
+     <div class="acts"><button class="btn alt" data-intpart="${esc(p.pn)}">Unir con esta</button><button class="btn ghost" data-open="${p.i}">Ver ficha</button></div></div>`).join('')}</div>
+   <div class="card form" style="margin-top:10px"><b>¿No es ninguna? Crear pieza aparte</b><p class="hint" style="margin:0">Se guarda como pieza nueva disponible${carN?' del carro '+esc(carN):''}, con su foto y precio.</p><button class="btn" data-intnew>Crear pieza nueva</button></div>`;
   hookImgs(box);box.scrollIntoView({behavior:'smooth',block:'start'})}
 function intakeAttachPart(pn,v){const p=BYPN[pn];
   savePhotos(pn,INT.imgs,{cond:v.cond,nota:v.nota,car:v.car});
@@ -596,7 +601,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
   if(t.dataset.lp!=null)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
-  if(d.tab){st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
+  if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
   if(d.openx){openExtra(d.openx);return}
   if('intake' in d){openIntake();return}
