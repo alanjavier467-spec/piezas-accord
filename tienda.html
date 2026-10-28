@@ -152,8 +152,13 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .pl .stt{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
 .pl .stt.av{background:var(--green);color:#fff}.pl .stt.no{background:#eee;color:#888}.pl .stt.rev{background:#f6efd9;color:#8a6d1a}
 @media (max-width:900px){.hot{width:20px;height:20px;border-width:2px}.hot b{font-size:10px}.hot:hover span{display:none}.hot.on span{display:block}}
-.duo{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px}
-.caro{min-width:0}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px;align-items:stretch}
+.caro{min-width:0;display:flex;flex-direction:column}
+.caro .track{flex:1;align-items:stretch}
+.track>.card{height:auto}
+.dcats{display:grid;grid-template-columns:1fr;gap:5px;font-size:11.5px;color:var(--muted)}
+.dcats span{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcats svg{width:15px;height:15px;color:var(--green);flex:none}.dcats b{color:var(--ink)}
 .caro-h{display:flex;justify-content:space-between;align-items:end;gap:10px}
 .caro-h h2.big{font-size:34px;margin-bottom:12px}
 .caro-nav{display:flex;gap:8px;margin-bottom:14px}
@@ -285,7 +290,12 @@ function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean)
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box">🚗</span>'}<span class="tag ok">${esc(c.code)}</span></div>
   <div class="bd"><div class="sec">Honda Accord Sport</div><h3 style="cursor:default">${esc([c.year,VL[c.ver]||'',c.color].filter(Boolean).join(' · '))}</h3>
+  ${donorCats(c.code)}
   <div class="ft"><div class="price">${c.n} pieza${c.n===1?'':'s'}<small>disponibles</small></div><button class="btn dark" style="padding:9px 11px;font-size:12.5px" data-carf="${esc(c.code)}">Ver piezas</button></div></div></div>`;
+// resumen por categoría de lo disponible de ese carro (para que la tarjeta quede pareja)
+function donorCats(code){const m={};ALL.forEach(it=>{if(it.ex==='av'&&String(it.cars||'').split(',').includes(code))m[it.cat]=(m[it.cat]||0)+1});
+  const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  return `<div class="dcats">${top.length?top.map(([c,n])=>`<span>${ico(c)}<b>${n}</b> ${esc(c)}</span>`).join(''):'<span>Piezas por confirmar</span>'}</div>`}
 // la lista va dos veces para que gire sin fin
 const carouselHTML=(id,kick,title,cards)=>`<section class="caro" id="${id}"><div class="caro-h"><div><div class="kicker">${kick}</div><h2 class="big">${title}</h2></div>
   <div class="caro-nav"><button data-caro="${id}" data-dir="-1" aria-label="Anterior">‹</button><button data-caro="${id}" data-dir="1" aria-label="Siguiente">›</button></div></div>
