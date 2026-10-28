@@ -619,8 +619,10 @@ function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio|
 // ---- respaldo ----
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
 async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
-  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST};
-    if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()})}
+  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST,clientes:CLIENTES};
+    try{const sq=await getDocs(collection(fs,'solicitudes'));out.solicitudes=sq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
+    if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()});
+      try{const v=await getDocs(collection(fs,'vista360'));out.vista360={};v.docs.forEach(d=>{out.vista360[d.id]=d.data()})}catch(e){}}
     const day=new Date().toISOString().slice(0,10);download('respaldo-piezas-'+day+'.json',JSON.stringify(out),'application/json');LS.set('ultRespaldo',new Date().toISOString());
     stt.className='status ok';stt.textContent='Listo. Guarda el archivo en tu Google Drive o mándatelo por WhatsApp.'}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
 let rsArmed=null;
@@ -632,6 +634,7 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   Object.entries(J.alternos||{}).forEach(([k,v])=>ops.push(['alternos',k,v]));(J.ventas||[]).forEach(v=>ops.push(['ventas',v.id,strip(v)]));(J.extras||[]).forEach(v=>ops.push(['extras',v.id,strip(v)]));
   (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
+  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
   for(let i=0;i<ops.length;i+=50){const b=writeBatch(fs);ops.slice(i,i+50).forEach(([c,id,d])=>b.set(doc(fs,c,id),d));await b.commit();stt.textContent='Restaurando… '+Math.min(100,Math.round((i+50)/ops.length*100))+'%'}
   stt.className='status ok';stt.textContent='Respaldo restaurado.';rsArmed=null}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
 // ---- página pública: resumen de lo disponible ----
@@ -642,7 +645,8 @@ function pubSnapshot(){const items=[],rev=[];
     items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),(FOTOS[pn]||[]).slice(0,5).map(x=>x.id).join(','),f?(f.cond||''):'',isSug(pn)?1:0])}
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
-  return {v:2,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
+  const cars=carsSorted().filter(c=>!/bodega/i.test((c.code||'')+' '+c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
+  return {v:2,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}

@@ -208,7 +208,7 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
 let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
-const st={sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
+const st={carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
 const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
@@ -243,8 +243,9 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    <div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
-  return ALL.filter(it=>(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
+  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
+const VL={'18':'1.5T','19':'1.5T','20':'1.5T','20T':'2.0T'};
 const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero']];
 const EXO2={av:0,rev:1,no:2};
 function sortArr(arr){const a=arr.slice();const s=st.sort;const nm=(x,y)=>x.es.localeCompare(y.es,'es');
@@ -258,6 +259,10 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filter
     <p>Encuentra la pieza que buscas por nombre o número.</p><p>Te ayudamos con la versión correcta.</p>
     <div class="cta"><a class="btn lime" href="#catalogo" data-go="cat">Explorar catálogo ↓</a><small>Accord Sport · 2018 — 2020</small></div></div>
     <div class="art"><img src="logo-trio.png" alt="Trío Accord"><span>Las buenas piezas se reconocen.</span></div></section>
+   ${(INV.cars||[]).length?`<div class="feat"><div class="kicker">De aquí salen tus piezas</div><h2 class="big">Nuestros Accord donadores</h2>
+     <div class="grid donors">${INV.cars.map(c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box">🚗</span>'}<span class="tag ok">${esc(c.code)}</span></div>
+      <div class="bd"><div class="sec">Honda Accord Sport</div><h3 style="cursor:default">${esc([c.year,VL[c.ver]||'',c.color].filter(Boolean).join(' · '))}</h3>
+      <div class="ft"><div class="price">${c.n} pieza${c.n===1?'':'s'}<small>disponibles de este carro</small></div><button class="btn dark" style="padding:10px 12px;font-size:13px" data-carf="${esc(c.code)}">Ver piezas</button></div></div></div>`).join('')}</div></div>`:''}
    ${feat.length?`<div class="feat"><div class="kicker">Disponibles hoy</div><h2 class="big">Lo más destacado</h2><div class="grid">${feat.map(cardHTML).join('')}</div></div>`:''}
    <div class="sechead" id="catalogo"><div><div class="kicker">Encuentra justo lo que necesitas</div><h2 class="big">Catálogo de piezas</h2></div><span class="pill">Honda original · OEM</span></div>
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
@@ -266,7 +271,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filter
     <button class="chip" data-stock aria-pressed="${st.stock}">✓ Solo en existencia${nAv?' ('+nAv+')':''}</button></div>
    <div class="secrow"><label for="sec">Sección</label><select id="sec"><option value="">Todas las secciones</option>${secs.map(s=>`<option value="${s.i}" ${st.sec===String(s.i)?'selected':''}>${esc(s.es)}</option>`).join('')}</select></div>
    ${nAv?'':`<div class="note"><b>Catálogo completo de Honda Accord Sport.</b> Los precios son sugeridos; confirmamos existencia y compatibilidad por WhatsApp antes de cobrar.</div>`}
-   <div class="meta-row" style="align-items:center"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><label style="display:flex;align-items:center;gap:8px">Ordenar por<select id="sort" class="sortsel">${SORTS.map(([k,l])=>`<option value="${k}" ${st.sort===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
+   ${st.carf?`<div class="note" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Mostrando solo piezas del carro <b>${esc(st.carf)}</b></span><button class="chip" data-carf="">✕ Ver todas</button></div>`:''}<div class="meta-row" style="align-items:center"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><label style="display:flex;align-items:center;gap:8px">Ordenar por<select id="sort" class="sortsel">${SORTS.map(([k,l])=>`<option value="${k}" ${st.sort===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
    ${arr.length?`<div class="grid">${arr.slice(0,st.limit).map(cardHTML).join('')}</div>${arr.length>st.limit?`<button class="btn more" data-more>Ver más piezas (${(arr.length-st.limit).toLocaleString('es-MX')})</button>`:''}`
    :`<div class="empty"><b>No encontramos esa pieza.</b><br><br>Puede que la tengamos y aún no esté publicada.<br><br><a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, busco esta pieza de Honda Accord: '+st.q)}">Preguntar por WhatsApp</a></div>`}`;
   hook(view);
@@ -369,6 +374,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('close' in d){history.back();return}
   if(d.gal){GAL.i+=(+d.gal);showGal();return}
   if(d.galj!=null){GAL.i=+d.galj;showGal();return}
+  if('carf' in d){st.carf=d.carf;st.limit=24;render();setTimeout(()=>{const g=$('#catalogo');if(g)g.scrollIntoView({behavior:'smooth'})},30);return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
   if('more' in d){st.limit+=24;const y=scrollY;render();scrollTo(0,y);return}
