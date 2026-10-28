@@ -117,6 +117,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .vers{display:grid;gap:6px;font-size:13px}
 .vers div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:6px 0}
 .mtop{display:none}
+.staffbar{background:var(--lime);color:var(--green);padding:10px 20px;font-size:14px;font-weight:600;text-align:center}.staffbar a{color:var(--green)}
 .tabs{display:none}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;box-shadow:0 6px 18px rgba(0,0,0,.25);border-radius:999px;padding:14px 18px}
 @media (max-width:900px){
@@ -152,12 +153,13 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
     <a href="#nosotros" data-nav="nosotros">◎ <span>Sobre nosotros</span></a>
   </nav>
   <div class="helpbox"><b>¿No encuentras tu pieza?</b>Envíanos una foto o el número de parte. Te ayudamos a buscarla.<br><a target="_blank" rel="noopener" data-wa="Hola, busco una pieza de Honda Accord: ">WhatsApp ↗</a></div>
-  <a class="collab" href="index.html?entrar" data-collab>↪ Acceso de colaboradores</a>
+  <a class="collab" href="#" data-acct="vendedor">↪ Acceso de vendedores</a>
   <div class="loc">Chihuahua, México · Precios en MXN</div>
 </aside>
 <main>
-  <div class="mtop"><a class="brand" href="#inicio"><img src="logo-trio-sm.png" alt=""><span><b id="nm2">Trío Accord</b><small>Piezas originales · Chihuahua</small></span></a><a class="btn wa" style="padding:9px 12px;font-size:13px" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp</a></div>
-  <div class="topbar"><span id="crumb">Honda Accord / Catálogo</span><span class="acts"><a class="wa-link" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp ↗</a><a class="btn" href="index.html?entrar" data-collab>Ingresar</a></span></div>
+  <div class="mtop"><a class="brand" href="#inicio"><img src="logo-trio-sm.png" alt=""><span><b id="nm2">Trío Accord</b><small>Piezas originales · Chihuahua</small></span></a><a class="btn wa" style="padding:9px 12px;font-size:13px" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp</a><button class="btn acctbtn" data-acct="" style="padding:9px 11px;font-size:13px">👤</button></div>
+  <div id="staffbar" class="staffbar" hidden>👁 Estás viendo la tienda como cliente · <a href="index.html">Volver a mi app</a></div>
+  <div class="topbar"><span id="crumb">Honda Accord / Catálogo</span><span class="acts"><a class="wa-link" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp ↗</a><button class="btn acctbtn" data-acct="">Iniciar sesión / Registrarse</button></span></div>
   <div class="page" id="view"><p style="color:var(--muted)">Cargando catálogo…</p></div>
 </main>
 </div>
@@ -166,8 +168,13 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 <div class="sheet" id="modal" hidden></div>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import {getFirestore,doc,getDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-const fs=getFirestore(initializeApp({"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"}));
+import {getFirestore,doc,getDoc,setDoc,addDoc,collection,query,where,getDocs} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+const fapp=initializeApp({"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"});const fs=getFirestore(fapp);const auth=getAuth(fapp);
+const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFC');
+async function userEmail(u){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normUser(u)));return 'u'+[...new Uint8Array(h)].slice(0,16).map(b=>b.toString(16).padStart(2,'0')).join('')+'@usuarios.piezas-accord.app'}
+const pinPass=p=>'pin-'+p+'-pz';const okPin=p=>/^\d{4}$/.test(p);
+let ME=null,CLI=null,STAFF=false,SIGNING=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
@@ -241,21 +248,61 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
    :`<div class="empty">Aún no has agregado piezas. <a href="#inicio" style="color:var(--green);font-weight:600">Explorar catálogo →</a></div>`}
    <h3 style="font-size:19px;margin:26px 0 4px">¿Cómo te gustaría continuar?</h3>
    <div class="opts">${['Cotización','Efectivo','Transferencia','Pago en línea'].map(o=>`<button class="chip" data-pay="${o}" aria-pressed="${st.pay===o}">${o}</button>`).join('')}</div>
-   <label class="field">Tu nombre (opcional)<input id="qn" value="${esc(LSg('qn',''))}" placeholder="Para saber a quién atendemos"></label>
+   ${CLI?`<div class="note">Cliente registrado: <b>${esc(CLI.name||CLI.user)}</b> (${esc(CLI.user)}). Guardaremos esta solicitud en tu cuenta.</div>`:`<div class="note"><a href="#" data-acct="" style="color:var(--green);font-weight:700">Crea tu cuenta de cliente</a> para guardar tus pedidos y ser cliente frecuente.</div>`}
+   <label class="field">Tu nombre (opcional)<input id="qn" value="${esc(CLI?(CLI.name||''):LSg('qn',''))}" placeholder="Para saber a quién atendemos"></label>
    <label class="field">Tu Accord o comentario (opcional)<input id="qc" value="${esc(LSg('qc',''))}" placeholder="Ej. 2019 Sport, color negro"></label>
    <div class="note">Tu selección se enviará como solicitud. No confirma un pago ni reserva piezas.</div>
    <a class="btn dark" id="qsend" target="_blank" rel="noopener" href="#" ${lines.length?'':'aria-disabled="true" style="opacity:.5;pointer-events:none"'}>Enviar solicitud por WhatsApp ↗</a>
    ${lines.length?' <button class="btn" data-qclear style="margin-left:8px">Vaciar</button>':''}</div>`;
   hook(view);const upd=()=>{const n=$('#qn').value.trim(),c=$('#qc').value.trim();LSs('qn',n);LSs('qc',c);
-    const msg='Hola, quiero cotizar estas piezas de Honda Accord:\n'+lines.map((o,i)=>(i+1)+'. '+o.it.es+' ('+numFor(o.it,st.ver)+') x'+o.q.qty+' — '+(o.it.price?money(o.it.price*o.q.qty):'precio a consultar')).join('\n')+'\nTotal aproximado: '+money(tot)+'\nForma de continuar: '+st.pay+(c?'\nMi Accord / comentario: '+c:'')+(n?'\nNombre: '+n:'')+'\n¿Siguen disponibles?';
-    $('#qsend').href=waLink(msg)};['#qn','#qc'].forEach(s=>$(s).addEventListener('input',upd));upd()}
+    const msg='Hola, quiero cotizar estas piezas de Honda Accord:\n'+lines.map((o,i)=>(i+1)+'. '+o.it.es+' ('+numFor(o.it,st.ver)+') x'+o.q.qty+' — '+(o.it.price?money(o.it.price*o.q.qty):'precio a consultar')).join('\n')+'\nTotal aproximado: '+money(tot)+'\nForma de continuar: '+st.pay+(c?'\nMi Accord / comentario: '+c:'')+(n?'\nNombre: '+n:'')+(CLI?'\nCliente registrado: '+CLI.user+(CLI.tel?' · '+CLI.tel:''):'')+'\n¿Siguen disponibles?';
+    $('#qsend').href=waLink(msg)};['#qn','#qc'].forEach(s=>$(s).addEventListener('input',upd));upd();
+  $('#qsend').addEventListener('click',()=>{if(!CLI||!lines.length)return;addDoc(collection(fs,'solicitudes'),{uid:CLI.uid,user:CLI.user,name:$('#qn').value.trim()||CLI.name||'',tel:CLI.tel||'',pay:st.pay,coment:$('#qc').value.trim(),total:tot,date:new Date().toISOString(),
+    items:lines.map(o=>({k:o.it.k,pn:numFor(o.it,st.ver),es:o.it.es,qty:o.q.qty,price:o.it.price||0}))}).catch(()=>{})})}
 function vNos(){view.innerHTML=`<div class="about"><div class="art"><img src="logo-trio.png" alt="Trío Accord"></div><div class="kicker" style="margin-top:28px">${esc(INV.nombre||'Trío Accord')} · Chihuahua</div>
    <h1>Una nueva vida para cada pieza.</h1><p style="font-size:17px;max-width:560px;line-height:1.6">Piezas originales para Honda Accord Sport. Consulta el número de parte con nuestro equipo para encontrar la opción adecuada para tu carro.</p>
    ${INV.dir?`<p style="color:var(--muted)">📍 ${esc(INV.dir)}</p>`:''}${INV.pie?`<p style="color:var(--muted)">${esc(INV.pie)}</p>`:''}
    <a class="btn dark" target="_blank" rel="noopener" href="${waLink('Hola, quiero hablar con el equipo de piezas de Honda Accord.')}">Hablar con el equipo ↗</a></div>`}
+// ---- cuentas ----
+function acctLabel(){document.querySelectorAll('.acctbtn').forEach(b=>{b.textContent=CLI?(b.closest('.mtop')?'👤':'👤 '+(CLI.name||CLI.user)):STAFF?'Volver a mi app':(b.closest('.mtop')?'👤':'Iniciar sesión / Registrarse')})}
+function openAcct(tab){if(CLI){location.hash='#cuenta';return}if(STAFF){location.href='index.html';return}
+  tab=tab||'cliente';const reg=openAcct.reg||false;
+  modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in" style="max-width:520px">
+   <div class="kicker">Tu cuenta</div><h2 class="big" style="margin:0;font-size:42px">${reg&&tab==='cliente'?'Crear mi cuenta':'Iniciar sesión'}</h2>
+   <div class="opts"><button class="chip" data-atab="cliente" aria-pressed="${tab==='cliente'}">🛒 Soy cliente</button><button class="chip" data-atab="vendedor" aria-pressed="${tab==='vendedor'}">🧰 Soy vendedor</button></div>
+   ${tab==='cliente'?`<p style="margin:0;color:var(--muted);font-size:14px">${reg?'Con tu cuenta guardamos tus datos y tus pedidos, y te tomamos en cuenta como cliente frecuente.':'Entra con tu usuario y tu PIN de 4 números.'}</p>
+    <label class="field">Usuario<input id="a-user" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="El que tú quieras"></label>
+    <label class="field">PIN (4 números)<input id="a-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="${reg?'new-password':'current-password'}"></label>
+    ${reg?`<label class="field">Repite tu PIN<input id="a-pin2" type="password" inputmode="numeric" maxlength="4"></label>
+    <label class="field">Tu nombre<input id="a-name" autocomplete="name"></label><label class="field">Tu WhatsApp (opcional)<input id="a-tel" inputmode="tel" autocomplete="tel"></label>`:''}
+    <button class="btn dark" data-adone>${reg?'Crear mi cuenta':'Entrar'}</button>
+    <button class="btn" data-areg>${reg?'Ya tengo cuenta: entrar':'Soy nuevo: crear mi cuenta'}</button><div id="a-st" style="font-size:14px;min-height:20px"></div>`
+   :`<p style="margin:0;color:var(--muted);font-size:14px">Para personas que trabajan con nosotros. Si te registras como vendedor, tu cuenta queda en espera hasta que el encargado la active.</p>
+    <a class="btn dark" href="index.html?entrar">Entrar como vendedor</a><a class="btn" href="index.html?entrar&registro">Registrarme como vendedor</a>`}</div>`;
+  if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';openAcct.tab=tab}
+async function acctSubmit(){const reg=openAcct.reg;const g=id=>(($(id)||{}).value||'').trim();const u=g('#a-user'),p=g('#a-pin');const stt=$('#a-st');const err=m=>{stt.style.color='#b3261e';stt.textContent=m};
+  if(!u)return err('Escribe tu usuario.');if(!okPin(p))return err('El PIN es de 4 números.');stt.style.color='var(--muted)';stt.textContent=reg?'Creando tu cuenta…':'Entrando…';
+  try{const email=await userEmail(u);
+    if(!reg){await signInWithEmailAndPassword(auth,email,pinPass(p));return}
+    if(p!==g('#a-pin2'))return err('Los dos PIN no son iguales.');const name=g('#a-name');if(!name)return err('Escribe tu nombre.');
+    SIGNING=true;const cred=await createUserWithEmailAndPassword(auth,email,pinPass(p));
+    await setDoc(doc(fs,'clientes',cred.user.uid),{user:u,name,tel:g('#a-tel').replace(/\D/g,''),email,created:new Date().toISOString()});SIGNING=false;await onUser(cred.user)}
+  catch(e){SIGNING=false;err(e.code==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'?'Usuario o PIN incorrectos.':e.code==='auth/too-many-requests'?'Demasiados intentos. Espera unos minutos.':'No se pudo: '+(e.code||e.message))}}
+async function onUser(u){ME=u;CLI=null;STAFF=false;
+  if(u){try{const c=await getDoc(doc(fs,'clientes',u.uid));if(c.exists())CLI=Object.assign({uid:u.uid},c.data());else STAFF=true}catch(e){}}
+  $('#staffbar').hidden=!STAFF;acctLabel();if(CLI&&!modal.hidden){const go=()=>{location.hash='#cuenta'};if(history.state&&history.state.det){window.addEventListener('popstate',()=>setTimeout(go,30),{once:true});history.back()}else{closeDet();go()}}if(st.route==='cuenta'||st.route==='cotizacion')render()}
+async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesión para ver tu cuenta.<br><br><button class="btn dark" data-acct="">Iniciar sesión / Registrarse</button></div>`;return}
+  view.innerHTML=`<div class="qt"><div class="kicker">Mi cuenta · Cliente</div><h1>Hola, ${esc(CLI.name||CLI.user)}</h1>
+   <p style="color:var(--muted);margin:0 0 18px">Usuario <b>${esc(CLI.user)}</b> · Cliente desde ${new Date(CLI.created).toLocaleDateString('es-MX',{month:'long',year:'numeric'})}</p>
+   <label class="field">Tu nombre<input id="c-name" value="${esc(CLI.name||'')}"></label><label class="field">Tu WhatsApp<input id="c-tel" inputmode="tel" value="${esc(CLI.tel||'')}"></label>
+   <button class="btn" data-csave>Guardar mis datos</button>
+   <h3 style="font-size:19px;margin:28px 0 8px">Mis solicitudes</h3><div id="c-sol"><p style="color:var(--muted)">Cargando…</p></div>
+   <button class="btn" data-clogout style="margin-top:20px">Cerrar sesión</button></div>`;
+  try{const sn=await getDocs(query(collection(fs,'solicitudes'),where('uid','==',CLI.uid)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>b.date.localeCompare(a.date));const el=$('#c-sol');if(!el)return;
+    el.innerHTML=L.length?L.map(r=>`<div class="qline" style="grid-template-columns:1fr auto"><div><b>${new Date(r.date).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</b> · ${esc(r.pay||'')}<br><span style="font-size:13px;color:var(--muted)">${(r.items||[]).map(i=>esc(i.es)+' x'+i.qty).join(', ')}</span></div><div class="price">${money(r.total)}</div></div>`).join(''):'<p style="color:var(--muted)">Aún no has enviado solicitudes. Arma tu cotización y envíala por WhatsApp.</p>'}catch(e){const el=$('#c-sol');if(el)el.innerHTML='<p style="color:var(--muted)">No se pudieron cargar.</p>'}}
 function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',a.dataset.nav===st.route?'page':'false'));
-  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros'})[st.route];
-  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos})[st.route]();saveQ()}
+  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta'})[st.route];
+  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta})[st.route]();saveQ()}
 async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
@@ -271,8 +318,13 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   if(it.f){try{const d=await getDoc(doc(fs,'fotosfull',it.f));const u=d.exists()&&d.data().img;const im=$('#bigph img');if(u&&im){im.src=u;im.className='real'}}catch(e){}}}
 function closeDet(){modal.hidden=true;document.body.style.overflow=''}
 // ---- eventos ----
-document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det],[data-go],[data-collab]');if(!t)return;const d=t.dataset;
-  if('collab' in d){LSs('modo','vendedor');return}
+document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;
+  if('acct' in d){e.preventDefault();openAcct.reg=false;openAcct(d.acct||'cliente');return}
+  if(d.atab){openAcct(d.atab);return}
+  if('areg' in d){openAcct.reg=!openAcct.reg;openAcct('cliente');return}
+  if('adone' in d){acctSubmit();return}
+  if('csave' in d){const name=$('#c-name').value.trim(),tel=$('#c-tel').value.replace(/\D/g,'');setDoc(doc(fs,'clientes',CLI.uid),{name,tel},{merge:true}).then(()=>{CLI.name=name;CLI.tel=tel;acctLabel();t.textContent='Guardado ✓'},()=>{t.textContent='No se pudo guardar'});return}
+  if('clogout' in d){signOut(auth);location.hash='#inicio';return}
   if(d.go==='cat'){e.preventDefault();$('#catalogo').scrollIntoView({behavior:'smooth'});return}
   if(d.q){toggleQ(d.q);if(!modal.hidden)openDet(d.q);if(st.route==='inicio'){const b=document.querySelector(`.add[data-q="${CSS.escape(d.q)}"]`);if(b){const on=inQ(d.q);b.className='add'+(on?' on':'');b.textContent=on?'✓':'+'}}else render();return}
   if(d.det){openDet(d.det);return}
@@ -285,7 +337,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
-const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
+const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros','cuenta'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
@@ -302,7 +354,7 @@ try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getD
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;
   document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa));
-  route()}
+  route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)})}
 catch(e){console.error(e);view.innerHTML='<div class="empty"><b>No se pudo cargar el catálogo.</b><br>Revisa tu internet y recarga la página.</div>'}
 </script>
 </body>
