@@ -172,6 +172,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 @media (max-width:900px){.track>.card{flex-basis:calc((100% - 14px)/1.6)}.caro-h h2.big{font-size:30px}}
 .staffbar{background:var(--lime);color:var(--green);padding:10px 20px;font-size:14px;font-weight:600;text-align:center}.staffbar a{color:var(--green)}
 .tabs{display:none}
+.mini{width:30px;height:13px;vertical-align:-2px;display:inline-block}.tabs a span .mini{width:40px;height:17px;vertical-align:middle}.mini.big2{width:120px;height:50px}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;box-shadow:0 6px 18px rgba(0,0,0,.25);border-radius:999px;padding:14px 18px}
 @media (max-width:900px){
  .shell{grid-template-columns:1fr}
@@ -197,6 +198,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="mini" viewBox="0 0 64 26"><ellipse cx="33" cy="23.6" rx="28.5" ry="1.5" fill="#000" opacity=".16"/><path d="M3.6 19.4 L3 15.4 Q3 13.3 5.6 12.9 L10.2 12.2 Q19.5 4.9 31 4.3 Q40 4.2 46.6 9.5 L56 11.2 Q61 12.1 62 15 L62.2 17.6 Q62 19.4 60.4 19.4 Z" fill="#c8102e"/><path d="M5 13.6 L10.6 12.9 Q19.8 6.2 31 5.6" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".7"/><path d="M12.6 11.5 Q20.5 6.1 30.4 5.6 L30.4 10.9 Z M31.9 5.6 Q39.6 5.7 45 10.5 L31.9 10.9 Z" fill="#1c2430"/><path d="M10.8 12 Q19.8 5.1 31 4.85 Q40 4.9 45.9 10.7" fill="none" stroke="#e5e7eb" stroke-width=".55"/><path d="M44.3 10.2 L46.4 10.1 L46.6 11.4 L44.6 11.6 Z" fill="#8a0b20"/><path d="M54.6 12.1 L60.8 13.2 L60.3 14 L54.8 13.1 Z" fill="#eef6ff"/><path d="M56.4 14.6 L61.9 15.1" stroke="#d1d5db" stroke-width=".7" stroke-linecap="round"/><path d="M3.2 13.6 L8.6 12.9 L8.4 13.9 L3.3 14.6 Z" fill="#6d0013"/><path d="M25 12.9 H27 M38.4 12.9 H40.4" stroke="#7a0016" stroke-width=".6" stroke-linecap="round"/><path d="M5.5 16.6 Q33 15.4 60.5 16.4" fill="none" stroke="#000" stroke-opacity=".16" stroke-width=".55"/><path d="M8 19.4 H58" stroke="#1a1a1a" stroke-width="1"/><circle cx="15" cy="19.3" r="5" fill="#2a0a10"/><circle cx="15" cy="19.3" r="4.4" fill="#111"/><circle cx="15" cy="19.3" r="3.1" fill="#3f4652"/><g stroke="#aab2bd" stroke-width=".75" stroke-linecap="round"><line x1="15" y1="19.3" x2="15.00" y2="16.60"/><line x1="15" y1="19.3" x2="17.57" y2="18.47"/><line x1="15" y1="19.3" x2="16.59" y2="21.48"/><line x1="15" y1="19.3" x2="13.41" y2="21.48"/><line x1="15" y1="19.3" x2="12.43" y2="18.47"/></g><circle cx="15" cy="19.3" r=".8" fill="#e5e7eb"/><circle cx="50.5" cy="19.3" r="5" fill="#2a0a10"/><circle cx="50.5" cy="19.3" r="4.4" fill="#111"/><circle cx="50.5" cy="19.3" r="3.1" fill="#3f4652"/><g stroke="#aab2bd" stroke-width=".75" stroke-linecap="round"><line x1="50.5" y1="19.3" x2="50.50" y2="16.60"/><line x1="50.5" y1="19.3" x2="53.07" y2="18.47"/><line x1="50.5" y1="19.3" x2="52.09" y2="21.48"/><line x1="50.5" y1="19.3" x2="48.91" y2="21.48"/><line x1="50.5" y1="19.3" x2="47.93" y2="18.47"/></g><circle cx="50.5" cy="19.3" r=".8" fill="#e5e7eb"/></symbol></defs></svg>
 <div class="shell">
 <aside class="side">
   <a class="brand" href="#inicio"><img src="logo-trio-sm.png" alt=""><span><b id="nm1">Trío Accord</b><small>Piezas originales · Chihuahua</small></span></a>
@@ -204,7 +206,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
   <nav class="menu">
     <a href="#inicio" data-nav="inicio">▦ <span>Catálogo</span></a>
     <a href="#cotizacion" data-nav="cotizacion">☰ <span>Mi cotización</span><span class="cnt" data-cnt>0</span></a>
-    <a href="#accord" data-nav="accord">🚗 <span>Explorar el Accord</span></a>
+    <a href="#accord" data-nav="accord"><svg class="mini" aria-hidden="true"><use href="#mini"/></svg> <span>Explorar el Accord</span></a>
     <a href="#nosotros" data-nav="nosotros">◎ <span>Sobre nosotros</span></a>
   </nav>
   <div class="helpbox"><b>¿No encuentras tu pieza?</b>Envíanos una foto o el número de parte. Te ayudamos a buscarla.<br><a target="_blank" rel="noopener" data-wa="Hola, busco una pieza de Honda Accord: ">WhatsApp ↗</a></div>
@@ -218,7 +220,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
   <div class="page" id="view"><p style="color:var(--muted)">Cargando catálogo…</p></div>
 </main>
 </div>
-<nav class="tabs"><a href="#inicio" data-nav="inicio"><span>▦</span>Catálogo</a><a href="#accord" data-nav="accord"><span>🚗</span>Explorar</a><a href="#cotizacion" data-nav="cotizacion"><span>☰</span>Cotización<b class="cnt" data-cnt hidden>0</b></a><a href="#nosotros" data-nav="nosotros"><span>◎</span>Nosotros</a></nav>
+<nav class="tabs"><a href="#inicio" data-nav="inicio"><span>▦</span>Catálogo</a><a href="#accord" data-nav="accord"><span><svg class="mini" aria-hidden="true"><use href="#mini"/></svg></span>Explorar</a><a href="#cotizacion" data-nav="cotizacion"><span>☰</span>Cotización<b class="cnt" data-cnt hidden>0</b></a><a href="#nosotros" data-nav="nosotros"><span>◎</span>Nosotros</a></nav>
 <a class="btn dark fab" id="fab" href="#cotizacion" hidden>Ver mi cotización</a>
 <div class="sheet" id="modal" hidden></div>
 <script type="module">
@@ -288,7 +290,7 @@ function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean)
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
-const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box">🚗</span>'}<span class="tag ok">${esc(c.code)}</span></div>
+const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><svg class="mini big2" aria-hidden="true"><use href="#mini"/></svg></span>'}<span class="tag ok">${esc(c.code)}</span></div>
   <div class="bd"><div class="sec">Honda Accord Sport</div><h3 style="cursor:default">${esc([c.year,VL[c.ver]||'',c.color].filter(Boolean).join(' · '))}</h3>
   ${donorCats(c.code)}
   <div class="ft"><div class="price">${c.n} pieza${c.n===1?'':'s'}<small>disponibles</small></div><button class="btn dark" style="padding:9px 11px;font-size:12.5px" data-carf="${esc(c.code)}">Ver piezas</button></div></div></div>`;
