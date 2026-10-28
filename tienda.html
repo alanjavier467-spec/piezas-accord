@@ -36,6 +36,10 @@ nav.menu a .cnt{margin-left:auto;background:var(--green);color:#fff;font-size:11
 .helpbox a{color:var(--green);font-weight:700;text-decoration:none;display:inline-block;margin-top:8px}
 .collab{font-size:12.5px;color:var(--muted);text-decoration:none;border-top:1px solid var(--line);padding-top:12px}
 .loc{font-size:11px;color:var(--muted)}
+.foot{padding:0 40px 40px;max-width:1360px;font-size:12px;line-height:1.55;color:var(--muted)}.foot p{margin:0 0 6px;max-width:820px}.foot a{color:var(--green);font-weight:600}
+.legal{max-width:760px}.legal h1{font-family:var(--fd);font-weight:400;font-size:clamp(40px,6vw,64px);line-height:1;margin:10px 0 14px}.legal h3{font-size:18px;margin:26px 0 6px}.legal p,.legal li{line-height:1.6;font-size:15px}.legal ul{padding-left:20px;margin:6px 0}
+.legalbox{background:#ecebe5;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.55}
+.privnote{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}.privnote a{color:var(--green);font-weight:600}
 main{min-width:0}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 40px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)}
 .topbar .acts{display:flex;align-items:center;gap:14px}
@@ -179,7 +183,8 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
  aside.side,.topbar{display:none}
  .mtop{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:20}
  .mtop .brand img{width:58px}.mtop .brand b{font-size:24px}
- .page{padding:16px 16px 110px}
+ .page{padding:16px 16px 24px}
+ .foot{padding:0 16px 110px}
  .hero{grid-template-columns:1fr;padding:30px 22px;text-align:left}
  .hero .art{order:-1;gap:6px}.hero .art img{width:min(52%,200px)}.hero .art span{font-size:18px}
  .hero{padding:22px 20px}.hero h1{font-size:40px;margin:10px 0 12px}.hero .cta{margin-top:14px}
@@ -211,13 +216,14 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
   </nav>
   <div class="helpbox"><b>¿No encuentras tu pieza?</b>Envíanos una foto o el número de parte. Te ayudamos a buscarla.<br><a target="_blank" rel="noopener" data-wa="Hola, busco una pieza de Honda Accord: ">WhatsApp ↗</a></div>
   <a class="collab" href="#" data-acct="vendedor">↪ Acceso de vendedores</a>
-  <div class="loc">Chihuahua, México · Precios en MXN</div>
+  <div class="loc">Chihuahua, México · Precios en MXN<br><a href="#privacidad" style="color:inherit">Aviso de privacidad</a> · Negocio independiente, no afiliado a Honda</div>
 </aside>
 <main>
   <div class="mtop"><a class="brand" href="#inicio"><img src="logo-trio-sm.png" alt=""><span><b id="nm2">Trío Accord</b><small>Piezas originales · Chihuahua</small></span></a><a class="btn wa" style="padding:9px 12px;font-size:13px" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp</a><button class="btn acctbtn" data-acct="" style="padding:9px 11px;font-size:13px">👤</button></div>
   <div id="staffbar" class="staffbar" hidden>👁 Estás viendo la tienda como cliente · <a href="index.html">Volver a mi app</a></div>
   <div class="topbar"><span id="crumb">Honda Accord / Catálogo</span><span class="acts"><a class="wa-link" target="_blank" rel="noopener" data-wa="Hola, vi su catálogo de piezas de Honda Accord. ">WhatsApp ↗</a><button class="btn acctbtn" data-acct="">Iniciar sesión / Registrarse</button></span></div>
   <div class="page" id="view"><p style="color:var(--muted)">Cargando catálogo…</p></div>
+  <footer class="foot"><p><b>Negocio independiente.</b> <span class="nmf">Trío Accord</span> vende autopartes originales usadas, recuperadas de vehículos de nuestra propiedad. No estamos afiliados, patrocinados ni autorizados por Honda Motor Co., Ltd., American Honda Motor Co. ni Honda de México. “Honda” y “Accord” son marcas de sus respectivos dueños y aquí se usan solo para indicar con qué vehículos son compatibles las piezas.</p><p><a href="#privacidad">Aviso de privacidad</a> · Chihuahua, México · Precios en MXN</p></footer>
 </main>
 </div>
 <nav class="tabs"><a href="#inicio" data-nav="inicio"><span>▦</span>Catálogo</a><a href="#accord" data-nav="accord"><span><svg class="mini" aria-hidden="true"><use href="#mini"/></svg></span>Explorar</a><a href="#cotizacion" data-nav="cotizacion"><span>☰</span>Cotización<b class="cnt" data-cnt hidden>0</b></a><a href="#nosotros" data-nav="nosotros"><span>◎</span>Nosotros</a></nav>
@@ -370,7 +376,19 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
 function vNos(){view.innerHTML=`<div class="about"><div class="art"><img src="logo-trio.png" alt="Trío Accord"></div><div class="kicker" style="margin-top:28px">${esc(INV.nombre||'Trío Accord')} · Chihuahua</div>
    <h1>Una nueva vida para cada pieza.</h1><p style="font-size:17px;max-width:560px;line-height:1.6">Piezas originales para Honda Accord Sport. Consulta el número de parte con nuestro equipo para encontrar la opción adecuada para tu carro.</p>
    ${INV.dir?`<p style="color:var(--muted)">📍 ${esc(INV.dir)}</p>`:''}${INV.pie?`<p style="color:var(--muted)">${esc(INV.pie)}</p>`:''}
+   <p class="legalbox" style="max-width:620px">Somos un <b>negocio independiente</b>: vendemos piezas originales usadas de Accord que son de nuestra propiedad. No somos agencia ni distribuidor de Honda, ni estamos afiliados a Honda Motor Co.</p>
    <a class="btn dark" target="_blank" rel="noopener" href="${waLink('Hola, quiero hablar con el equipo de piezas de Honda Accord.')}">Hablar con el equipo ↗</a></div>`}
+function vPriv(){const N=esc(INV.nombre||'Trío Accord'),D=esc(INV.dir||'Chihuahua, Chihuahua, México'),W=esc(waNum().replace(/^52(?=\d{10}$)/,''));
+  view.innerHTML=`<div class="legal"><div class="kicker">Actualizado: 28 de octubre de 2026</div><h1>Aviso de privacidad</h1>
+   <p class="legalbox"><b>Versión corta.</b> ${N} usa tu usuario, nombre y WhatsApp solo para atender tus cotizaciones, registrar tus compras y tus puntos de cliente frecuente. No vendemos ni rentamos tus datos. Puedes pedir verlos, corregirlos o borrarlos por WhatsApp al ${W}.</p>
+   <h3>1. Quién es responsable de tus datos</h3><p>${N}, negocio de venta de autopartes usadas con domicilio en ${D}. Contacto para todo lo relacionado con tus datos: WhatsApp <b>${W}</b>.</p>
+   <h3>2. Qué datos recabamos</h3><ul><li>Cuando creas tu cuenta: usuario, nombre y, si quieres, tu número de WhatsApp. Tu PIN se guarda cifrado y nadie del negocio lo puede ver.</li><li>Cuando cotizas o compras: las piezas, cantidades, montos, forma de pago elegida, comentarios que escribas, fechas, número de compras y puntos acumulados.</li><li>En tu navegador guardamos tu cotización en curso y tus preferencias (por ejemplo la versión de tu Accord) para que no las pierdas. Eso se queda en tu teléfono o computadora.</li></ul><p>No pedimos datos sensibles (salud, religión, origen, etc.) ni datos bancarios. No guardamos datos de tarjetas.</p>
+   <h3>3. Para qué los usamos</h3><p><b>Finalidades necesarias:</b> crear y administrar tu cuenta, atender tus cotizaciones y solicitudes, contactarte sobre tus piezas, registrar tus compras, emitir tickets o facturas, y llevar tu cuenta de puntos.</p><p><b>Finalidades adicionales (opcionales):</b> avisarte por WhatsApp cuando llegue una pieza que buscabas o de promociones. Si no quieres esto, dínoslo por WhatsApp en cualquier momento y no afectará tu cuenta.</p>
+   <h3>4. Con quién se comparten</h3><p>No vendemos, rentamos ni compartimos tus datos con terceros para sus propios fines. La página y las cuentas funcionan sobre servicios de Google (Firebase y GitHub Pages), que solo almacenan la información por cuenta nuestra. Únicamente entregaríamos datos a una autoridad que los requiera conforme a la ley.</p>
+   <h3>5. Tus derechos (ARCO)</h3><p>Puedes <b>Acceder</b> a tus datos, <b>Rectificarlos</b>, pedir que los <b>Cancelemos</b> (borremos) u <b>Oponerte</b> a algún uso, así como retirar tu consentimiento. Escríbenos por WhatsApp al ${W} con tu usuario y lo que quieres hacer. Te responderemos en un máximo de 20 días hábiles. Tu nombre y WhatsApp también los puedes cambiar tú mismo en “Mi cuenta”.</p>
+   <h3>6. Cuánto tiempo los guardamos</h3><p>Mientras tengas tu cuenta. Si pides borrarla, eliminamos tus datos de cuenta, salvo los registros de venta que la ley fiscal nos obliga a conservar.</p>
+   <h3>7. Cambios a este aviso</h3><p>Si cambia algo, lo publicaremos en esta misma página con la nueva fecha.</p>
+   <p style="color:var(--muted);font-size:13px">Si consideras que tus derechos no fueron atendidos, puedes acudir a la autoridad en materia de protección de datos personales (Secretaría Anticorrupción y Buen Gobierno).</p></div>`}
 // ---- explorar el Accord por diagramas ----
 const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').then(r=>r.json()).catch(()=>[]));
 const ZONES=[
@@ -441,6 +459,7 @@ function openAcct(tab){if(CLI){location.hash='#cuenta';return}if(STAFF){location
     <label class="field">PIN (4 números)<input id="a-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="${reg?'new-password':'current-password'}"></label>
     ${reg?`<label class="field">Repite tu PIN<input id="a-pin2" type="password" inputmode="numeric" maxlength="4"></label>
     <label class="field">Tu nombre<input id="a-name" autocomplete="name"></label><label class="field">Tu WhatsApp (opcional)<input id="a-tel" inputmode="tel" autocomplete="tel"></label>`:''}
+    ${reg?`<p class="privnote">Al crear tu cuenta, ${esc(INV.nombre||'Trío Accord')} usará tu usuario, nombre y WhatsApp para atender tus cotizaciones, registrar tus compras y tus puntos. No vendemos ni compartimos tus datos. Puedes pedir verlos, corregirlos o borrarlos cuando quieras. Lee el <a href="#privacidad">Aviso de privacidad completo</a>.</p>`:''}
     <button class="btn dark" data-adone>${reg?'Crear mi cuenta':'Entrar'}</button>
     <button class="btn" data-areg>${reg?'Ya tengo cuenta: entrar':'Soy nuevo: crear mi cuenta'}</button><div id="a-st" style="font-size:14px;min-height:20px"></div>`
    :`<p style="margin:0;color:var(--muted);font-size:14px">Para personas que trabajan con nosotros. Si te registras como vendedor, tu cuenta queda en espera hasta que el encargado la active.</p>
@@ -468,8 +487,8 @@ async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesi
   try{const sn=await getDocs(query(collection(fs,'solicitudes'),where('uid','==',CLI.uid)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>b.date.localeCompare(a.date));const el=$('#c-sol');if(!el)return;
     el.innerHTML=L.length?L.map(r=>`<div class="qline" style="grid-template-columns:1fr auto"><div><b>${new Date(r.date).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</b> · ${esc(r.pay||'')}<br><span style="font-size:13px;color:var(--muted)">${(r.items||[]).map(i=>esc(i.es)+' x'+i.qty).join(', ')}</span></div><div class="price">${money(r.total)}</div></div>`).join(''):'<p style="color:var(--muted)">Aún no has enviado solicitudes. Arma tu cotización y envíala por WhatsApp.</p>'}catch(e){const el=$('#c-sol');if(el)el.innerHTML='<p style="color:var(--muted)">No se pudieron cargar.</p>'}}
 function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',a.dataset.nav===st.route?'page':'false'));
-  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord'})[st.route];
-  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord})[st.route]();saveQ()}
+  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord',privacidad:'Aviso de privacidad'})[st.route];
+  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord,privacidad:vPriv})[st.route]();saveQ()}
 async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
@@ -516,7 +535,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='sort'){st.sort=e.target.value;st.limit=24;render();const g=$('#catalogo');if(g)g.scrollIntoView();return}if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
-const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('p=')){const k=decodeURIComponent(h0.slice(2));history.replaceState(null,'','#inicio');st.route='inicio';render();if(byK(k))setTimeout(()=>openDet(k),50);return}const h=h0;st.route=['cotizacion','nosotros','cuenta','accord'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
+const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('p=')){const k=decodeURIComponent(h0.slice(2));history.replaceState(null,'','#inicio');st.route='inicio';render();if(byK(k))setTimeout(()=>openDet(k),50);return}const h=h0;st.route=['cotizacion','nosotros','cuenta','accord','privacidad'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
@@ -532,7 +551,7 @@ try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getD
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
-  const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;
+  const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;document.querySelectorAll('.nmf').forEach(e=>e.textContent=nm);
   document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa));
   route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)})}
 catch(e){console.error(e);view.innerHTML='<div class="empty"><b>No se pudo cargar el catálogo.</b><br>Revisa tu internet y recarga la página.</div>'}
