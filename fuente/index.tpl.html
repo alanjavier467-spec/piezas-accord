@@ -20,6 +20,12 @@ __CSS__
 <div id="login" class="wrap login" hidden>
   <div class="card">
     <h1>Piezas <span>Accord</span></h1>
+    <p class="hint" style="margin:0">¿Cómo quieres entrar?</p>
+    <div class="modes">
+     <button class="mode" data-mode="comprador"><span>🛒</span><b>Comprador</b><small>Ver piezas y pedir</small></button>
+     <button class="mode" data-mode="vendedor" aria-pressed="true"><span>🧰</span><b>Vendedor</b><small>Usuario y PIN</small></button>
+     <button class="mode" data-mode="creador"><span>👑</span><b>Creador</b><small>Administrador</small></button>
+    </div>
     <p class="hint" style="margin:0" id="l-hint">Entra con tu usuario y tu PIN de 4 números.</p>
     <label class="f" for="l-email">Usuario<input id="l-email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
     <label class="f" for="l-pass"><span id="l-plabel">PIN (4 números)</span><input id="l-pass" type="password" autocomplete="current-password" inputmode="numeric"></label>
@@ -33,6 +39,7 @@ __CSS__
 </div>
 
 <div id="app" hidden>
+<div id="upd" class="upd" hidden><button class="btn alt" data-update>⬆️ Activar la versión más nueva</button></div>
 <header class="top">
   <div class="wrap">
     <div class="brand"><h1>Piezas <span>Accord</span></h1><span class="right"><span class="netchip" id="net">En línea</span><button class="hdr-btn" id="menu-btn" aria-label="Menú">☰</button></span></div>
@@ -273,7 +280,7 @@ function calc(){const sub=CART.reduce((a,l)=>a+l.qty*(+l.price||0),0);let desc=0
   desc=Math.max(0,Math.min(sub,Math.round(desc*100)/100));
   let capped=false;if(!OWN&&desc>sub*EMP_MAX_DISC/100+0.001){desc=Math.floor(sub*EMP_MAX_DISC)/100;capped=true}
   return {sub,desc,total:Math.round((sub-desc)*100)/100,capped}}
-const sumHTML=t=>`<span>Subtotal</span><span>${money(t.sub)}</span>${t.desc?`<span>Descuento</span><span class="neg">−${money(t.desc)}</span>`:''}<span><b>Total</b></span><span class="tot">${money(t.total)}</span>${t.capped?`<span class="note" style="grid-column:1/-1">Como empleado puedes descontar hasta ${EMP_MAX_DISC}%.</span>`:''}`;
+const sumHTML=t=>`<span>Subtotal</span><span>${money(t.sub)}</span>${t.desc?`<span>Descuento</span><span class="neg">−${money(t.desc)}</span>`:''}<span><b>Total</b></span><span class="tot">${money(t.total)}</span>${t.capped?`<span class="note" style="grid-column:1/-1">Como vendedor puedes descontar hasta ${EMP_MAX_DISC}%.</span>`:''}`;
 function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,10];
   view.innerHTML=`<h2 class="title">Carrito</h2>
   ${CART.length?`<div class="ticket">${CART.map((l,i)=>`<div class="tline"><div style="min-width:0"><b>${esc(l.es)}</b><br><span class="hint"><span class="pn">${esc(l.pn||(l.xid?'Pieza agregada':'Concepto libre'))}</span>${l.car?' · de '+esc(carCode(l.car)):''}</span></div>
@@ -359,25 +366,25 @@ function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;
 // ---- menú (usuarios, cuenta) ----
 function openMenu(){SHEET='menu';
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
-   <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Dueño':'Empleado'}</span></div>
+   <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Creador (administrador)':'Vendedor'}</span></div>
    <div class="card" id="offline-card2"></div>
    <button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button>
    <div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Página para clientes</b>
      <p class="hint" style="margin:0">Tus clientes ven lo disponible con fotos y precio, y te piden por WhatsApp al ${esc((NEG.wa||WA_DEF))}. Se actualiza sola.</p>
      <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" href="${pubURL()}" target="_blank" rel="noopener">Abrir</a><button class="btn ghost" data-pubshare>Compartir liga</button>
      <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Checa las piezas de Honda Accord 2018-2022 que tengo disponibles, con fotos y precio: '+pubURL())}">Mandar por WhatsApp</a><button class="btn ghost" data-pubcopy>Copiar liga</button></div></div>
-   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Empleados y dueños</b>
-     <p class="hint" style="margin:0">Dueños: ${nDuenos()} de ${maxDuenos()}. Todos se registran como empleados; un dueño los puede hacer dueños aquí.</p>
-     <div class="drow"><label class="f" for="n-maxd" style="flex:1">Máximo de dueños<select id="n-maxd">${[1,2,3,4].map(n=>`<option ${n===maxDuenos()?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn ghost" data-savemaxd>Guardar</button></div>
-     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b>${u.role==='dueño'?' <span class="st st-esta">Dueño</span>':''}${u.active?'':' <span class="st st-revisar">'+(u.pending?'Nueva: actívala':'Desactivado')+'</span>'}<br><span class="hint">${esc(u.user?'Usuario: '+u.user:u.email)}</span></div>
+   ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Vendedores y creadores</b>
+     <p class="hint" style="margin:0">Creadores: ${nDuenos()} de ${maxDuenos()} (máximo 4). Todos se registran como vendedores; un creador los puede hacer creadores aquí.</p>
+     <div class="drow"><label class="f" for="n-maxd" style="flex:1">Máximo de creadores<select id="n-maxd">${[1,2,3,4].map(n=>`<option ${n===maxDuenos()?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn ghost" data-savemaxd>Guardar</button></div>
+     ${USERS.length?USERS.map(u=>`<div class="carrow"><span class="carcode" style="font-size:16px">${esc((u.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(u.name)}</b>${u.role==='dueño'?' <span class="st st-esta">Creador</span>':''}${u.active?'':' <span class="st st-revisar">'+(u.pending?'Nueva: actívala':'Desactivado')+'</span>'}<br><span class="hint">${esc(u.user?'Usuario: '+u.user:u.email)}</span></div>
        <div style="display:grid;gap:6px"><button class="btn ${u.active?'ghost':'alt'}" style="padding:8px 10px;font-size:13px" data-toggleuser="${u.id}">${u.active?'Desactivar':'Activar'}</button>
-       ${u.id!==ME.uid?(u.role==='dueño'?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="empleado">Quitar dueño</button>`:(u.active&&nDuenos()<maxDuenos()?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="dueño">Hacer dueño</button>`:'')):''}</div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay empleados.</p>'}
-     <details><summary><b>Agregar empleado</b></summary><div class="form" style="margin-top:10px">
+       ${u.id!==ME.uid?(u.role==='dueño'?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="empleado">Quitar creador</button>`:(u.active&&nDuenos()<maxDuenos()?`<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-setrole="${u.id}" data-r="dueño">Hacer creador</button>`:'')):''}</div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay vendedores.</p>'}
+     <details><summary><b>Agregar vendedor</b></summary><div class="form" style="margin-top:10px">
       <label class="f" for="u-name">Nombre<input id="u-name" placeholder="Ej. Juan"></label>
       <label class="f" for="u-email">Usuario (con el que va a entrar)<input id="u-email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ej. juan, El Güero, juan2"></label>
       <label class="f" for="u-pass">PIN de 4 números<input id="u-pass" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ej. 4821"></label>
-      <button class="btn" data-adduser>Crear empleado</button><div class="status" id="u-status"></div>
-      <p class="note" style="margin:0">Necesitas señal para crear empleados. Pásale su usuario y PIN; él puede cambiar su PIN desde su menú ☰. También pueden crear su cuenta ellos mismos en la pantalla de entrada; te aparece aquí para que la actives.</p></div></details></div>`:''}
+      <button class="btn" data-adduser>Crear vendedor</button><div class="status" id="u-status"></div>
+      <p class="note" style="margin:0">Necesitas señal para crear vendedores. Pásale su usuario y PIN; él puede cambiar su PIN desde su menú ☰. También pueden crear su cuenta ellos mismos en la pantalla de entrada; te aparece aquí para que la actives.</p></div></details></div>`:''}
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Respaldo</b>
      <p class="hint" style="margin:0">Descarga una copia de todo (carros, recorridos, precios, ventas, piezas agregadas). Hazlo cada semana y guárdalo en tu Drive o WhatsApp.${LS.get('ultRespaldo','')?' Último en este teléfono: '+fmtDate(LS.get('ultRespaldo','').slice(0,10))+'.':''}</p>
      <button class="btn" data-backup>Descargar respaldo</button><button class="btn ghost" data-backupfull>Respaldo con fotos grandes (pesa más)</button>
@@ -396,6 +403,7 @@ function openMenu(){SHEET='menu';
      <label class="f" for="pin-new">PIN nuevo (4 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="4"></label>
      <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
+   ${NEWV?`<div class="card form" style="border:2px solid var(--tag)"><b>Hay una versión nueva de la app</b><button class="btn alt" data-update>Actualizar ahora</button></div>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
    <p class="note">Versión __VERSION__</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
@@ -544,7 +552,7 @@ function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
     <div><span class="hint">¿Cómo está?</span><div class="row" style="margin-top:6px">${CONDS.map(c=>`<button class="chip" data-cond="${esc(c)}" aria-pressed="${INT.cond===c}">${esc(c)}</button>`).join('')}</div></div>
     <label class="f" for="i-nota">Detalles (opcional)<input id="i-nota" placeholder="Ej. le falta un tornillo, mica sin rayas"></label>
     <label class="f" for="i-car">¿De qué carro salió?<select id="i-car"><option value="">Bodega / no sé</option>${carsSorted().map(c=>`<option value="${c.id}">${esc(c.code)} · ${esc(c.year||'')}</option>`).join('')}</select></label>
-    ${fp||fx?'':`<label class="f" for="i-price">Precio (opcional${OWN?'':', lo revisa el dueño'})<input id="i-price" type="number" inputmode="decimal" min="0" placeholder="Si lo dejas vacío pongo uno sugerido"></label>`}
+    ${fp||fx?'':`<label class="f" for="i-price">Precio (opcional${OWN?'':', lo revisa el creador'})<input id="i-price" type="number" inputmode="decimal" min="0" placeholder="Si lo dejas vacío pongo uno sugerido"></label>`}
     ${fp||fx?`<button class="btn alt" data-intsave>Guardar foto</button>`:`<button class="btn alt" data-intsearch>Buscar en el catálogo</button>`}
     <div class="status" id="i-status"></div></div>
    <div id="i-cands"></div></div>`;
@@ -710,6 +718,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.walk){st.carSec=+d.walk;render();window.scrollTo(0,0);return}
   if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
   if('savecar' in d){saveCar(d.savecar);return}
+  if('update' in d){activateUpdate(t);return}
   if(d.v3){clearInterval(V3.t);V3.t=null;show360(V3.i+(+d.v3));return}
   if('v3play' in d){if(V3.t){clearInterval(V3.t);V3.t=null;t.textContent='▶ Girar solo'}else{V3.t=setInterval(()=>show360(V3.i+1),130);t.textContent='⏸ Detener'}return}
   if(d.delcar){delCar(d.delcar,t);return}
@@ -731,9 +740,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('export' in d){exportCSV();return}
   if('adduser' in d){addUser();return}
   if('changepin' in d){changePin();return}
-  if(d.setrole){const r=t.dataset.r;if(r==='dueño'&&nDuenos()>=maxDuenos()){toast('Ya hay '+maxDuenos()+' dueños. Sube el máximo primero.');return}
-    setDoc(doc(fs,'users',d.setrole),{role:r},{merge:true}).then(()=>toast(r==='dueño'?'Ahora es dueño. Que cierre sesión y vuelva a entrar.':'Ya no es dueño.'),e=>toast(errMsg(e)));return}
-  if('savemaxd' in d){const n=+$('#n-maxd').value;if(n<nDuenos()){toast('Ya hay '+nDuenos()+' dueños; quita uno antes de bajar el máximo.');return}NEG=Object.assign({},NEG,{maxDuenos:n});setDoc(doc(fs,'config','negocio'),{maxDuenos:n},{merge:true}).then(()=>{toast('Guardado: máximo '+n+' dueños');openMenu()},e=>toast(errMsg(e)));return}
+  if(d.setrole){const r=t.dataset.r;if(r==='dueño'&&nDuenos()>=maxDuenos()){toast('Ya hay '+maxDuenos()+' creadores. Sube el máximo primero.');return}
+    setDoc(doc(fs,'users',d.setrole),{role:r},{merge:true}).then(()=>toast(r==='dueño'?'Ahora es creador. Que cierre sesión y vuelva a entrar.':'Ya no es creador.'),e=>toast(errMsg(e)));return}
+  if('savemaxd' in d){const n=+$('#n-maxd').value;if(n<nDuenos()){toast('Ya hay '+nDuenos()+' creadores; quita uno antes de bajar el máximo.');return}NEG=Object.assign({},NEG,{maxDuenos:n});setDoc(doc(fs,'config','negocio'),{maxDuenos:n},{merge:true}).then(()=>{toast('Guardado: máximo '+n+' dueños');openMenu()},e=>toast(errMsg(e)));return}
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active,pending:false},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('import' in d){importOld(t);return}
   if('lote' in d){importLote(t);return}
@@ -741,6 +750,22 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
 const net=()=>{const n=$('#net');n.textContent=navigator.onLine?'En línea':'Sin señal';n.classList.toggle('off',!navigator.onLine)};
 window.addEventListener('online',()=>{net();prefetchAll()});window.addEventListener('offline',net);net();
+// ---- versión nueva ----
+let NEWV=null;
+async function checkVersion(){try{const j=await fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);NEWV=j&&j.v&&j.v>VERSION?j.v:null}catch(e){}
+  const u=$('#upd');if(u)u.hidden=!NEWV||OWN;if(!sheet.hidden&&SHEET==='menu')openMenu()}
+async function activateUpdate(btn){if(btn)btn.textContent='Activando…';
+  try{const ks=await caches.keys();await Promise.all(ks.filter(k=>k.startsWith('piezas-shell-')).map(k=>caches.delete(k)))}catch(e){}
+  try{const r=await navigator.serviceWorker.getRegistration();if(r){await r.update();if(r.waiting)r.waiting.postMessage('skip')}}catch(e){}
+  location.reload()}
+setTimeout(checkVersion,3000);setInterval(checkVersion,10*60*1000);window.addEventListener('online',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});
+// ---- modo de entrada ----
+let MODE=LS.get('modo','vendedor');
+if(MODE==='comprador'&&!/[?&]entrar/.test(location.search))location.replace('tienda.html');
+function setMode(m){MODE=m;LS.set('modo',m);document.querySelectorAll('.mode').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===m));
+  if(m==='comprador'){location.href='tienda.html';return}
+  const h=$('#l-hint');if(h)h.textContent=m==='creador'?'Creador: entra con tu correo y contraseña, o con tu usuario y PIN si te hicieron creador.':'Vendedor: entra con tu usuario y tu PIN de 4 números.'}
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 // ---- login ----
 const L={box:$('#login'),email:$('#l-email'),pass:$('#l-pass'),st:$('#l-status'),neu:$('#l-new')};
 let SIGNUP=false,SIGNING=false;
@@ -789,7 +814,7 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
     sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}
   else sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
-  render();prefetchAll()});
+  render();prefetchAll();checkVersion()});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>

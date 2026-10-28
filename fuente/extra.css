@@ -56,3 +56,9 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .v3box{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:pan-y;user-select:none;cursor:grab;min-height:180px;display:grid;place-items:center}
 .v3box img{width:100%;display:block;pointer-events:none}
 .v3hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:3px 10px;border-radius:999px}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mode{display:grid;justify-items:center;gap:2px;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 4px;font:inherit;cursor:pointer}
+.mode span{font-size:26px}.mode b{font-size:14px}.mode small{font-size:11px;color:var(--muted);text-align:center}
+.mode[aria-pressed="true"]{border-color:var(--tag);background:var(--sunk)}
+.upd{position:sticky;top:0;z-index:30;padding:10px 16px;background:var(--bg)}
+.upd .btn{width:100%;font-size:19px;padding:16px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
