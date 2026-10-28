@@ -62,3 +62,5 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .mode[aria-pressed="true"]{border-color:var(--tag);background:var(--sunk)}
 .upd{position:sticky;top:0;z-index:30;padding:10px 16px;background:var(--bg)}
 .upd .btn{width:100%;font-size:19px;padding:16px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+
+.fbbtn{background:#1877f2;border-color:#1877f2;color:#fff}.fbbtn small{opacity:.8;font-weight:400}

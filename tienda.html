@@ -459,7 +459,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='sort'){st.sort=e.target.value;st.limit=24;render();const g=$('#catalogo');if(g)g.scrollIntoView();return}if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
-const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros','cuenta','accord'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
+const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('p=')){const k=decodeURIComponent(h0.slice(2));history.replaceState(null,'','#inicio');st.route='inicio';render();if(byK(k))setTimeout(()=>openDet(k),50);return}const h=h0;st.route=['cotizacion','nosotros','cuenta','accord'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});

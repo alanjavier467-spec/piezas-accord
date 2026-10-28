@@ -326,6 +326,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
     ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>
    ${yHTML(p)}
    <button class="btn ghost" data-zoom="${p.s}" data-zk="0" data-ref="${esc(p.ref)}">Ver diagrama (busca el #${esc(p.ref)})</button>
+   <button class="btn fbbtn" data-fb="${esc(p.pn)}">📣 Publicar en Facebook <small>(beta)</small></button>
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
     <div class="drow"><input id="alt-in" placeholder="Ej. 71110-TVA-A20" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);text-transform:uppercase;min-width:0"><button class="btn ghost" data-addalt>Agregar</button></div></div>
@@ -541,6 +542,7 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
     <label class="f" for="x-ubi">Lugar (T-3, G-1…)<input id="x-ubi" list="ubis" value="${esc(x.ubi||'')}" style="text-transform:uppercase"></label>${ubiList()}
     <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
    ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">🛒 Agregar al carrito</button>`:ic?`<p class="hint">${ic} en el carrito</p>`:''}
+   <button class="btn fbbtn" data-fb="X:${esc(id)}">📣 Publicar en Facebook <small>(beta)</small></button>
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- agregar pieza con foto ----
@@ -650,6 +652,25 @@ function pubSnapshot(){const items=[],rev=[];
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
+// ---- publicar en Facebook (beta): arma texto + fotos y abre el menú de compartir ----
+function fbText(key){const isX=key.startsWith('X:');const x=isX?xById(key.slice(2)):null;const p=isX?null:BYPN[key];
+  const name=isX?x.name:p.es;const num=isX?(x.num||''):key;const price=isX?x.price:priceOf(key);
+  const cars=isX?(x.car?[CARS.find(c=>c.id===x.car)].filter(Boolean):[]):availCars(key).map(o=>o.c);
+  const yrs=[...new Set(cars.map(c=>c.year).filter(Boolean))].join(', ');const f=(FOTOS[key]||[])[0];const cond=isX?x.cond:(f&&f.cond);
+  const wa=fixWa(NEG.wa||NEG.tel);
+  return `${name} — Honda Accord 2018-2020 Sport (original)\n\n💲 ${price?money(price)+' MXN':'Precio a tratar'}\n🔢 Número de parte: ${num}\n${cond?'✅ Estado: '+cond+'\n':''}🚗 Pieza original usada${yrs?' de Accord '+yrs:''}\n📍 Chihuahua, Chih.\n\n📲 WhatsApp: ${wa.replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3')}\n🛒 Ver fotos y más piezas: ${pubURL()}#p=${encodeURIComponent(key)}\n\n#HondaAccord #Accord2018 #Accord2019 #Accord2020 #RefaccionesChihuahua #Yonke`}
+async function fbFiles(key){const out=[];const fl=(FOTOS[key]||[]).slice(0,6);
+  for(const f of fl){try{const u=(await getDoc(doc(fs,'fotosfull',f.id))).data()?.img||f.thumb;if(u)out.push(u)}catch(e){if(f.thumb)out.push(f.thumb)}}
+  if(!out.length&&!key.startsWith('X:')){const p=BYPN[key];try{const b=await bundle(p.s);const u=b[p.pn+'|'+p.ref];if(u)out.push(u)}catch(e){}}
+  return Promise.all(out.map(async(u,i)=>{const bl=await (await fetch(u)).blob();return new File([bl],'pieza-'+(i+1)+'.jpg',{type:bl.type||'image/jpeg'})}))}
+async function publishFB(key,btn){const old=btn.innerHTML;btn.textContent='Preparando…';
+  try{const text=fbText(key);let copied=false;try{await navigator.clipboard.writeText(text);copied=true}catch(e){}
+    const files=await fbFiles(key);
+    if(navigator.canShare&&files.length&&navigator.canShare({files})){toast(copied?'Texto copiado. Elige Facebook, pega el texto (mantén presionado → Pegar) y publica.':'Elige Facebook y publica.');
+      await navigator.share({files,text,title:text.split('\n')[0]}).catch(()=>{})}
+    else{files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)});
+      window.open('https://www.facebook.com/marketplace/create/item','_blank');toast((copied?'Texto copiado y ':'')+'fotos descargadas. Súbelas en Marketplace y pega el texto.')}}
+  catch(e){toast('No se pudo preparar: '+(e.message||e))}btn.innerHTML=old}
 // ---- sin señal: descarga de fotos y diagramas ----
 let OFF={done:0,total:0,state:'idle'};
 function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin señal</b><p class="hint" style="margin:.3em 0 0">Fotos y diagramas guardados en este teléfono.</p>'
@@ -731,6 +752,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.walk){st.carSec=+d.walk;render();window.scrollTo(0,0);return}
   if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
   if('savecar' in d){saveCar(d.savecar);return}
+  if(d.fb){publishFB(d.fb,t);return}
   if(d.pickcli){CLIID=d.pickcli;CLIQ='';LS.set('cliid',CLIID);const c=CLIENTES.find(x=>x.id===CLIID);if(c&&!CLIENTE){CLIENTE=c.name||c.user;saveCart()}render();return}
   if('unpickcli' in d){CLIID='';LS.set('cliid','');render();return}
   if('update' in d){activateUpdate(t);return}
