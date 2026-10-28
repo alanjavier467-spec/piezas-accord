@@ -87,8 +87,8 @@ service cloud.firestore {
     }
     match /publico/{id} {
       allow read: if true;
-      // la tienda: solo las versiones nuevas de la app (v3+, con la lista de carros) pueden escribirla
-      allow write: if member() && (id != 'inventario' || (request.resource.data.v >= 3 && request.resource.data.cars is list));
+      // la tienda: solo apps que mandan la lista de carros pueden escribirla (las muy viejas no)
+      allow write: if member() && (id != 'inventario' || (request.resource.data.cars is list && request.resource.data.cars.size() > 0));
     }
   }
 }
