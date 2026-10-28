@@ -637,14 +637,15 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
 // ---- página pública: resumen de lo disponible ----
 const WA_DEF='6142637975';let PUBLAST=null,pubT=null,LOADED=new Set();
 const pubURL=()=>location.origin+location.pathname.replace(/[^/]*$/,'')+'tienda.html';
-function pubSnapshot(){const items=[];
-  for(const pn of UPN){const a=availCars(pn);if(!a.length)continue;const f=(FOTOS[pn]||[])[0];
+function pubSnapshot(){const items=[],rev=[];
+  for(const pn of UPN){const a=availCars(pn);if(!a.length){if(CARS.some(c=>stOf(c,pn).s==='revisar'))rev.push(pn);continue}const f=(FOTOS[pn]||[])[0];
     items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),f?f.id:'',f?(f.cond||''):'',isSug(pn)?1:0])}
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',f?f.id:'',x.cond||'']});
-  return {wa:(NEG.wa||NEG.tel||WA_DEF).replace(/\D/g,''),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items,xs}}
+  // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
+  return {v:2,wa:(NEG.wa||NEG.tel||WA_DEF).replace(/\D/g,''),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
-  setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>console.warn('pub',e))},4000)}
+  setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
 // ---- sin señal: descarga de fotos y diagramas ----
 let OFF={done:0,total:0,state:'idle'};
 function renderOffline(){const html=OFF.state==='ok'?'<b>✓ Lista para usar sin señal</b><p class="hint" style="margin:.3em 0 0">Fotos y diagramas guardados en este teléfono.</p>'

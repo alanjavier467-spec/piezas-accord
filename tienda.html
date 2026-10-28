@@ -79,6 +79,7 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .card .ph img{max-width:82%;max-height:82%;object-fit:contain;mix-blend-mode:multiply}
 .card .ph img.real{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:cover;mix-blend-mode:normal}
 .tag{position:absolute;top:12px;left:12px;font-size:10.5px;border:1px solid #cfd8cf;background:rgba(255,255,255,.85);color:var(--green2);border-radius:6px;padding:3px 7px;font-weight:600}
+.tag.no{background:#eee;color:#888;border-color:#ddd}
 .tag.ok{background:var(--green);color:#fff;border-color:var(--green)}
 .card .bd{padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;flex:1}
 .card .sec{font-size:10.5px;letter-spacing:.06em;color:var(--muted);font-weight:600}
@@ -208,6 +209,9 @@ const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];re
 const fitsVer=(it,v)=>!v||it.x||!(it.y&&it.y[v]==='');
 const imgTag=(it,big)=>it.f?`<img data-f="${esc(it.f)}" ${it.s!=null?`data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}"`:''} alt="${esc(it.es)}">`:it.s!=null?`<img data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}" alt="${esc(it.es)}">`:'<span style="font-size:40px">📦</span>';
 const byK=k=>ALL.find(i=>i.k===k);
+const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
+const exTag=it=>it.ex==='av'?'<span class="tag ok">Disponible</span>':it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
+const exTxt=it=>it.ex==='av'?'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):''):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
 const inQ=k=>Q.some(q=>q.k===k);
 function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a,q)=>a+q.qty,0);
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
@@ -215,10 +219,10 @@ function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a
 function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});saveQ()}
 // ---- vistas ----
 function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
-  return `<div class="card"><button class="ph" data-det="${esc(it.k)}" aria-label="Ver ${esc(it.es)}">${imgTag(it)}<span class="tag ${it.av?'ok':''}">${it.av?'En existencia':'OEM'}</span></button>
+  return `<div class="card"><button class="ph" data-det="${esc(it.k)}" aria-label="Ver ${esc(it.es)}">${imgTag(it)}${exTag(it)}</button>
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
-   <div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${it.av?('En existencia'+(it.cond?' · '+esc(it.cond):'')):(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar'}</small></div>
-   <button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button></div></div></div>`}
+   <div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
+   ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
   return ALL.filter(it=>(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
@@ -244,7 +248,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
   view.innerHTML=`<div class="qt"><div class="kicker">Te ayudamos a elegir</div><h1>Tu cotización</h1><p style="font-size:16px;margin:0 0 22px">Confirmaremos precio, compatibilidad y existencia antes de cobrar.</p>
    ${lines.length?lines.map(({q,it})=>`<div class="qline"><span class="ph">${imgTag(it)}</span><div style="min-width:0"><b style="cursor:pointer" data-det="${esc(it.k)}">${esc(it.es)}</b><br><span class="pn">${esc(numFor(it,st.ver))}</span>
       <div class="qty"><button data-qq="${esc(it.k)}" data-d="-1" aria-label="Menos">−</button><b>${q.qty}</b><button data-qq="${esc(it.k)}" data-d="1" aria-label="Más">+</button><button data-qrm="${esc(it.k)}" style="border:0;background:none;color:var(--muted);font-size:12.5px;margin-left:6px">Quitar</button></div></div>
-      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.av?'En existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
+      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?'Disponible'+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
    :`<div class="empty">Aún no has agregado piezas. <a href="#inicio" style="color:var(--green);font-weight:600">Explorar catálogo →</a></div>`}
    <h3 style="font-size:19px;margin:26px 0 4px">¿Cómo te gustaría continuar?</h3>
    <div class="opts">${['Cotización','Efectivo','Transferencia','Pago en línea'].map(o=>`<button class="chip" data-pay="${o}" aria-pressed="${st.pay===o}">${o}</button>`).join('')}</div>
@@ -309,10 +313,10 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
    <div class="bigph" id="bigph">${imgTag(it,true)}</div>
    <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(it.es)}</h2>${it.en?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
-   <div class="price" style="font-size:28px">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${it.av?'En existencia'+(it.n>1?' · '+it.n+' disponibles':''):(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar'}</small></div>
+   <div class="price" style="font-size:28px">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
-   <button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>
+   ${it.ex==='no'?'<div class="note">Por ahora no tenemos esta pieza. Pregúntanos por WhatsApp: puede llegar en el próximo carro.</div>':`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
    <a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, me interesa esta pieza de Honda Accord: '+it.es+' ('+numFor(it,st.ver)+'). ¿Sigue disponible?')}">Preguntar por WhatsApp</a>
    <p style="font-size:12.5px;color:var(--muted);margin:0">Pieza original usada. Si quieres más fotos, pídelas por WhatsApp.</p></div>`;
   if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';hook(modal);
@@ -345,13 +349,14 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)histo
 // ---- carga ----
 try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getDoc(doc(fs,'publico','inventario')).catch(()=>null)]);D=dj;SECS=dj.secs;
   if(snap&&snap.exists())INV=Object.assign(INV,snap.data());
-  const inv={};(INV.items||[]).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f,cond,sug}});
+  const P=a=>typeof a==='string'?JSON.parse(a):a;const SNAP=!!(snap&&snap.exists());const REV=new Set(INV.rev||[]);
+  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f,cond,sug,cars}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:(p.sp||0),sug:iv?!!iv.sug:true,av:!!iv,n:iv?iv.n:0,f:iv&&iv.f||'',cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:(p.sp||0),sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
-  for(const [id,name,num,price,n,car,f,cond] of INV.xs||[]){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
-  ALL.sort((a,b)=>(b.av-a.av)||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
+  for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
+  const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;
   document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa));
