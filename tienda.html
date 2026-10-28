@@ -230,7 +230,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 <div class="sheet" id="modal" hidden></div>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import {getFirestore,doc,getDoc,setDoc,addDoc,collection,query,where,getDocs} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {getFirestore,doc,getDoc,onSnapshot,setDoc,addDoc,collection,query,where,getDocs} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 const fapp=initializeApp({"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"});const fs=getFirestore(fapp);const auth=getAuth(fapp);
 const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFC');
@@ -538,10 +538,15 @@ const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
+// ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
+const TV='20261028-0150';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
-try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getDoc(doc(fs,'publico','inventario')).catch(()=>null)]);D=dj;SECS=dj.secs;
-  if(snap&&snap.exists())INV=Object.assign(INV,snap.data());
-  const P=a=>typeof a==='string'?JSON.parse(a):a;const SNAP=!!(snap&&snap.exists());const REV=new Set(INV.rev||[]);
+// arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
+function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
+  // si el documento llega sin la lista de carros, usa la última que vio este navegador
+  if(INV.cars&&INV.cars.length){try{localStorage.setItem('tCars',JSON.stringify(INV.cars))}catch(e){}}
+  else{try{const c=JSON.parse(localStorage.getItem('tCars')||'null');if(c&&c.length)INV.cars=c}catch(e){}}
+  const P=a=>typeof a==='string'?JSON.parse(a):a;const REV=new Set(INV.rev||[]);ALL=[];
   const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
@@ -551,8 +556,13 @@ try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getD
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;document.querySelectorAll('.nmf').forEach(e=>e.textContent=nm);
-  document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa));
-  route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)})}
+  document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa))}
+try{const dj=await fetch('data.json').then(r=>r.json());D=dj;SECS=dj.secs;let first=true,sig=null;
+  const got=snap=>{const g=snap&&snap.exists()?JSON.stringify(snap.data()):'';if(g===sig)return;sig=g;applyInv(snap,dj);
+    if(first){first=false;route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)});return}
+    // llegó información nueva mientras el cliente ve la página: refresca sin moverlo de lugar
+    const a=document.activeElement;if(modal.hidden&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){const y=scrollY;render();scrollTo(0,y)}};
+  onSnapshot(doc(fs,'publico','inventario'),got,e=>{console.warn(e);if(first)getDoc(doc(fs,'publico','inventario')).then(got).catch(()=>got(null))})}
 catch(e){console.error(e);view.innerHTML='<div class="empty"><b>No se pudo cargar el catálogo.</b><br>Revisa tu internet y recarga la página.</div>'}
 </script>
 </body>

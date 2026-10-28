@@ -6,6 +6,6 @@ css=open(F+'app.css',encoding='utf-8').read()+open(F+'extra.css',encoding='utf-8
 h=open(F+'index.tpl.html',encoding='utf-8').read().replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG)).replace('__VERSION__',V)
 open('index.html','w',encoding='utf-8').write(h)
 open('sw.js','w').write(open(F+'sw.js').read().replace('__VERSION__',V))
-open('tienda.html','w',encoding='utf-8').write(open(F+'tienda.tpl.html',encoding='utf-8').read().replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG)))
+open('tienda.html','w',encoding='utf-8').write(open(F+'tienda.tpl.html',encoding='utf-8').read().replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG)).replace('__VERSION__',V))
 json.dump({'v':V},open('version.json','w'))
 print(V)

@@ -648,7 +648,7 @@ function pubSnapshot(){const items=[],rev=[];
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
-  return {v:2,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
+  return {v:3,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
