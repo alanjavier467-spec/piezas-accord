@@ -53,3 +53,6 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .parr[hidden]{display:none}
 .parr.l{left:8px}.parr.r{right:8px}
 .pcount{position:absolute;bottom:8px;right:10px;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:10px;padding:2px 8px}
+.v3box{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:pan-y;user-select:none;cursor:grab;min-height:180px;display:grid;place-items:center}
+.v3box img{width:100%;display:block;pointer-events:none}
+.v3hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:3px 10px;border-radius:999px}

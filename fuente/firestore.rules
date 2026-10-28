@@ -70,6 +70,10 @@ service cloud.firestore {
       allow read: if member();
       allow write: if isOwner();
     }
+    match /vista360/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
     match /publico/{id} {
       allow read: if true;
       allow write: if member();

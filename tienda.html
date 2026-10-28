@@ -208,6 +208,24 @@ nav.tabs button{position:relative}
 .zoom .zarea{min-width:0;min-height:0;touch-action:pan-x pan-y;padding-bottom:90px}
 .zoom .zx{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:3;background:#15191B;color:#fff;border:2px solid #fff;border-radius:999px;padding:14px 26px;font-size:17px;font-weight:700;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 
+html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
+.carside{display:grid;gap:5px;justify-items:center}
+.carpic{width:74px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.carpic.big{width:100%;height:auto;max-height:240px;margin:8px 0 4px;border-radius:10px}
+
+.kpib{text-align:left;font:inherit;color:inherit;cursor:pointer;display:grid}
+.kpib:active{background:var(--sunk)}
+
+.pcar{position:relative}
+.pcar>img[hidden]{display:none}
+.parr{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.92);color:#15191B;font-size:26px;line-height:1;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2}
+.parr[hidden]{display:none}
+.parr.l{left:8px}.parr.r{right:8px}
+.pcount{position:absolute;bottom:8px;right:10px;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:10px;padding:2px 8px}
+.v3box{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:pan-y;user-select:none;cursor:grab;min-height:180px;display:grid;place-items:center}
+.v3box img{width:100%;display:block;pointer-events:none}
+.v3hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:3px 10px;border-radius:999px}
+
 .hero{padding:6px 0 2px}
 .hero p{margin:4px 0 0;color:#cfd6d9;font-size:14px}
 .wa{display:flex;align-items:center;justify-content:center;gap:8px;background:#1fa855;color:#fff!important;border:0;border-radius:10px;padding:12px 14px;font-weight:700;font-size:16px;text-decoration:none;text-align:center}
