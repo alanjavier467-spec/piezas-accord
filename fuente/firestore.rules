@@ -75,8 +75,9 @@ service cloud.firestore {
       allow write: if isOwner();
     }
     match /clientes/{uid} {
-      allow read: if isOwner() || (signed() && request.auth.uid == uid);
-      allow create, update: if signed() && request.auth.uid == uid;
+      allow read: if member() || (signed() && request.auth.uid == uid);
+      allow create: if signed() && request.auth.uid == uid;
+      allow update: if member() || (signed() && request.auth.uid == uid);
       allow delete: if isOwner();
     }
     match /solicitudes/{id} {

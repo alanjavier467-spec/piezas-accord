@@ -293,6 +293,7 @@ async function onUser(u){ME=u;CLI=null;STAFF=false;
   $('#staffbar').hidden=!STAFF;acctLabel();if(CLI&&!modal.hidden){const go=()=>{location.hash='#cuenta'};if(history.state&&history.state.det){window.addEventListener('popstate',()=>setTimeout(go,30),{once:true});history.back()}else{closeDet();go()}}if(st.route==='cuenta'||st.route==='cotizacion')render()}
 async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesión para ver tu cuenta.<br><br><button class="btn dark" data-acct="">Iniciar sesión / Registrarse</button></div>`;return}
   view.innerHTML=`<div class="qt"><div class="kicker">Mi cuenta · Cliente</div><h1>Hola, ${esc(CLI.name||CLI.user)}</h1>
+   <div class="hero" style="grid-template-columns:1fr;padding:22px 26px;margin-bottom:18px"><div class="kicker">Cliente frecuente</div><div style="font-family:var(--fd);font-size:56px;line-height:1">⭐ ${CLI.puntos||0} puntos</div><p style="margin:6px 0 0">${CLI.compras||0} compra${(CLI.compras||0)===1?'':'s'} · Ganas 1 punto por cada $100 que compras. Pronto podrás usarlos.</p></div>
    <p style="color:var(--muted);margin:0 0 18px">Usuario <b>${esc(CLI.user)}</b> · Cliente desde ${new Date(CLI.created).toLocaleDateString('es-MX',{month:'long',year:'numeric'})}</p>
    <label class="field">Tu nombre<input id="c-name" value="${esc(CLI.name||'')}"></label><label class="field">Tu WhatsApp<input id="c-tel" inputmode="tel" value="${esc(CLI.tel||'')}"></label>
    <button class="btn" data-csave>Guardar mis datos</button>
