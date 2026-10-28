@@ -207,7 +207,7 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
  'Accesorios':SV('<path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8 9.5 8z"/>')};
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
-let INV={wa:'6142637975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
+let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
 const st={sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
@@ -216,7 +216,7 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return
   const cat=()=>{if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})};
   if(im.dataset.f)thumb(im.dataset.f).then(u=>{if(u){im.src=u}else cat()});else cat()}),{rootMargin:'400px'});
 const hook=root=>root.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i));
-const waNum=()=>{const w=String(INV.wa||'6142637975').replace(/\D/g,'');return w.length===10?'52'+w:w};
+const waNum=()=>{let w=String(INV.wa||'').replace(/\D/g,'');if(!w||w==='6142637975')w='6142737975';return w.length===10?'52'+w:w};
 const waLink=t=>'https://wa.me/'+waNum()+'?text='+encodeURIComponent(t);
 const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];return it.pn};
 const fitsVer=(it,v)=>!v||it.x||!(it.y&&it.y[v]==='');
