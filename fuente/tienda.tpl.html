@@ -148,6 +148,19 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .pl .stt{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
 .pl .stt.av{background:var(--green);color:#fff}.pl .stt.no{background:#eee;color:#888}.pl .stt.rev{background:#f6efd9;color:#8a6d1a}
 @media (max-width:900px){.hot{width:22px;height:22px}.hot::after{font-size:13px;line-height:16px}.hot:hover span{display:none}.hot.on span{display:block}}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px}
+.caro{min-width:0}
+.caro-h{display:flex;justify-content:space-between;align-items:end;gap:10px}
+.caro-h h2.big{font-size:34px;margin-bottom:12px}
+.caro-nav{display:flex;gap:8px;margin-bottom:14px}
+.caro-nav button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:22px;line-height:1;cursor:pointer;color:var(--green);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.caro-nav button:hover{background:var(--lime)}
+.track{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
+.track::-webkit-scrollbar{display:none}
+.track>.card{flex:0 0 calc((100% - 28px)/2.5);scroll-snap-align:start}
+.track .card .bd{padding:12px 14px 14px;gap:7px}.track .card h3{font-size:15px}.track .price{font-size:15px}.track .card .sec{font-size:9.5px}.track .add{width:36px;height:36px}
+@media (max-width:1100px){.duo{grid-template-columns:1fr}}
+@media (max-width:900px){.track>.card{flex-basis:calc((100% - 14px)/1.6)}.caro-h h2.big{font-size:30px}}
 .staffbar{background:var(--lime);color:var(--green);padding:10px 20px;font-size:14px;font-weight:600;text-align:center}.staffbar a{color:var(--green)}
 .tabs{display:none}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;box-shadow:0 6px 18px rgba(0,0,0,.25);border-radius:999px;padding:14px 18px}
@@ -264,6 +277,25 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
   return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
+// ---- carruseles (donadores y destacados) ----
+const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
+const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box">🚗</span>'}<span class="tag ok">${esc(c.code)}</span></div>
+  <div class="bd"><div class="sec">Honda Accord Sport</div><h3 style="cursor:default">${esc([c.year,VL[c.ver]||'',c.color].filter(Boolean).join(' · '))}</h3>
+  <div class="ft"><div class="price">${c.n} pieza${c.n===1?'':'s'}<small>disponibles</small></div><button class="btn dark" style="padding:9px 11px;font-size:12.5px" data-carf="${esc(c.code)}">Ver piezas</button></div></div></div>`;
+// la lista va dos veces para que gire sin fin
+const carouselHTML=(id,kick,title,cards)=>`<section class="caro" id="${id}"><div class="caro-h"><div><div class="kicker">${kick}</div><h2 class="big">${title}</h2></div>
+  <div class="caro-nav"><button data-caro="${id}" data-dir="-1" aria-label="Anterior">‹</button><button data-caro="${id}" data-dir="1" aria-label="Siguiente">›</button></div></div>
+  <div class="track">${cards.join('')}${cards.length>2?cards.join(''):''}</div></section>`;
+const CARO={};
+function caroStep(id,dir,smooth=true){const tr=document.querySelector('#'+id+' .track');if(!tr)return;const card=tr.querySelector('.card');if(!card)return;
+  const w=card.getBoundingClientRect().width+14;const half=tr.scrollWidth/2;
+  if(dir>0&&tr.scrollLeft>=half-2){tr.scrollLeft-=half}if(dir<0&&tr.scrollLeft<=2&&tr.scrollWidth>tr.clientWidth*1.9){tr.scrollLeft+=half}
+  tr.scrollBy({left:dir*w,behavior:smooth?'smooth':'auto'})}
+function startCaros(){Object.values(CARO).forEach(clearInterval);['cdon','cfeat'].forEach((id,k)=>{const sec=document.getElementById(id);if(!sec)return;const tr=sec.querySelector('.track');
+  if(!tr||tr.scrollWidth<=tr.clientWidth+5)return;let pause=0;const hold=()=>{pause=Date.now()+7000};
+  ['pointerdown','wheel','touchstart','mouseenter'].forEach(ev=>tr.addEventListener(ev,hold,{passive:true}));
+  tr.addEventListener('scroll',()=>{const half=tr.scrollWidth/2;if(tr.scrollLeft>=half)tr.scrollLeft-=half},{passive:true});
+  setTimeout(()=>{CARO[id]=setInterval(()=>{if(Date.now()<pause||document.hidden||st.route!=='inicio'||!document.body.contains(tr))return;caroStep(id,1)},3800)},k*1900)})}
 const VL={'18':'1.5T','19':'1.5T','20':'1.5T','20T':'2.0T'};
 const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero']];
 const EXO2={av:0,rev:1,no:2};
@@ -272,17 +304,15 @@ function sortArr(arr){const a=arr.slice();const s=st.sort;const nm=(x,y)=>x.es.l
   else if(s==='az')a.sort(nm);else if(s==='za')a.sort((x,y)=>nm(y,x));else if(s==='foto')a.sort((x,y)=>((y.fids||[]).length?1:0)-((x.fids||[]).length?1:0)||EXO2[x.ex]-EXO2[y.ex]);
   else a.sort((x,y)=>EXO2[x.ex]-EXO2[y.ex]||(y.price||0)-(x.price||0));return a}
 function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filtered());
-  const feat=ALL.filter(i=>i.ex==='av'&&i.price).sort((a,b)=>b.price-a.price).slice(0,4);
+  const feat=ALL.filter(i=>i.ex==='av'&&i.price).sort((a,b)=>b.price-a.price).slice(0,12);
   const secs=SECS.filter(s=>!st.cat||s.cat===st.cat);
   view.innerHTML=`<section class="hero"><div><div class="kicker">Originales. Con historia. Listas para seguir.</div><h1>Tu Accord todavía tiene mucho camino.</h1>
     <p>Encuentra la pieza que buscas por nombre o número.</p><p>Te ayudamos con la versión correcta.</p>
     <div class="cta"><a class="btn lime" href="#catalogo" data-go="cat">Explorar catálogo ↓</a><small>Accord Sport · 2018 — 2020</small></div></div>
     <div class="art"><img src="logo-trio.png" alt="Trío Accord"><span>Las buenas piezas se reconocen.</span></div></section>
-   ${(INV.cars||[]).length?`<div class="feat"><div class="kicker">De aquí salen tus piezas</div><h2 class="big">Nuestros Accord donadores</h2>
-     <div class="grid donors">${INV.cars.map(c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box">🚗</span>'}<span class="tag ok">${esc(c.code)}</span></div>
-      <div class="bd"><div class="sec">Honda Accord Sport</div><h3 style="cursor:default">${esc([c.year,VL[c.ver]||'',c.color].filter(Boolean).join(' · '))}</h3>
-      <div class="ft"><div class="price">${c.n} pieza${c.n===1?'':'s'}<small>disponibles de este carro</small></div><button class="btn dark" style="padding:10px 12px;font-size:13px" data-carf="${esc(c.code)}">Ver piezas</button></div></div></div>`).join('')}</div></div>`:''}
-   ${feat.length?`<div class="feat"><div class="kicker">Disponibles hoy</div><h2 class="big">Lo más destacado</h2><div class="grid">${feat.map(cardHTML).join('')}</div></div>`:''}
+   ${donors().length||feat.length?`<div class="duo">
+    ${donors().length?carouselHTML('cdon','De aquí salen tus piezas','Nuestros Accord donadores',donors().map(donorCard)):''}
+    ${feat.length?carouselHTML('cfeat','Disponibles hoy','Lo más destacado',feat.map(cardHTML)):''}</div>`:''}
    <div class="sechead" id="catalogo"><div><div class="kicker">Encuentra justo lo que necesitas</div><h2 class="big">Catálogo de piezas</h2></div><span class="pill">Honda original · OEM</span></div>
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
     <label class="sel">Tu Accord<select id="ver">${VERS.map(([k,l])=>`<option value="${k}" ${st.ver===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
@@ -293,7 +323,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filter
    ${st.carf?`<div class="note" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Mostrando solo piezas del carro <b>${esc(st.carf)}</b></span><button class="chip" data-carf="">✕ Ver todas</button></div>`:''}<div class="meta-row" style="align-items:center"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><label style="display:flex;align-items:center;gap:8px">Ordenar por<select id="sort" class="sortsel">${SORTS.map(([k,l])=>`<option value="${k}" ${st.sort===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
    ${arr.length?`<div class="grid">${arr.slice(0,st.limit).map(cardHTML).join('')}</div>${arr.length>st.limit?`<button class="btn more" data-more>Ver más piezas (${(arr.length-st.limit).toLocaleString('es-MX')})</button>`:''}`
    :`<div class="empty"><b>No encontramos esa pieza.</b><br><br>Puede que la tengamos y aún no esté publicada.<br><br><a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, busco esta pieza de Honda Accord: '+st.q)}">Preguntar por WhatsApp</a></div>`}`;
-  hook(view);
+  hook(view);startCaros();
   $('#q').addEventListener('input',e=>{clearTimeout(window._qt);window._qt=setTimeout(()=>{st.q=e.target.value;st.limit=24;const p=e.target.selectionStart;render();const i=$('#q');i.focus();try{i.setSelectionRange(p,p)}catch(_){}},250)})}
 function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const tot=lines.reduce((a,o)=>a+(o.it.price||0)*o.q.qty,0);
   view.innerHTML=`<div class="qt"><div class="kicker">Te ayudamos a elegir</div><h1>Tu cotización</h1><p style="font-size:16px;margin:0 0 22px">Confirmaremos precio, compatibilidad y existencia antes de cobrar.</p>
@@ -450,6 +480,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if(d.galj!=null){GAL.i=+d.galj;showGal();return}
   if(d.zone){st.zone=d.zone;st.dsec=null;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
   if('dsec' in d){st.dsec=d.dsec===''?null:+d.dsec;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
+  if(d.caro){const sec=document.getElementById(d.caro);caroStep(d.caro,+d.dir);return}
   if('carf' in d){st.carf=d.carf;st.limit=24;render();setTimeout(()=>{const g=$('#catalogo');if(g)g.scrollIntoView({behavior:'smooth'})},30);return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
