@@ -215,6 +215,9 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .carpic{width:74px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
 .carpic.big{width:100%;height:auto;max-height:240px;margin:8px 0 4px;border-radius:10px}
 
+.kpib{text-align:left;font:inherit;color:inherit;cursor:pointer;display:grid}
+.kpib:active{background:var(--sunk)}
+
 </style>
 </head>
 <body>
@@ -281,7 +284,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261027-1937';
+const VERSION='20261027-1958';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -391,6 +394,7 @@ const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocale
 function vCarros(){
   if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
   if(st.car&&st.carSec!=null)return vWalk();
+  if(st.car&&st.carList)return vCarList();
   if(st.car)return vCar();
   const cs=carsSorted();
   view.innerHTML=`<h2 class="title">Carros</h2><p class="hint" style="margin:0">Cada carro es su propio estante. El de arriba es el más viejo: de ese conviene vender primero.</p>
@@ -415,11 +419,17 @@ function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const p
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc([c.year,'Accord',c.trim].filter(Boolean).join(' '))}</h2></div>
   <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
   ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
-  <div class="kpis"><div class="kpi"><b>${k.esta}</b><span>en el carro</span></div><div class="kpi"><b>${k.quitada}</b><span>quitadas y guardadas</span></div><div class="kpi"><b>${k.vendida}</b><span>vendidas</span></div><div class="kpi"><b>${k.revisar}</b><span>por revisar</span></div></div>
+  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas'],['revisar','por revisar'],['mala','dañadas'],['falta','no están']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
   <p class="sec-h">Recorrido por sección</p><p class="hint" style="margin:0">Entra a una sección y marca qué piezas siguen en el carro.</p>
   <div class="list">${secs.map(x=>`<button class="cat" data-walk="${x.s.i}"><b>${esc(x.s.es)}</b><span>${x.r?`<span class="st st-revisar">${x.r} por revisar</span> `:''}${x.a}/${x.n} ›</span></button>`).join('')}</div>
   ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
 const segHTML=(c,pn,cur)=>`<div class="seg" data-carid="${c.id}" data-pn="${esc(pn)}">${STS.filter(([k])=>k!=='vendida'||cur==='vendida').map(([k,l])=>`<button data-setst="${k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
+function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const pns=UPN.filter(pn=>stOf(c,pn).s===s);
+  const xs=(s==='quitada'||s==='esta')?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
+  view.innerHTML=`<button class="back" data-back="carlist">‹ ${esc(c.code)}</button>
+  <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
+  <p class="hint" style="margin:0">${pns.length+xs.length} pieza${pns.length+xs.length===1?'':'s'} de ${esc(c.code)} en "${esc(STL[s])}". Toca una para verla o cambiarla.</p>
+  ${pns.length||xs.length?`<div class="list">${xs.map(x=>xItemHTML(x)).join('')}${pns.slice(0,st.limit).map(pn=>itemHTML(BYPN[pn])).join('')}</div>${pns.length>st.limit?`<button class="more" data-more>Mostrar más (${pns.length-st.limit} restantes)</button>`:''}`:'<div class="empty">No hay piezas en este estado.</div>'}`;hookImgs(view)}
 function vWalk(){const c=CARS.find(x=>x.id===st.car);const s=SECS[st.carSec];const seen=new Set();const ps=PARTS.filter(p=>p.s===s.i&&!seen.has(p.pn)&&seen.add(p.pn));
   view.innerHTML=`<button class="back" data-back="walk">‹ ${esc(c.code)}</button><h2 class="title">${esc(s.es)}</h2><p class="hint" style="margin:0">Carro ${esc(c.code)} · toca el estado de cada pieza. Se guarda solo, aunque no haya señal.</p>
   <div id="dg" class="list"></div>
@@ -555,7 +565,7 @@ function openMenu(){SHEET='menu';
      <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261027-1937</p></div>`;
+   <p class="note">Versión 20261027-1958</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -802,7 +812,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
   if(t.dataset.lp!=null)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
-  if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
+  if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.carList=null;st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
   if(d.openx){openExtra(d.openx);return}
   if('intake' in d){openIntake();return}
@@ -844,9 +854,11 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.sec){st.secView=+d.sec;render();window.scrollTo(0,0);return}
   if(d.back==='sec'){st.secView=null;render();return}
   if(d.back==='cat'){st.catView=null;render();return}
-  if(d.back==='car'){st.car=null;render();return}
+  if(d.back==='car'){st.car=null;st.carList=null;render();return}
+  if(d.back==='carlist'){st.carList=null;st.limit=40;render();window.scrollTo(0,0);return}
+  if(d.carlist){st.carList=d.carlist;st.limit=40;render();window.scrollTo(0,0);return}
   if(d.back==='walk'){st.carSec=null;render();return}
-  if(d.car){st.car=d.car;st.carSec=null;render();window.scrollTo(0,0);return}
+  if(d.car){st.car=d.car;st.carSec=null;st.carList=null;render();window.scrollTo(0,0);return}
   if(d.walk){st.carSec=+d.walk;render();window.scrollTo(0,0);return}
   if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
   if('savecar' in d){saveCar(d.savecar);return}

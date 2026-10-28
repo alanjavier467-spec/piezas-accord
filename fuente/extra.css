@@ -43,3 +43,6 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .carside{display:grid;gap:5px;justify-items:center}
 .carpic{width:74px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
 .carpic.big{width:100%;height:auto;max-height:240px;margin:8px 0 4px;border-radius:10px}
+
+.kpib{text-align:left;font:inherit;color:inherit;cursor:pointer;display:grid}
+.kpib:active{background:var(--sunk)}
