@@ -218,6 +218,13 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .kpib{text-align:left;font:inherit;color:inherit;cursor:pointer;display:grid}
 .kpib:active{background:var(--sunk)}
 
+.pcar{position:relative}
+.pcar>img[hidden]{display:none}
+.parr{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.92);color:#15191B;font-size:26px;line-height:1;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2}
+.parr[hidden]{display:none}
+.parr.l{left:8px}.parr.r{right:8px}
+.pcount{position:absolute;bottom:8px;right:10px;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:10px;padding:2px 8px}
+
 </style>
 </head>
 <body>
@@ -284,7 +291,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261027-1958';
+const VERSION='20261027-2005';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -419,7 +426,7 @@ function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const p
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc([c.year,'Accord',c.trim].filter(Boolean).join(' '))}</h2></div>
   <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
   ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
-  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas'],['revisar','por revisar'],['mala','dañadas'],['falta','no están']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
+  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas'],['revisar','por revisar']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
   <p class="sec-h">Recorrido por sección</p><p class="hint" style="margin:0">Entra a una sección y marca qué piezas siguen en el carro.</p>
   <div class="list">${secs.map(x=>`<button class="cat" data-walk="${x.s.i}"><b>${esc(x.s.es)}</b><span>${x.r?`<span class="st st-revisar">${x.r} por revisar</span> `:''}${x.a}/${x.n} ›</span></button>`).join('')}</div>
   ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
@@ -483,7 +490,7 @@ function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?p.pn:(p.y&&k in p.y?(p.
 function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
   const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">${esc(s.cat.split(' / ')[0])}</span></div></div>
-  <div class="wrap body"><div class="photo">${imgTag(p)}</div>
+  <div class="wrap body">${pcarHTML(p)}
    ${galHTML(p.pn)}
    <div class="tagline"><span class="tag">${esc(p.pn)}</span><button class="copy" data-copy="${esc(p.pn)}">Copiar número</button></div>
    <div><h2 class="title">${esc(p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
@@ -505,6 +512,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
       <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">+ Comanda</button>`:ic?`<span class="hint">${ic} en comanda</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
   sheet.insertAdjacentHTML('beforeend',ubiList());
+  {const box=sheet.querySelector('.pcar');if(box&&box.querySelector('.parr')){let x0=null;box.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});box.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)pcarGo(box,dx<0?1:-1)},{passive:true})}}
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
 // capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
 let LAYERS=0;
@@ -565,7 +573,7 @@ function openMenu(){SHEET='menu';
      <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261027-1958</p></div>`;
+   <p class="note">Versión 20261027-2005</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -657,6 +665,13 @@ function galHTML(key,canAdd=true){const f=FOTOS[key]||[];
    ${f.length?`<div class="gal">${f.map(x=>`<button data-foto="${esc(x.id)}" aria-label="Ver foto"><img src="${x.thumb}" alt=""><em>${esc([x.car?carCode(x.car):'',x.cond].filter(Boolean).join(' · ')||fmtDate((x.date||'').slice(0,10)))}</em></button>`).join('')}</div>`:'<span class="hint">Todavía no hay fotos de esta pieza.</span>'}
    ${canAdd?`<button class="btn ghost" data-intakefor="${esc(key)}">📷 Agregar foto de esta pieza</button>`:''}</div>`}
 const fullCache={};
+function pcarHTML(p){const f=FOTOS[p.pn]||[];const n=1+f.length;
+  return `<div class="photo pcar" data-pi="0" data-pn="${esc(p.pn)}">${imgTag(p)}${f.map(x=>`<img class="pslide" hidden data-fid="${esc(x.id)}" src="${x.thumb}" alt="Foto real">`).join('')}
+   ${n>1?`<button class="parr l" data-pcar="-1" aria-label="Foto anterior" hidden>‹</button><button class="parr r" data-pcar="1" aria-label="Foto siguiente">›</button><span class="pcount">1 / ${n}</span>`:''}</div>`}
+function pcarGo(box,dir){const ims=[...box.querySelectorAll(':scope > img')];const n=ims.length;let i=(+box.dataset.pi||0)+dir;i=Math.max(0,Math.min(n-1,i));box.dataset.pi=i;
+  ims.forEach((im,k)=>im.hidden=k!==i);const l=box.querySelector('.parr.l'),r=box.querySelector('.parr.r');if(l)l.hidden=i===0;if(r)r.hidden=i===n-1;
+  const c=box.querySelector('.pcount');if(c)c.textContent=(i+1)+' / '+n;
+  const im=ims[i];if(im&&im.dataset.fid&&!im.dataset.full){im.dataset.full='1';const id=im.dataset.fid;(fullCache[id]?Promise.resolve(fullCache[id]):getDoc(doc(fs,'fotosfull',id)).then(d=>fullCache[id]=d.data()?.img)).then(u=>{if(u)im.src=u}).catch(()=>{})}}
 async function showFoto(id){const meta=FOTOLIST.find(x=>x.id===id)||{};
   zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>✕ Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${meta.thumb||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}<button class="zx" data-zclose>✕ Cerrar foto</button>`;
   showZoom();let pend=false;{let z=1;const area=zoom.querySelector('.zarea'),im=zoom.querySelector('.zarea img');pinch(area,()=>z,v=>{z=Math.min(5,Math.max(1,v));im.style.width=(z*100)+'%'})}
@@ -811,7 +826,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-amt'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'amt',amt:t.value,pct:0,target:''};saveCart();render()}
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
   if(t.dataset.lp!=null)render()});
-document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;if(d.pcar){pcarGo(t.closest('.pcar'),+d.pcar);return}
   if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.carList=null;st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
   if(d.openx){openExtra(d.openx);return}

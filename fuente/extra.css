@@ -46,3 +46,10 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 
 .kpib{text-align:left;font:inherit;color:inherit;cursor:pointer;display:grid}
 .kpib:active{background:var(--sunk)}
+
+.pcar{position:relative}
+.pcar>img[hidden]{display:none}
+.parr{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.92);color:#15191B;font-size:26px;line-height:1;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2}
+.parr[hidden]{display:none}
+.parr.l{left:8px}.parr.r{right:8px}
+.pcount{position:absolute;bottom:8px;right:10px;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:10px;padding:2px 8px}
