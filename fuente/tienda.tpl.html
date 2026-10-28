@@ -57,13 +57,16 @@ main{min-width:0}
 h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;line-height:1}
 .sechead{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-top:40px;flex-wrap:wrap}
 .pill{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--green);background:var(--card)}
-.filters{display:grid;grid-template-columns:1fr 220px;gap:12px}
+.filters{display:grid;grid-template-columns:1fr 290px;gap:12px}
 .search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 16px;min-height:56px}
 .search input{border:0;outline:0;flex:1;font-size:15px;background:transparent;min-width:0}
 .sel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px;display:grid;font-size:11px;color:var(--muted)}
 .sel select{border:0;outline:0;background:transparent;font-size:15px;color:var(--ink);padding:2px 0;font-weight:500}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
 .chip{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 13px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.chip.ic{display:inline-flex;align-items:center;gap:7px;padding:8px 13px 8px 10px}
+.chip.ic svg{color:var(--green);flex:none}
+.chip.ic[aria-pressed="true"] svg{color:var(--lime)}
 .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
 .secrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .secrow label{font-size:13px;color:var(--muted)}
@@ -170,7 +173,18 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
 const LSg=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};const LSs=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-const VERS=[['','Todas las versiones'],['18','2018 · 1.5T CVT'],['19','2019 · 1.5T CVT'],['20','2020 · 1.5T CVT'],['20T','2020 · 2.0T']];
+const VERS=[['','Todas las versiones (Sport)'],['18','2018 Sport · 1.5T CVT'],['19','2019 Sport · 1.5T CVT'],['20','2020 Sport · 1.5T CVT'],['20T','2020 Sport · 2.0T']];
+const SV=p=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
+ 'Carrocería':SV('<path d="M4 20V9l6-5h9a1 1 0 0 1 1 1v15z"/><path d="M4 11h16"/><path d="M15 14h3"/>'),
+ 'Chasis':SV('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3.5v6M12 14.5v6M3.5 12h6M14.5 12h6"/>'),
+ 'Motor':SV('<path d="M4 10h2V8h4V6h4v2h3l2 2h2v6h-2l-2 2H8l-2-2H4z"/><path d="M2 11v4M10 6V4h4"/>'),
+ 'Interior':SV('<path d="M8 3h5a2 2 0 0 1 2 2l-1 8H8z"/><path d="M6 13h11a2 2 0 0 1 2 2v2H6z"/><path d="M8 17v4M17 17v4"/>'),
+ 'Transmisión automática':SV('<circle cx="12" cy="5" r="2"/><path d="M12 7v10"/><path d="M6 11h12"/><path d="M6 11v6M18 11v6"/><rect x="8" y="17" width="8" height="4" rx="1"/>'),
+ 'Sistema eléctrico':SV('<path d="M13 2 5 14h6l-1 8 8-12h-6z"/>'),
+ 'Otras':SV('<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>'),
+ 'Accesorios':SV('<path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8 9.5 8z"/>')};
+const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
 let INV={wa:'6142637975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
 const st={q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
@@ -210,7 +224,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=filtered();
    <div class="sechead" id="catalogo"><div><div class="kicker">Encuentra justo lo que necesitas</div><h2 class="big">Catálogo de piezas</h2></div><span class="pill">Honda original · OEM</span></div>
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
     <label class="sel">Tu Accord<select id="ver">${VERS.map(([k,l])=>`<option value="${k}" ${st.ver===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
-   <div class="chips"><button class="chip" data-cat="" aria-pressed="${!st.cat}">Todas</button>${CATS.map(c=>`<button class="chip" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${esc(c)}</button>`).join('')}
+   <div class="chips"><button class="chip ic" data-cat="" aria-pressed="${!st.cat}">${ico('')}Todas</button>${CATS.map(c=>`<button class="chip ic" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${ico(c)}${esc(c)}</button>`).join('')}
     <button class="chip" data-stock aria-pressed="${st.stock}">✓ Solo en existencia${nAv?' ('+nAv+')':''}</button></div>
    <div class="secrow"><label for="sec">Sección</label><select id="sec"><option value="">Todas las secciones</option>${secs.map(s=>`<option value="${s.i}" ${st.sec===String(s.i)?'selected':''}>${esc(s.es)}</option>`).join('')}</select></div>
    ${nAv?'':`<div class="note"><b>Catálogo completo de Honda Accord Sport.</b> Los precios son sugeridos; confirmamos existencia y compatibilidad por WhatsApp antes de cobrar.</div>`}
