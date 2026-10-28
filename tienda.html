@@ -303,13 +303,20 @@ const carouselHTML=(id,kick,title,cards)=>`<section class="caro" id="${id}"><div
 const CARO={};
 function caroStep(id,dir,smooth=true){const tr=document.querySelector('#'+id+' .track');if(!tr)return;const card=tr.querySelector('.card');if(!card)return;
   const w=card.getBoundingClientRect().width+14;const half=tr.scrollWidth/2;
-  if(dir>0&&tr.scrollLeft>=half-2){tr.scrollLeft-=half}if(dir<0&&tr.scrollLeft<=2&&tr.scrollWidth>tr.clientWidth*1.9){tr.scrollLeft+=half}
-  tr.scrollBy({left:dir*w,behavior:smooth?'smooth':'auto'})}
+  glide(tr,dir*w)}
+// distancia de una vuelta completa (donde empieza la copia de la lista)
+const period=tr=>{const cs=tr.children;const n=cs.length/2;return n>=3&&Number.isInteger(n)?cs[n].offsetLeft-cs[0].offsetLeft:0};
+// deslizamiento suave propio (más fluido que el del navegador)
+function glide(tr,dx,ms=650){if(tr._g)cancelAnimationFrame(tr._g);const x0=tr.scrollLeft,t0=performance.now();const snap=tr.style.scrollSnapType;tr.style.scrollSnapType='none';
+  const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  const half=period(tr),loop=half>0;
+  const f=now=>{const t=Math.min(1,(now-t0)/ms);let v=x0+dx*ease(t);if(loop)v=((v%half)+half)%half;tr.scrollLeft=v;if(t<1)tr._g=requestAnimationFrame(f);else{tr._g=null;tr.style.scrollSnapType=snap}};tr._g=requestAnimationFrame(f)}
 function startCaros(){Object.values(CARO).forEach(clearInterval);['cdon','cfeat'].forEach((id,k)=>{const sec=document.getElementById(id);if(!sec)return;const tr=sec.querySelector('.track');
   if(!tr||tr.scrollWidth<=tr.clientWidth+5)return;let pause=0;const hold=()=>{pause=Date.now()+7000};
-  ['pointerdown','wheel','touchstart','mouseenter'].forEach(ev=>tr.addEventListener(ev,hold,{passive:true}));
-  tr.addEventListener('scroll',()=>{const half=tr.scrollWidth/2;if(tr.scrollLeft>=half)tr.scrollLeft-=half},{passive:true});
-  setTimeout(()=>{CARO[id]=setInterval(()=>{if(Date.now()<pause||document.hidden||st.route!=='inicio'||!document.body.contains(tr))return;caroStep(id,1)},3800)},k*1900)})}
+  ['pointerdown','wheel','touchstart'].forEach(ev=>tr.addEventListener(ev,hold,{passive:true}));tr.addEventListener('mouseenter',()=>{pause=Date.now()+3500},{passive:true});
+  tr.addEventListener('scroll',()=>{const half=period(tr);if(half&&!tr._g&&tr.scrollLeft>=half)tr.scrollLeft-=half},{passive:true});
+  setTimeout(()=>{CARO[id]=setInterval(()=>{if(Date.now()<pause||document.hidden||st.route!=='inicio'||!document.body.contains(tr))return;if(Date.now()<(CPAUSE[id]||0))return;caroStep(id,1)},2400)},k*1200)})}
+const CPAUSE={};
 const VL={'18':'1.5T','19':'1.5T','20':'1.5T','20T':'2.0T'};
 const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero']];
 const EXO2={av:0,rev:1,no:2};
@@ -497,7 +504,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if(d.galj!=null){GAL.i=+d.galj;showGal();return}
   if(d.zone){st.zone=d.zone;st.dsec=null;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
   if('dsec' in d){st.dsec=d.dsec===''?null:+d.dsec;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
-  if(d.caro){const sec=document.getElementById(d.caro);caroStep(d.caro,+d.dir);return}
+  if(d.caro){CPAUSE[d.caro]=Date.now()+6000;caroStep(d.caro,+d.dir);return}
   if('carf' in d){st.carf=d.carf;st.limit=24;render();setTimeout(()=>{const g=$('#catalogo');if(g)g.scrollIntoView({behavior:'smooth'})},30);return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
