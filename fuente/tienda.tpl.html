@@ -75,9 +75,21 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .meta-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:8px 0 12px;gap:10px;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
-.card .ph{position:relative;background:#f1efe8;aspect-ratio:4/3;display:grid;place-items:center;border:0;padding:0;cursor:pointer;width:100%}
-.card .ph img{max-width:82%;max-height:82%;object-fit:contain;mix-blend-mode:multiply}
-.card .ph img.real{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:cover;mix-blend-mode:normal}
+.card .ph{position:relative;background:#fff;aspect-ratio:4/3;display:block;border:0;border-bottom:1px solid var(--line);padding:0;cursor:pointer;width:100%;overflow:hidden}
+.card .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:8%;box-sizing:border-box}
+.card .ph img.real{object-fit:cover;padding:0}
+.card .ph .box{position:absolute;inset:0;display:grid;place-items:center;font-size:40px}
+.swap{position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;background:rgba(23,70,60,.88);color:#fff;font-size:11.5px;font-weight:600;padding:6px 10px;cursor:pointer}
+.dots{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:4px;z-index:2}
+.dots i{width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,.25)}.dots i.on{background:var(--green)}
+.feat{margin-top:34px}
+.sortsel{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);font-size:13px}
+.thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.thumbs button{flex:none;width:72px;height:72px;border-radius:10px;border:2px solid var(--line);background:#fff;padding:0;overflow:hidden;cursor:pointer}
+.thumbs button[aria-pressed="true"]{border-color:var(--green)}
+.thumbs img{width:100%;height:100%;object-fit:contain}.thumbs img.real{object-fit:cover}
+.bigwrap{position:relative}.bigwrap .nav{position:absolute;top:50%;transform:translateY(-50%);border:0;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:20px;cursor:pointer}
+.bigwrap .nav.l{left:10px}.bigwrap .nav.r{right:10px}
 .tag{position:absolute;top:12px;left:12px;font-size:10.5px;border:1px solid #cfd8cf;background:rgba(255,255,255,.85);color:var(--green2);border-radius:6px;padding:3px 7px;font-weight:600}
 .tag.no{background:#eee;color:#888;border-color:#ddd}
 .tag.ok{background:var(--green);color:#fff;border-color:var(--green)}
@@ -110,9 +122,9 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .sheet .bar{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 20px;z-index:2}
 .sheet .bar button{border:0;background:none;font-size:15px;color:var(--muted);cursor:pointer}
 .sheet .in{max-width:880px;margin:0 auto;padding:20px;display:grid;gap:16px}
-.bigph{background:#f1efe8;border-radius:16px;display:grid;place-items:center;min-height:260px;overflow:hidden}
-.bigph img{max-width:100%;max-height:62vh;object-fit:contain}
-.bigph img.real{width:100%;object-fit:cover}
+.bigph{background:#fff;border:1px solid var(--line);border-radius:16px;display:grid;place-items:center;aspect-ratio:4/3;overflow:hidden}
+.bigph img{width:100%;height:100%;object-fit:contain;padding:4%;box-sizing:border-box}
+.bigph img.real{object-fit:contain;padding:0;background:#111}
 dl.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14px}
 dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .vers{display:grid;gap:6px;font-size:13px}
@@ -128,7 +140,8 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
  .mtop .brand img{width:58px}.mtop .brand b{font-size:24px}
  .page{padding:16px 16px 110px}
  .hero{grid-template-columns:1fr;padding:30px 22px;text-align:left}
- .hero .art{order:-1}.hero .art img{width:min(78%,300px)}
+ .hero .art{order:-1;gap:6px}.hero .art img{width:min(52%,200px)}.hero .art span{font-size:18px}
+ .hero{padding:22px 20px}.hero h1{font-size:40px;margin:10px 0 12px}.hero .cta{margin-top:14px}
  .filters{grid-template-columns:1fr}
  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
  .card .bd{padding:12px;gap:8px}.card h3{font-size:14.5px}.price{font-size:15px}.add{width:36px;height:36px}
@@ -195,13 +208,13 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
 let INV={wa:'6142637975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
-const st={q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
+const st={sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
 const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const im=e.target;io.unobserve(im);
   const cat=()=>{if(im.dataset.s)bundle(+im.dataset.s).then(b=>{if(b[im.dataset.k])im.src=b[im.dataset.k]})};
-  if(im.dataset.f)thumb(im.dataset.f).then(u=>{if(u){im.src=u;im.className='real'}else cat()});else cat()}),{rootMargin:'400px'});
+  if(im.dataset.f)thumb(im.dataset.f).then(u=>{if(u){im.src=u}else cat()});else cat()}),{rootMargin:'400px'});
 const hook=root=>root.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i));
 const waNum=()=>{const w=String(INV.wa||'6142637975').replace(/\D/g,'');return w.length===10?'52'+w:w};
 const waLink=t=>'https://wa.me/'+waNum()+'?text='+encodeURIComponent(t);
@@ -209,6 +222,12 @@ const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];re
 const fitsVer=(it,v)=>!v||it.x||!(it.y&&it.y[v]==='');
 const imgTag=(it,big)=>it.f?`<img data-f="${esc(it.f)}" ${it.s!=null?`data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}"`:''} alt="${esc(it.es)}">`:it.s!=null?`<img data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}" alt="${esc(it.es)}">`:'<span style="font-size:40px">📦</span>';
 const byK=k=>ALL.find(i=>i.k===k);
+// vistas de imagen de cada pieza: dibujo de Honda + fotos reales
+const viewsOf=it=>{const v=[];if(it.s!=null)v.push({t:'cat'});(it.fids||[]).forEach(id=>v.push({t:'real',id}));return v};
+const CARDV={};
+const imgOne=(it,vw,cls)=>!vw?'<span class="box">📦</span>':vw.t==='cat'?`<img data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}" alt="${esc(it.es)}">`:`<img class="real" data-f="${esc(vw.id)}" alt="${esc(it.es)}">`;
+const phHTML=it=>{const V=viewsOf(it);const i=Math.min(CARDV[it.k]||0,Math.max(0,V.length-1));const nx=V[(i+1)%V.length];
+  return `${imgOne(it,V[i])}${V.length>1?`<span class="swap" data-swap="${esc(it.k)}">${nx.t==='real'?'📷 Ver foto real':'✏️ Ver dibujo Honda'}</span><span class="dots">${V.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}</span>`:''}`};
 const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
 const exTag=it=>it.ex==='av'?'<span class="tag ok">Disponible</span>':it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
 const exTxt=it=>it.ex==='av'?'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):''):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
@@ -219,19 +238,27 @@ function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a
 function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});saveQ()}
 // ---- vistas ----
 function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
-  return `<div class="card"><button class="ph" data-det="${esc(it.k)}" aria-label="Ver ${esc(it.es)}">${imgTag(it)}${exTag(it)}</button>
+  return `<div class="card"><div class="ph" data-det="${esc(it.k)}" role="button" aria-label="Ver ${esc(it.es)}" id="ph-${esc(it.k)}">${phHTML(it)}${exTag(it)}</div>
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
    <div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
   return ALL.filter(it=>(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
-function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=filtered();
+const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero']];
+const EXO2={av:0,rev:1,no:2};
+function sortArr(arr){const a=arr.slice();const s=st.sort;const nm=(x,y)=>x.es.localeCompare(y.es,'es');
+  if(s==='pd')a.sort((x,y)=>(y.price||0)-(x.price||0));else if(s==='pa')a.sort((x,y)=>(x.price||1e9)-(y.price||1e9));
+  else if(s==='az')a.sort(nm);else if(s==='za')a.sort((x,y)=>nm(y,x));else if(s==='foto')a.sort((x,y)=>((y.fids||[]).length?1:0)-((x.fids||[]).length?1:0)||EXO2[x.ex]-EXO2[y.ex]);
+  else a.sort((x,y)=>EXO2[x.ex]-EXO2[y.ex]||(y.price||0)-(x.price||0));return a}
+function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filtered());
+  const feat=ALL.filter(i=>i.ex==='av'&&i.price).sort((a,b)=>b.price-a.price).slice(0,4);
   const secs=SECS.filter(s=>!st.cat||s.cat===st.cat);
   view.innerHTML=`<section class="hero"><div><div class="kicker">Originales. Con historia. Listas para seguir.</div><h1>Tu Accord todavía tiene mucho camino.</h1>
     <p>Encuentra la pieza que buscas por nombre o número.</p><p>Te ayudamos con la versión correcta.</p>
     <div class="cta"><a class="btn lime" href="#catalogo" data-go="cat">Explorar catálogo ↓</a><small>Accord Sport · 2018 — 2020</small></div></div>
     <div class="art"><img src="logo-trio.png" alt="Trío Accord"><span>Las buenas piezas se reconocen.</span></div></section>
+   ${feat.length?`<div class="feat"><div class="kicker">Disponibles hoy</div><h2 class="big">Lo más destacado</h2><div class="grid">${feat.map(cardHTML).join('')}</div></div>`:''}
    <div class="sechead" id="catalogo"><div><div class="kicker">Encuentra justo lo que necesitas</div><h2 class="big">Catálogo de piezas</h2></div><span class="pill">Honda original · OEM</span></div>
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
     <label class="sel">Tu Accord<select id="ver">${VERS.map(([k,l])=>`<option value="${k}" ${st.ver===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
@@ -239,7 +266,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=filtered();
     <button class="chip" data-stock aria-pressed="${st.stock}">✓ Solo en existencia${nAv?' ('+nAv+')':''}</button></div>
    <div class="secrow"><label for="sec">Sección</label><select id="sec"><option value="">Todas las secciones</option>${secs.map(s=>`<option value="${s.i}" ${st.sec===String(s.i)?'selected':''}>${esc(s.es)}</option>`).join('')}</select></div>
    ${nAv?'':`<div class="note"><b>Catálogo completo de Honda Accord Sport.</b> Los precios son sugeridos; confirmamos existencia y compatibilidad por WhatsApp antes de cobrar.</div>`}
-   <div class="meta-row"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><span>Sin tornillería ni grapas</span></div>
+   <div class="meta-row" style="align-items:center"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><label style="display:flex;align-items:center;gap:8px">Ordenar por<select id="sort" class="sortsel">${SORTS.map(([k,l])=>`<option value="${k}" ${st.sort===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
    ${arr.length?`<div class="grid">${arr.slice(0,st.limit).map(cardHTML).join('')}</div>${arr.length>st.limit?`<button class="btn more" data-more>Ver más piezas (${(arr.length-st.limit).toLocaleString('es-MX')})</button>`:''}`
    :`<div class="empty"><b>No encontramos esa pieza.</b><br><br>Puede que la tengamos y aún no esté publicada.<br><br><a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, busco esta pieza de Honda Accord: '+st.q)}">Preguntar por WhatsApp</a></div>`}`;
   hook(view);
@@ -311,7 +338,8 @@ function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttrib
 async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
-   <div class="bigph" id="bigph">${imgTag(it,true)}</div>
+   <div class="bigwrap"><div class="bigph" id="bigph"></div>${viewsOf(it).length>1?'<button class="nav l" data-gal="-1" aria-label="Anterior">‹</button><button class="nav r" data-gal="1" aria-label="Siguiente">›</button>':''}</div>
+   ${viewsOf(it).length>1?`<div class="thumbs">${viewsOf(it).map((v,j)=>`<button data-galj="${j}" aria-pressed="${j===0}">${imgOne(it,v)}</button>`).join('')}</div>`:''}
    <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(it.es)}</h2>${it.en?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
    <div class="price" style="font-size:28px">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
@@ -320,10 +348,14 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
    <a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, me interesa esta pieza de Honda Accord: '+it.es+' ('+numFor(it,st.ver)+'). ¿Sigue disponible?')}">Preguntar por WhatsApp</a>
    <p style="font-size:12.5px;color:var(--muted);margin:0">Pieza original usada. Si quieres más fotos, pídelas por WhatsApp.</p></div>`;
   if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';hook(modal);
-  if(it.f){try{const d=await getDoc(doc(fs,'fotosfull',it.f));const u=d.exists()&&d.data().img;const im=$('#bigph img');if(u&&im){im.src=u;im.className='real'}}catch(e){}}}
+  GAL={it,i:CARDV[k]||0};showGal()}
+let GAL=null;const fullc={};
+async function showGal(){if(!GAL)return;const {it}=GAL;const V=viewsOf(it);if(!V.length){$('#bigph').innerHTML='<span style="font-size:60px">📦</span>';return}GAL.i=((GAL.i%V.length)+V.length)%V.length;const v=V[GAL.i];
+  const box=$('#bigph');box.innerHTML=imgOne(it,v);hook(box);document.querySelectorAll('[data-galj]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.galj===GAL.i));
+  if(v.t==='real'){try{const u=fullc[v.id]||(fullc[v.id]=(await getDoc(doc(fs,'fotosfull',v.id))).data()?.img);const im=box.querySelector('img');if(u&&im&&GAL&&viewsOf(GAL.it)[GAL.i]===v)im.src=u}catch(e){}}}
 function closeDet(){modal.hidden=true;document.body.style.overflow=''}
 // ---- eventos ----
-document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;
+document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swap],[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;
   if('acct' in d){e.preventDefault();openAcct.reg=false;openAcct(d.acct||'cliente');return}
   if(d.atab){openAcct(d.atab);return}
   if('areg' in d){openAcct.reg=!openAcct.reg;openAcct('cliente');return}
@@ -332,8 +364,11 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det
   if('clogout' in d){signOut(auth);location.hash='#inicio';return}
   if(d.go==='cat'){e.preventDefault();$('#catalogo').scrollIntoView({behavior:'smooth'});return}
   if(d.q){toggleQ(d.q);if(!modal.hidden)openDet(d.q);if(st.route==='inicio'){const b=document.querySelector(`.add[data-q="${CSS.escape(d.q)}"]`);if(b){const on=inQ(d.q);b.className='add'+(on?' on':'');b.textContent=on?'✓':'+'}}else render();return}
+  if(d.swap){e.stopPropagation();const it=byK(d.swap);const V=viewsOf(it);CARDV[d.swap]=((CARDV[d.swap]||0)+1)%V.length;document.querySelectorAll('[id="ph-'+CSS.escape(d.swap)+'"]').forEach(el=>{el.innerHTML=phHTML(it)+exTag(it);hook(el)});return}
   if(d.det){openDet(d.det);return}
   if('close' in d){history.back();return}
+  if(d.gal){GAL.i+=(+d.gal);showGal();return}
+  if(d.galj!=null){GAL.i=+d.galj;showGal();return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
   if('more' in d){st.limit+=24;const y=scrollY;render();scrollTo(0,y);return}
@@ -341,7 +376,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-det
   if(d.qrm){Q=Q.filter(x=>x.k!==d.qrm);saveQ();render();return}
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
-document.addEventListener('change',e=>{if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
+document.addEventListener('change',e=>{if(e.target.id==='sort'){st.sort=e.target.value;st.limit=24;render();const g=$('#catalogo');if(g)g.scrollIntoView();return}if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
 const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros','cuenta'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
@@ -350,12 +385,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)histo
 try{const [dj,snap]=await Promise.all([fetch('data.json').then(r=>r.json()),getDoc(doc(fs,'publico','inventario')).catch(()=>null)]);D=dj;SECS=dj.secs;
   if(snap&&snap.exists())INV=Object.assign(INV,snap.data());
   const P=a=>typeof a==='string'?JSON.parse(a):a;const SNAP=!!(snap&&snap.exists());const REV=new Set(INV.rev||[]);
-  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f,cond,sug,cars}});
+  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:(p.sp||0),sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:(p.sp||0),sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
-  for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
+  for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;
