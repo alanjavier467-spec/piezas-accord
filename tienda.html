@@ -132,11 +132,15 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .mtop{display:none}
 .carwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px;margin-bottom:12px}
 .carsvg{width:100%;height:auto;display:block}
-.hot{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;border:3px solid #fff;background:var(--lime);box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;padding:0}
-.hot::after{content:'+';color:var(--green);font-weight:800;font-size:15px;line-height:20px}
+.hot{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:3px solid #fff;background:var(--lime);box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;padding:0}
+.hot b{color:var(--green);font-size:12px;line-height:1;font-weight:800}
+.carbox{position:relative}
+.zc b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--lime);color:var(--green);font-size:10.5px;margin-right:6px}
+.zc[aria-pressed="true"] b{background:#fff}
 .hot.on{background:#fff;outline:3px solid var(--lime)}
 .hot span{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;white-space:nowrap;padding:4px 8px;border-radius:6px}
 .hot:hover span,.hot.on span{display:block}
+.hot:hover{transform:translate(-50%,-50%) scale(1.15)}
 .seclist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
 .secbtn{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer}
 .secbtn span{font-size:12.5px;color:var(--muted);white-space:nowrap}.secbtn em{color:var(--green);font-style:normal;font-weight:700}
@@ -147,7 +151,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .pl .ref{font-weight:700;color:var(--green)}.pl .nm small{display:block;font-family:ui-monospace,monospace;color:var(--muted);font-size:11.5px;margin-top:2px}
 .pl .stt{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
 .pl .stt.av{background:var(--green);color:#fff}.pl .stt.no{background:#eee;color:#888}.pl .stt.rev{background:#f6efd9;color:#8a6d1a}
-@media (max-width:900px){.hot{width:22px;height:22px}.hot::after{font-size:13px;line-height:16px}.hot:hover span{display:none}.hot.on span{display:block}}
+@media (max-width:900px){.hot{width:20px;height:20px;border-width:2px}.hot b{font-size:10px}.hot:hover span{display:none}.hot.on span{display:block}}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px}
 .caro{min-width:0}
 .caro-h{display:flex;justify-content:space-between;align-items:end;gap:10px}
@@ -351,25 +355,25 @@ function vNos(){view.innerHTML=`<div class="about"><div class="art"><img src="lo
 // ---- explorar el Accord por diagramas ----
 const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').then(r=>r.json()).catch(()=>[]));
 const ZONES=[
- {id:'cofre',l:'Cofre',x:265,y:178,s:[4]},
- {id:'motor',l:'Motor',x:200,y:228,cat:'Motor',extra:[60,65,66,1,2,42,47,77,99,101]},
- {id:'faro',l:'Faros',x:92,y:236,s:[57,51]},
- {id:'defdel',l:'Defensa delantera',x:58,y:290,s:[109,111,64]},
- {id:'parabrisas',l:'Parabrisas y limpiadores',x:378,y:150,s:[13,52,75]},
- {id:'salp',l:'Salpicadera',x:150,y:262,s:[11]},
- {id:'espejo',l:'Espejos',x:405,y:205,s:[123]},
- {id:'pdel',l:'Puerta delantera',x:480,y:255,s:[8,9,10,110]},
- {id:'ptra',l:'Puerta trasera',x:640,y:255,s:[15,16,17,127]},
- {id:'interior',l:'Interior',x:555,y:165,cat:'Interior',excl:[109,111,123,126,133,124,107]},
- {id:'medallon',l:'Medallón',x:745,y:160,s:[18]},
- {id:'cajuela',l:'Cajuela',x:860,y:200,s:[19,56,129]},
- {id:'calavera',l:'Calaveras',x:938,y:228,s:[72]},
- {id:'deftra',l:'Defensa trasera',x:948,y:292,s:[126,133]},
- {id:'rdel',l:'Rin, freno y suspensión delantera',x:212,y:322,s:[35,23,25,26,24,21]},
- {id:'rtra',l:'Rin, freno y suspensión trasera',x:790,y:322,s:[35,29,30,31]},
- {id:'tanque',l:'Tanque y escape',x:700,y:330,s:[53,54,55,50,84]},
- {id:'trans',l:'Transmisión',x:330,y:300,cat:'Transmisión automática',extra:[32]},
- {id:'elec',l:'Sistema eléctrico',x:300,y:236,cat:'Sistema eléctrico',excl:[50,51,52,53,54,55,56,57,72,75,64]},
+ {id:'cofre',l:'Cofre',x:258,y:207,s:[4]},
+ {id:'motor',l:'Motor',x:300,y:236,cat:'Motor',extra:[60,65,66,1,2,42,47,77,99,101]},
+ {id:'faro',l:'Faros',x:96,y:250,s:[57,51]},
+ {id:'defdel',l:'Defensa delantera',x:60,y:300,s:[109,111,64]},
+ {id:'parabrisas',l:'Parabrisas y limpiadores',x:452,y:156,s:[13,52,75]},
+ {id:'salp',l:'Salpicadera',x:160,y:272,s:[11]},
+ {id:'espejo',l:'Espejos',x:408,y:196,s:[123]},
+ {id:'pdel',l:'Puerta delantera',x:505,y:268,s:[8,9,10,110]},
+ {id:'ptra',l:'Puerta trasera',x:712,y:268,s:[15,16,17,127]},
+ {id:'interior',l:'Interior',x:525,y:168,cat:'Interior',excl:[109,111,123,126,133,124,107]},
+ {id:'medallon',l:'Medallón',x:790,y:170,s:[18]},
+ {id:'cajuela',l:'Cajuela',x:885,y:206,s:[19,56,129]},
+ {id:'calavera',l:'Calaveras',x:948,y:232,s:[72]},
+ {id:'deftra',l:'Defensa trasera',x:962,y:296,s:[126,133]},
+ {id:'rdel',l:'Rin, freno y suspensión delantera',x:212,y:330,s:[35,23,25,26,24,21]},
+ {id:'rtra',l:'Rin, freno y suspensión trasera',x:790,y:330,s:[35,29,30,31]},
+ {id:'tanque',l:'Tanque y escape',x:660,y:322,s:[53,54,55,50,84]},
+ {id:'trans',l:'Transmisión',x:440,y:318,cat:'Transmisión automática',extra:[32]},
+ {id:'elec',l:'Sistema eléctrico',x:360,y:262,cat:'Sistema eléctrico',excl:[50,51,52,53,54,55,56,57,72,75,64]},
 ];
 const zoneSecs=z=>{let a=z.s?z.s.slice():[];if(z.cat)a=SECS.filter(s=>s.cat.split(' / ')[0]===z.cat&&!(z.excl||[]).includes(s.i)).map(s=>s.i).concat(z.extra||[]);return [...new Set(a)].filter(i=>SECS[i])};
 const CAR_SVG=`<svg viewBox="0 0 1000 400" class="carsvg" role="img" aria-label="Honda Accord: toca una zona">
@@ -384,13 +388,16 @@ const CAR_SVG=`<svg viewBox="0 0 1000 400" class="carsvg" role="img" aria-label=
  <path d="M398 206 C392 196 396 186 410 186 L420 196 Z" fill="#0f3029"/>
  <g fill="#1b2420"><circle cx="212" cy="330" r="54"/><circle cx="790" cy="330" r="54"/></g>
  <g fill="#c9cfcc"><circle cx="212" cy="330" r="30"/><circle cx="790" cy="330" r="30"/></g>
+ <g stroke="#8a938f" stroke-width="5" stroke-linecap="round">${[0,72,144,216,288].map(a=>{const r=a*Math.PI/180;return `<line x1="${212+10*Math.cos(r)}" y1="${330+10*Math.sin(r)}" x2="${212+28*Math.cos(r)}" y2="${330+28*Math.sin(r)}"/><line x1="${790+10*Math.cos(r)}" y1="${330+10*Math.sin(r)}" x2="${790+28*Math.cos(r)}" y2="${330+28*Math.sin(r)}"/>`}).join('')}</g>
  <g fill="#8a938f"><circle cx="212" cy="330" r="9"/><circle cx="790" cy="330" r="9"/></g>
+ <path d="M50 288 L96 292 L100 306 L54 308 Z" fill="#0f3029" opacity=".55"/>
+ <path d="M920 300 L968 296 L966 314 L924 314 Z" fill="#0f3029" opacity=".4"/>
  ${''}</svg>`;
 function vAccord(){const z=ZONES.find(x=>x.id===st.zone);
   view.innerHTML=`<div class="kicker">Explora tu Accord</div><h2 class="big">Toca una parte del carro</h2>
    <p style="margin:-8px 0 14px;color:var(--muted)">Verás los diagramas originales de Honda con cada pieza numerada y si la tenemos disponible.</p>
-   <div class="carwrap">${CAR_SVG}${ZONES.map(o=>`<button class="hot ${st.zone===o.id?'on':''}" style="left:${o.x/10}%;top:${o.y/4}%" data-zone="${o.id}" aria-label="${esc(o.l)}"><span>${esc(o.l)}</span></button>`).join('')}</div>
-   <div class="chips">${ZONES.map(o=>`<button class="chip" data-zone="${o.id}" aria-pressed="${st.zone===o.id}">${esc(o.l)}</button>`).join('')}</div>
+   <div class="carwrap"><div class="carbox">${CAR_SVG}${ZONES.map((o,n)=>`<button class="hot ${st.zone===o.id?'on':''}" style="left:${o.x/10}%;top:${o.y/4}%" data-zone="${o.id}" aria-label="${esc(o.l)}"><b>${n+1}</b><span>${esc(o.l)}</span></button>`).join('')}</div></div>
+   <div class="chips">${ZONES.map((o,n)=>`<button class="chip zc" data-zone="${o.id}" aria-pressed="${st.zone===o.id}"><b>${n+1}</b>${esc(o.l)}</button>`).join('')}</div>
    <div id="zonebox">${z?zoneHTML(z):'<div class="note">Elige una zona en el dibujo o en los botones de arriba.</div>'}</div>`;
   if(z&&st.dsec!=null)loadDsec()}
 function zoneHTML(z){const ss=zoneSecs(z);
