@@ -130,6 +130,24 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
 .vers{display:grid;gap:6px;font-size:13px}
 .vers div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:6px 0}
 .mtop{display:none}
+.carwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px;margin-bottom:12px}
+.carsvg{width:100%;height:auto;display:block}
+.hot{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;border:3px solid #fff;background:var(--lime);box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;padding:0}
+.hot::after{content:'+';color:var(--green);font-weight:800;font-size:15px;line-height:20px}
+.hot.on{background:#fff;outline:3px solid var(--lime)}
+.hot span{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:12px;white-space:nowrap;padding:4px 8px;border-radius:6px}
+.hot:hover span,.hot.on span{display:block}
+.seclist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.secbtn{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer}
+.secbtn span{font-size:12.5px;color:var(--muted);white-space:nowrap}.secbtn em{color:var(--green);font-style:normal;font-weight:700}
+.back{border:0;background:none;color:var(--muted);cursor:pointer;padding:6px 0;font-size:14px}
+.dimgs{display:grid;gap:10px}.dimgs img{width:100%;background:#fff;border:1px solid var(--line);border-radius:12px}
+.plist{display:grid;gap:6px}
+.pl{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.pl .ref{font-weight:700;color:var(--green)}.pl .nm small{display:block;font-family:ui-monospace,monospace;color:var(--muted);font-size:11.5px;margin-top:2px}
+.pl .stt{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.pl .stt.av{background:var(--green);color:#fff}.pl .stt.no{background:#eee;color:#888}.pl .stt.rev{background:#f6efd9;color:#8a6d1a}
+@media (max-width:900px){.hot{width:22px;height:22px}.hot::after{font-size:13px;line-height:16px}.hot:hover span{display:none}.hot.on span{display:block}}
 .staffbar{background:var(--lime);color:var(--green);padding:10px 20px;font-size:14px;font-weight:600;text-align:center}.staffbar a{color:var(--green)}
 .tabs{display:none}
 .fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;box-shadow:0 6px 18px rgba(0,0,0,.25);border-radius:999px;padding:14px 18px}
@@ -146,7 +164,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
  .card .bd{padding:12px;gap:8px}.card h3{font-size:14.5px}.price{font-size:15px}.add{width:36px;height:36px}
  .card .sec{display:none}
- .tabs{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+ .tabs{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
  .tabs a{display:grid;justify-items:center;gap:2px;padding:9px 4px;font-size:11.5px;text-decoration:none;color:var(--muted);position:relative}
  .tabs a span{font-size:20px}
  .tabs a[aria-current="page"]{color:var(--green);font-weight:700}
@@ -164,6 +182,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
   <nav class="menu">
     <a href="#inicio" data-nav="inicio">▦ <span>Catálogo</span></a>
     <a href="#cotizacion" data-nav="cotizacion">☰ <span>Mi cotización</span><span class="cnt" data-cnt>0</span></a>
+    <a href="#accord" data-nav="accord">🚗 <span>Explorar el Accord</span></a>
     <a href="#nosotros" data-nav="nosotros">◎ <span>Sobre nosotros</span></a>
   </nav>
   <div class="helpbox"><b>¿No encuentras tu pieza?</b>Envíanos una foto o el número de parte. Te ayudamos a buscarla.<br><a target="_blank" rel="noopener" data-wa="Hola, busco una pieza de Honda Accord: ">WhatsApp ↗</a></div>
@@ -177,7 +196,7 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
   <div class="page" id="view"><p style="color:var(--muted)">Cargando catálogo…</p></div>
 </main>
 </div>
-<nav class="tabs"><a href="#inicio" data-nav="inicio"><span>▦</span>Catálogo</a><a href="#cotizacion" data-nav="cotizacion"><span>☰</span>Cotización<b class="cnt" data-cnt hidden>0</b></a><a href="#nosotros" data-nav="nosotros"><span>◎</span>Nosotros</a></nav>
+<nav class="tabs"><a href="#inicio" data-nav="inicio"><span>▦</span>Catálogo</a><a href="#accord" data-nav="accord"><span>🚗</span>Explorar</a><a href="#cotizacion" data-nav="cotizacion"><span>☰</span>Cotización<b class="cnt" data-cnt hidden>0</b></a><a href="#nosotros" data-nav="nosotros"><span>◎</span>Nosotros</a></nav>
 <a class="btn dark fab" id="fab" href="#cotizacion" hidden>Ver mi cotización</a>
 <div class="sheet" id="modal" hidden></div>
 <script type="module">
@@ -208,7 +227,7 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
 let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
-const st={carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
+const st={zone:'',dsec:null,carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
 const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
@@ -299,6 +318,61 @@ function vNos(){view.innerHTML=`<div class="about"><div class="art"><img src="lo
    <h1>Una nueva vida para cada pieza.</h1><p style="font-size:17px;max-width:560px;line-height:1.6">Piezas originales para Honda Accord Sport. Consulta el número de parte con nuestro equipo para encontrar la opción adecuada para tu carro.</p>
    ${INV.dir?`<p style="color:var(--muted)">📍 ${esc(INV.dir)}</p>`:''}${INV.pie?`<p style="color:var(--muted)">${esc(INV.pie)}</p>`:''}
    <a class="btn dark" target="_blank" rel="noopener" href="${waLink('Hola, quiero hablar con el equipo de piezas de Honda Accord.')}">Hablar con el equipo ↗</a></div>`}
+// ---- explorar el Accord por diagramas ----
+const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').then(r=>r.json()).catch(()=>[]));
+const ZONES=[
+ {id:'cofre',l:'Cofre',x:265,y:178,s:[4]},
+ {id:'motor',l:'Motor',x:200,y:228,cat:'Motor',extra:[60,65,66,1,2,42,47,77,99,101]},
+ {id:'faro',l:'Faros',x:92,y:236,s:[57,51]},
+ {id:'defdel',l:'Defensa delantera',x:58,y:290,s:[109,111,64]},
+ {id:'parabrisas',l:'Parabrisas y limpiadores',x:378,y:150,s:[13,52,75]},
+ {id:'salp',l:'Salpicadera',x:150,y:262,s:[11]},
+ {id:'espejo',l:'Espejos',x:405,y:205,s:[123]},
+ {id:'pdel',l:'Puerta delantera',x:480,y:255,s:[8,9,10,110]},
+ {id:'ptra',l:'Puerta trasera',x:640,y:255,s:[15,16,17,127]},
+ {id:'interior',l:'Interior',x:555,y:165,cat:'Interior',excl:[109,111,123,126,133,124,107]},
+ {id:'medallon',l:'Medallón',x:745,y:160,s:[18]},
+ {id:'cajuela',l:'Cajuela',x:860,y:200,s:[19,56,129]},
+ {id:'calavera',l:'Calaveras',x:938,y:228,s:[72]},
+ {id:'deftra',l:'Defensa trasera',x:948,y:292,s:[126,133]},
+ {id:'rdel',l:'Rin, freno y suspensión delantera',x:212,y:322,s:[35,23,25,26,24,21]},
+ {id:'rtra',l:'Rin, freno y suspensión trasera',x:790,y:322,s:[35,29,30,31]},
+ {id:'tanque',l:'Tanque y escape',x:700,y:330,s:[53,54,55,50,84]},
+ {id:'trans',l:'Transmisión',x:330,y:300,cat:'Transmisión automática',extra:[32]},
+ {id:'elec',l:'Sistema eléctrico',x:300,y:236,cat:'Sistema eléctrico',excl:[50,51,52,53,54,55,56,57,72,75,64]},
+];
+const zoneSecs=z=>{let a=z.s?z.s.slice():[];if(z.cat)a=SECS.filter(s=>s.cat.split(' / ')[0]===z.cat&&!(z.excl||[]).includes(s.i)).map(s=>s.i).concat(z.extra||[]);return [...new Set(a)].filter(i=>SECS[i])};
+const CAR_SVG=`<svg viewBox="0 0 1000 400" class="carsvg" role="img" aria-label="Honda Accord: toca una zona">
+ <defs><linearGradient id="bd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a6a5a"/><stop offset="1" stop-color="#17463c"/></linearGradient></defs>
+ <ellipse cx="505" cy="352" rx="460" ry="18" fill="#000" opacity=".08"/>
+ <path d="M48 300 C44 268 62 248 108 240 L250 214 C300 205 330 198 360 176 C420 132 480 112 560 110 L680 112 C760 116 812 150 860 196 L928 210 C962 218 978 246 976 284 L972 318 C970 326 962 330 950 330 L860 330 C860 280 830 258 790 258 C750 258 722 282 720 330 L282 330 C282 280 252 258 212 258 C172 258 146 282 146 330 L70 330 C56 330 50 320 48 300 Z" fill="url(#bd)"/>
+ <path d="M372 182 C430 138 486 124 556 122 L600 122 L606 200 L392 204 Z" fill="#cfe0d8" opacity=".9"/>
+ <path d="M620 122 L676 124 C736 128 780 156 822 196 L626 200 Z" fill="#cfe0d8" opacity=".9"/>
+ <path d="M612 120 L616 330" stroke="#0f3029" stroke-width="3"/><path d="M398 206 L404 330" stroke="#0f3029" stroke-width="3"/><path d="M826 200 L834 300" stroke="#0f3029" stroke-width="3" opacity=".6"/>
+ <path d="M70 252 C110 244 140 240 168 238" stroke="#d8ee8a" stroke-width="7" stroke-linecap="round"/><path d="M930 222 L962 232" stroke="#ff8a80" stroke-width="8" stroke-linecap="round"/>
+ <rect x="530" y="232" width="30" height="7" rx="3" fill="#0f3029"/><rect x="700" y="232" width="30" height="7" rx="3" fill="#0f3029"/>
+ <path d="M398 206 C392 196 396 186 410 186 L420 196 Z" fill="#0f3029"/>
+ <g fill="#1b2420"><circle cx="212" cy="330" r="54"/><circle cx="790" cy="330" r="54"/></g>
+ <g fill="#c9cfcc"><circle cx="212" cy="330" r="30"/><circle cx="790" cy="330" r="30"/></g>
+ <g fill="#8a938f"><circle cx="212" cy="330" r="9"/><circle cx="790" cy="330" r="9"/></g>
+ ${''}</svg>`;
+function vAccord(){const z=ZONES.find(x=>x.id===st.zone);
+  view.innerHTML=`<div class="kicker">Explora tu Accord</div><h2 class="big">Toca una parte del carro</h2>
+   <p style="margin:-8px 0 14px;color:var(--muted)">Verás los diagramas originales de Honda con cada pieza numerada y si la tenemos disponible.</p>
+   <div class="carwrap">${CAR_SVG}${ZONES.map(o=>`<button class="hot ${st.zone===o.id?'on':''}" style="left:${o.x/10}%;top:${o.y/4}%" data-zone="${o.id}" aria-label="${esc(o.l)}"><span>${esc(o.l)}</span></button>`).join('')}</div>
+   <div class="chips">${ZONES.map(o=>`<button class="chip" data-zone="${o.id}" aria-pressed="${st.zone===o.id}">${esc(o.l)}</button>`).join('')}</div>
+   <div id="zonebox">${z?zoneHTML(z):'<div class="note">Elige una zona en el dibujo o en los botones de arriba.</div>'}</div>`;
+  if(z&&st.dsec!=null)loadDsec()}
+function zoneHTML(z){const ss=zoneSecs(z);
+  if(st.dsec!=null&&ss.includes(st.dsec))return dsecHTML(st.dsec,z);
+  return `<h3 style="font-size:22px;margin:18px 0 8px">${esc(z.l)}</h3><div class="seclist">${ss.map(i=>{const its=ALL.filter(it=>it.s===i);const av=its.filter(it=>it.ex==='av').length;
+    return `<button class="secbtn" data-dsec="${i}"><b>${esc(SECS[i].es)}</b><span>${its.length} piezas${av?` · <em>${av} disponible${av>1?'s':''}</em>`:''} ›</span></button>`}).join('')}</div>`}
+function dsecHTML(i,z){const its=ALL.filter(it=>it.s===i).sort((a,b)=>(parseInt(a.ref)||999)-(parseInt(b.ref)||999));
+  return `<button class="back" data-dsec="">‹ ${esc(z.l)}</button><h3 style="font-size:22px;margin:8px 0">${esc(SECS[i].es)}</h3>
+   <div id="dimgs" class="dimgs"><p style="color:var(--muted)">Cargando diagrama…</p></div>
+   <p style="font-size:13px;color:var(--muted);margin:6px 0 10px"># = número en el diagrama. Toca una pieza para verla.</p>
+   <div class="plist">${its.map(it=>`<button class="pl" data-det="${esc(it.k)}"><span class="ref">#${esc(it.ref)}</span><span class="nm">${esc(it.es)}<small>${esc(numFor(it,st.ver))}</small></span><span class="stt ${it.ex}">${it.ex==='av'?'Disponible':it.ex==='no'?'No disponible':'Por confirmar'}</span></button>`).join('')}</div>`}
+function loadDsec(){const i=st.dsec;diagrams(i).then(ds=>{const el=$('#dimgs');if(!el||st.dsec!==i)return;el.innerHTML=ds.length?ds.map(u=>`<a href="${u}" target="_blank" rel="noopener"><img src="${u}" alt="Diagrama de ${esc(SECS[i].es)}"></a>`).join(''):'<p style="color:var(--muted)">Sin diagrama.</p>'})}
 // ---- cuentas ----
 function acctLabel(){document.querySelectorAll('.acctbtn').forEach(b=>{b.textContent=CLI?(b.closest('.mtop')?'👤':'👤 '+(CLI.name||CLI.user)):STAFF?'Volver a mi app':(b.closest('.mtop')?'👤':'Iniciar sesión / Registrarse')})}
 function openAcct(tab){if(CLI){location.hash='#cuenta';return}if(STAFF){location.href='index.html';return}
@@ -338,8 +412,8 @@ async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesi
   try{const sn=await getDocs(query(collection(fs,'solicitudes'),where('uid','==',CLI.uid)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>b.date.localeCompare(a.date));const el=$('#c-sol');if(!el)return;
     el.innerHTML=L.length?L.map(r=>`<div class="qline" style="grid-template-columns:1fr auto"><div><b>${new Date(r.date).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</b> · ${esc(r.pay||'')}<br><span style="font-size:13px;color:var(--muted)">${(r.items||[]).map(i=>esc(i.es)+' x'+i.qty).join(', ')}</span></div><div class="price">${money(r.total)}</div></div>`).join(''):'<p style="color:var(--muted)">Aún no has enviado solicitudes. Arma tu cotización y envíala por WhatsApp.</p>'}catch(e){const el=$('#c-sol');if(el)el.innerHTML='<p style="color:var(--muted)">No se pudieron cargar.</p>'}}
 function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',a.dataset.nav===st.route?'page':'false'));
-  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta'})[st.route];
-  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta})[st.route]();saveQ()}
+  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord'})[st.route];
+  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord})[st.route]();saveQ()}
 async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
@@ -374,6 +448,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('close' in d){history.back();return}
   if(d.gal){GAL.i+=(+d.gal);showGal();return}
   if(d.galj!=null){GAL.i=+d.galj;showGal();return}
+  if(d.zone){st.zone=d.zone;st.dsec=null;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
+  if('dsec' in d){st.dsec=d.dsec===''?null:+d.dsec;render();setTimeout(()=>{const b=$('#zonebox');if(b)b.scrollIntoView({behavior:'smooth',block:'start'})},30);return}
   if('carf' in d){st.carf=d.carf;st.limit=24;render();setTimeout(()=>{const g=$('#catalogo');if(g)g.scrollIntoView({behavior:'smooth'})},30);return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
@@ -383,7 +459,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='sort'){st.sort=e.target.value;st.limit=24;render();const g=$('#catalogo');if(g)g.scrollIntoView();return}if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
-const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros','cuenta'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
+const route=()=>{const h=(location.hash||'#inicio').slice(1);st.route=['cotizacion','nosotros','cuenta','accord'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
