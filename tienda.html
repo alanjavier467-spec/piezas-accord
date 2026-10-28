@@ -104,6 +104,10 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .card .ft{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;display:flex;align-items:end;justify-content:space-between;gap:10px}
 .price{font-weight:700;font-size:17px}
 .price small{display:block;font-weight:400;font-size:10.5px;color:var(--muted);margin-top:3px}
+.nuevo{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-bottom:-4px}.nuevo s{opacity:.85}.nuevo b{background:#e8f5c8;color:var(--green);border-radius:6px;padding:1px 6px;font-size:11px}
+.ahorro{background:#eef7dc;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.45}.ahorro s{color:var(--muted)}.ahorro small{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
+.stars{color:#e0a400;letter-spacing:1px}.revs{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:10px 0 26px}.rev{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.5}.rev b{display:block;margin-top:6px}.rev small{color:var(--muted)}
+.starpick{display:flex;gap:6px}.starpick button{font-size:34px;line-height:1;background:none;border:0;cursor:pointer;color:#d6d3c8;padding:0}.starpick button.on{color:#e0a400}
 .add{width:40px;height:40px;border-radius:9px;border:0;background:var(--lime);color:var(--green);font-size:22px;font-weight:700;cursor:pointer;flex:none}
 .add.on{background:var(--green);color:#fff;font-size:17px}
 .more{display:block;margin:22px auto 0}
@@ -284,11 +288,35 @@ function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
   const f=$('#fab');f.hidden=!n||st.route==='cotizacion';f.textContent='Ver mi cotización ('+n+')'}
 function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});saveQ()}
+// ---- precio nuevo de Honda (lista EE.UU. convertida) ----
+const niceP=v=>!v?0:v<200?Math.max(10,Math.round(v/10)*10):Math.round(v/50)*50;
+const ahorro=it=>it.price&&it.nuevo&&it.price<=it.nuevo*0.85?Math.round((1-it.price/it.nuevo)*100):0;
+const nuevoHTML=it=>ahorro(it)?`<div class="nuevo">Nueva <s>${money(it.nuevo)}</s><b>−${ahorro(it)}%</b></div>`:'';
+// ---- reseñas ----
+let RES=[];const starsTxt=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+const revAvg=()=>RES.length?RES.reduce((a,r)=>a+(r.estrellas||0),0)/RES.length:0;
+const revHTML=(max)=>RES.length?`<div class="sechead"><div><div class="kicker">Compras verificadas</div><h2 class="big">Lo que dicen nuestros clientes</h2></div><span class="pill"><span class="stars">★</span> ${revAvg().toFixed(1)} · ${RES.length} opinión${RES.length>1?'es':''}</span></div>
+  <div class="revs">${RES.slice(0,max).map(r=>`<div class="rev"><span class="stars">${starsTxt(r.estrellas)}</span>${r.texto?`<div>${esc(r.texto)}</div>`:''}<b>${esc(r.nombre||'Cliente')}</b><small>✓ Compra verificada · ${new Date(r.date).toLocaleDateString('es-MX',{month:'short',year:'numeric'})}</small></div>`).join('')}</div>`:'';
+let RID='',RSTAR=0;
+function vResena(){view.innerHTML=`<div class="qt" style="max-width:560px"><div class="kicker">Tu opinión</div><h1>¿Cómo te fue con tu compra?</h1>
+   <p style="color:var(--muted);margin:0 0 14px">Gracias por comprarnos. Tu opinión ayuda a otros clientes a confiar.</p>
+   <div class="starpick" role="radiogroup" aria-label="Calificación">${[1,2,3,4,5].map(n=>`<button data-star="${n}" class="${n<=RSTAR?'on':''}" aria-label="${n} estrella${n>1?'s':''}">★</button>`).join('')}</div>
+   <label class="field">Tu nombre (como quieres que salga)<input id="r-nom" maxlength="40" value="${esc(CLI&&CLI.name||'')}" placeholder="Ej. Carlos M."></label>
+   <label class="field">Cuéntanos (opcional)<textarea id="r-txt" maxlength="400" rows="4" style="font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px" placeholder="¿La pieza llegó bien? ¿Te atendieron rápido?"></textarea></label>
+   <button class="btn dark" data-rsend>Enviar mi opinión</button><div id="r-st" style="font-size:14px;min-height:20px;margin-top:8px"></div></div>`}
+async function sendResena(){const stt=$('#r-st');const err=m=>{stt.style.color='#b3261e';stt.textContent=m};if(!RSTAR)return err('Toca las estrellas para calificar.');
+  const nombre=$('#r-nom').value.trim().slice(0,40),texto=$('#r-txt').value.trim().slice(0,400);if(!nombre)return err('Escribe tu nombre.');
+  stt.style.color='var(--muted)';stt.textContent='Enviando…';
+  try{await setDoc(doc(fs,'resenas',RID),{estrellas:RSTAR,texto,nombre,date:new Date().toISOString(),oculta:false});
+    view.innerHTML=`<div class="empty"><b style="font-size:22px">¡Gracias, ${esc(nombre)}! 🙌</b><br><br>Tu opinión ya está en la tienda.<br><br><a class="btn dark" href="#inicio">Ver el catálogo</a></div>`;loadRes()}
+  catch(e){err(e.code==='permission-denied'?'Este enlace ya se usó o no es válido. Si crees que es un error, escríbenos por WhatsApp.':'No se pudo enviar. Revisa tu internet e intenta otra vez.')}}
+async function loadRes(){try{const sn=await getDocs(query(collection(fs,'resenas'),where('oculta','==',false)));RES=sn.docs.map(d=>d.data()).filter(r=>r.estrellas).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(['inicio','nosotros'].includes(st.route)&&modal.hidden){const y=scrollY;render();scrollTo(0,y)}}catch(e){}}
 // ---- vistas ----
 function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
   return `<div class="card"><div class="ph" data-det="${esc(it.k)}" role="button" aria-label="Ver ${esc(it.es)}" id="ph-${esc(it.k)}">${phHTML(it)}${exTag(it)}</div>
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
-   <div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
+   ${nuevoHTML(it)}<div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
   return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
@@ -325,10 +353,10 @@ function startCaros(){Object.values(CARO).forEach(clearInterval);['cdon','cfeat'
   setTimeout(()=>{CARO[id]=setInterval(()=>{if(Date.now()<pause||document.hidden||st.route!=='inicio'||!document.body.contains(tr))return;if(Date.now()<(CPAUSE[id]||0))return;caroStep(id,1)},2400)},k*1200)})}
 const CPAUSE={};
 const VL={'18':'1.5T','19':'1.5T','20':'1.5T','20T':'2.0T'};
-const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero']];
+const SORTS=[['top','Disponibles primero'],['pd','Precio: mayor a menor'],['pa','Precio: menor a mayor'],['az','Nombre: A a la Z'],['za','Nombre: Z a la A'],['foto','Con foto real primero'],['ah','Mayor ahorro vs. nueva']];
 const EXO2={av:0,rev:1,no:2};
 function sortArr(arr){const a=arr.slice();const s=st.sort;const nm=(x,y)=>x.es.localeCompare(y.es,'es');
-  if(s==='pd')a.sort((x,y)=>(y.price||0)-(x.price||0));else if(s==='pa')a.sort((x,y)=>(x.price||1e9)-(y.price||1e9));
+  if(s==='ah')a.sort((x,y)=>ahorro(y)-ahorro(x));else if(s==='pd')a.sort((x,y)=>(y.price||0)-(x.price||0));else if(s==='pa')a.sort((x,y)=>(x.price||1e9)-(y.price||1e9));
   else if(s==='az')a.sort(nm);else if(s==='za')a.sort((x,y)=>nm(y,x));else if(s==='foto')a.sort((x,y)=>((y.fids||[]).length?1:0)-((x.fids||[]).length?1:0)||EXO2[x.ex]-EXO2[y.ex]);
   else a.sort((x,y)=>EXO2[x.ex]-EXO2[y.ex]||(y.price||0)-(x.price||0));return a}
 function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filtered());
@@ -341,6 +369,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filter
    ${donors().length||feat.length?`<div class="duo">
     ${donors().length?carouselHTML('cdon','De aquí salen tus piezas','Nuestros Accord donadores',donors().map(donorCard)):''}
     ${feat.length?carouselHTML('cfeat','Disponibles hoy','Lo más destacado',feat.map(cardHTML)):''}</div>`:''}
+   ${revHTML(3)}
    <div class="sechead" id="catalogo"><div><div class="kicker">Encuentra justo lo que necesitas</div><h2 class="big">Catálogo de piezas</h2></div><span class="pill">Honda original · OEM</span></div>
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
     <label class="sel">Tu Accord<select id="ver">${VERS.map(([k,l])=>`<option value="${k}" ${st.ver===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
@@ -375,6 +404,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
 function vNos(){view.innerHTML=`<div class="about"><div class="art"><img src="logo-trio.png" alt="Trío Accord"></div><div class="kicker" style="margin-top:28px">${esc(INV.nombre||'Trío Accord')} · Chihuahua</div>
    <h1>Una nueva vida para cada pieza.</h1><p style="font-size:17px;max-width:560px;line-height:1.6">Piezas originales para Honda Accord Sport. Consulta el número de parte con nuestro equipo para encontrar la opción adecuada para tu carro.</p>
    ${INV.dir?`<p style="color:var(--muted)">📍 ${esc(INV.dir)}</p>`:''}${INV.pie?`<p style="color:var(--muted)">${esc(INV.pie)}</p>`:''}
+   ${RES.length?`<div style="margin:18px 0">${revHTML(12)}</div>`:''}
    <p class="legalbox" style="max-width:620px">Somos un <b>negocio independiente</b>: vendemos piezas originales usadas de Accord que son de nuestra propiedad. No somos agencia ni distribuidor de Honda, ni estamos afiliados a Honda Motor Co.</p>
    <a class="btn dark" target="_blank" rel="noopener" href="${waLink('Hola, quiero hablar con el equipo de piezas de Honda Accord.')}">Hablar con el equipo ↗</a></div>`}
 function vPriv(){const N=esc(INV.nombre||'Trío Accord'),D=esc(INV.dir||'Chihuahua, Chihuahua, México'),W=esc(waNum().replace(/^52(?=\d{10}$)/,''));
@@ -470,8 +500,8 @@ async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesi
   try{const sn=await getDocs(query(collection(fs,'solicitudes'),where('uid','==',CLI.uid)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>b.date.localeCompare(a.date));const el=$('#c-sol');if(!el)return;
     el.innerHTML=L.length?L.map(r=>`<div class="qline" style="grid-template-columns:1fr auto"><div><b>${new Date(r.date).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}</b> · ${esc(r.pay||'')}<br><span style="font-size:13px;color:var(--muted)">${(r.items||[]).map(i=>esc(i.es)+' x'+i.qty).join(', ')}</span></div><div class="price">${money(r.total)}</div></div>`).join(''):'<p style="color:var(--muted)">Aún no has enviado solicitudes. Arma tu cotización y envíala por WhatsApp.</p>'}catch(e){const el=$('#c-sol');if(el)el.innerHTML='<p style="color:var(--muted)">No se pudieron cargar.</p>'}}
 function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',a.dataset.nav===st.route?'page':'false'));
-  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord',privacidad:'Aviso de privacidad'})[st.route];
-  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord,privacidad:vPriv})[st.route]();saveQ()}
+  $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord',privacidad:'Aviso de privacidad',resena:'Tu opinión'})[st.route];
+  ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord,privacidad:vPriv,resena:vResena})[st.route]();saveQ()}
 async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
   const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
@@ -479,6 +509,7 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
    ${viewsOf(it).length>1?`<div class="thumbs">${viewsOf(it).map((v,j)=>`<button data-galj="${j}" aria-pressed="${j===0}">${imgOne(it,v)}</button>`).join('')}</div>`:''}
    <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(it.es)}</h2>${it.en?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
    <div class="price" style="font-size:28px">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
+   ${ahorro(it)?`<div class="ahorro">Nueva en Honda: <s>${money(it.nuevo)}</s> · <b>Te ahorras ${money(it.nuevo-it.price)} (${ahorro(it)}%)</b><small>Precio nuevo de referencia: lista oficial de Honda en EE.UU. convertida a pesos ($${+INV.tc||18.7} por dólar).</small></div>`:''}
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
    ${it.ex==='no'?'<div class="note">Por ahora no tenemos esta pieza. Pregúntanos por WhatsApp: puede llegar en el próximo carro.</div>':`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
@@ -492,7 +523,7 @@ async function showGal(){if(!GAL)return;const {it}=GAL;const V=viewsOf(it);if(!V
   if(v.t==='real'){try{const u=fullc[v.id]||(fullc[v.id]=(await getDoc(doc(fs,'fotosfull',v.id))).data()?.img);const im=box.querySelector('img');if(u&&im&&GAL&&viewsOf(GAL.it)[GAL.i]===v)im.src=u}catch(e){}}}
 function closeDet(){modal.hidden=true;document.body.style.overflow=''}
 // ---- eventos ----
-document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swap],[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;
+document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swap],[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;if(d.star){RSTAR=+d.star;document.querySelectorAll('[data-star]').forEach(b=>b.classList.toggle('on',+b.dataset.star<=RSTAR));return}if('rsend' in d){sendResena();return}
   if('acct' in d){e.preventDefault();openAcct.reg=false;openAcct(d.acct||'cliente');return}
   if(d.atab){openAcct(d.atab);return}
   if('areg' in d){openAcct.reg=!openAcct.reg;openAcct('cliente');return}
@@ -518,12 +549,12 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('qclear' in d){Q=[];saveQ();render();return}
   if(d.pay){st.pay=d.pay;render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='sort'){st.sort=e.target.value;st.limit=24;render();const g=$('#catalogo');if(g)g.scrollIntoView();return}if(e.target.id==='ver'){st.ver=e.target.value;LSs('tuAccord',st.ver);st.limit=24;render()}if(e.target.id==='sec'){st.sec=e.target.value;st.limit=24;render()}});
-const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('p=')){const k=decodeURIComponent(h0.slice(2));history.replaceState(null,'','#inicio');st.route='inicio';render();if(byK(k))setTimeout(()=>openDet(k),50);return}const h=h0;st.route=['cotizacion','nosotros','cuenta','accord','privacidad'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
+const route=()=>{const h0=(location.hash||'#inicio').slice(1);if(h0.startsWith('resena=')){RID=decodeURIComponent(h0.slice(7)).replace(/[^A-Za-z0-9]/g,'').slice(0,40);st.route='resena';closeDet();render();scrollTo(0,0);return}if(h0.startsWith('p=')){const k=decodeURIComponent(h0.slice(2));history.replaceState(null,'','#inicio');st.route='inicio';render();if(byK(k))setTimeout(()=>openDet(k),50);return}const h=h0;st.route=['cotizacion','nosotros','cuenta','accord','privacidad'].includes(h)?h:'inicio';closeDet();render();if(h!=='catalogo')scrollTo(0,0);else setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView()},50)};
 window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261028-0204';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261028-0226';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -534,7 +565,7 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:(p.sp||0),sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
@@ -543,7 +574,7 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   document.querySelectorAll('[data-wa]').forEach(a=>a.href=waLink(a.dataset.wa))}
 try{const dj=await fetch('data.json').then(r=>r.json());D=dj;SECS=dj.secs;let first=true,sig=null;
   const got=snap=>{const g=snap&&snap.exists()?JSON.stringify(snap.data()):'';if(g===sig)return;sig=g;applyInv(snap,dj);
-    if(first){first=false;route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)});return}
+    if(first){first=false;route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)});loadRes();return}
     // llegó información nueva mientras el cliente ve la página: refresca sin moverlo de lugar
     const a=document.activeElement;if(modal.hidden&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){const y=scrollY;render();scrollTo(0,y)}};
   onSnapshot(doc(fs,'publico','inventario'),got,e=>{console.warn(e);if(first)getDoc(doc(fs,'publico','inventario')).then(got).catch(()=>got(null))})}

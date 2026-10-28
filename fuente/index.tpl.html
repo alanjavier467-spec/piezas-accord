@@ -107,13 +107,20 @@ const EMP_MAX_DISC=10;
 let ME=null, OWN=false, PROFILE=null;
 let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], ALT={}, USERS=[];
 let FOTOS={}, FOTOLIST=[], EXTRAS=[], NEG={}, CLIENTES=[];
-const priceOf=pn=>{const v=PRICE[pn];return v?v:((BYPN[pn]||{}).sp||0)};
+const TC_DEF=18.7,SUBE_DEF=50;
+const subePct=()=>NEG.subeSug!=null&&NEG.subeSug!==''?+NEG.subeSug:SUBE_DEF;const fSug=()=>1+subePct()/100;const tcNow=()=>+NEG.tc||TC_DEF;
+const nice=v=>!v?0:v<200?Math.max(10,Math.round(v/10)*10):Math.round(v/50)*50;
+const sugOf=pn=>nice(((BYPN[pn]||{}).sp||0)*fSug());
+const newOf=p=>p&&p.lp?Math.round(p.lp*tcNow()/10)*10:0;
+const priceOf=pn=>{const v=PRICE[pn];return v?v:sugOf(pn)};
+const dLocal=d=>{const x=d?new Date(d):new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[];
 const isSug=pn=>!PRICE[pn];
 const xById=id=>EXTRAS.find(x=>x.id===id);
 const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
 const st={tab:'buscar',q:'',cat:'',onlyStock:false,limit:40,catView:null,secView:null,car:null,carSec:null};
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let CART=LS.get('comanda',[]); let DISC=Object.assign({mode:'pct',pct:0,amt:'',target:''},LS.get('desc',{})); let CLIENTE=LS.get('cliente',''); let CLIID=LS.get('cliid','');let CLIQ='';
+let CART=LS.get('comanda',[]); let DISC=Object.assign({mode:'pct',pct:0,amt:'',target:''},LS.get('desc',{})); let CLIENTE=LS.get('cliente',''); let CLIID=LS.get('cliid','');let CLIQ='';PAGO=LS.get('pago','Efectivo');
 const ptsFor=t=>Math.floor((+t||0)/100);
 function saveCart(){LS.set('comanda',CART);LS.set('desc',DISC);LS.set('cliente',CLIENTE);const b=$('#badge');const n=CART.reduce((a,l)=>a+l.qty,0);b.hidden=!n;b.textContent=n}
 const carsSorted=()=>CARS.slice().sort((a,b)=>(a.llegada||'9999').localeCompare(b.llegada||'9999')||a.code.localeCompare(b.code));
@@ -290,6 +297,7 @@ function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,
     <div class="drow"><label class="f" for="d-amt">Descontar $<input id="d-amt" type="number" inputmode="decimal" min="0" placeholder="Ej. 150" value="${DISC.mode==='amt'?esc(DISC.amt):''}"></label>
     <label class="f" for="d-target">Dejárselo en $<input id="d-target" type="number" inputmode="decimal" min="0" placeholder="Ej. 2500" value="${DISC.mode==='target'?esc(DISC.target):''}"></label></div>
     <span class="note">Usa solo una forma: porcentaje, monto o precio final.</span></div>
+   <div class="card form"><b>Forma de pago</b><div class="pcts">${PAGOS.map(x=>`<button data-pago="${x}" aria-pressed="${PAGO===x}">${x}</button>`).join('')}</div></div>
    <div class="card form">${cliPickHTML(t)}<label class="f" for="cli">Cliente (opcional)<input id="cli" value="${esc(CLIENTE)}" placeholder="Nombre o teléfono"></label>
     <button class="btn alt" data-checkout>Cobrar ${money(t.total)} y descontar del inventario</button>
     <button class="btn ghost" data-clear>Vaciar carrito</button><div class="status" id="co-status"></div></div>`
@@ -298,12 +306,13 @@ function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,
    <label class="f" for="fx-d">Descripción<input id="fx-d" placeholder="Ej. Mano de obra"></label><div class="two"><label class="f" for="fx-q">Cantidad<input id="fx-q" type="number" min="1" value="1"></label><label class="f" for="fx-p">Precio (MXN)<input id="fx-p" type="number" inputmode="decimal" min="0"></label></div>
    <button class="btn ghost" data-addfree>Agregar</button></div></details>`}
 function vVentas(){
-  const now=new Date();const ym=now.toISOString().slice(0,7), today=now.toISOString().slice(0,10);const tot=a=>a.reduce((s,x)=>s+(x.total||0),0);
-  const list=OWN?SALES:SALES.filter(s=>(s.date||'').slice(0,10)===today);
-  const hoy=SALES.filter(s=>(s.date||'').slice(0,10)===today), mes=SALES.filter(s=>(s.date||'').slice(0,7)===ym);
+  const today=dLocal(),ym=today.slice(0,7);const tot=a=>a.reduce((s,x)=>s+(x.total||0),0);
+  const list=OWN?SALES:SALES.filter(s=>dLocal(s.date)===today);
+  const hoy=SALES.filter(s=>dLocal(s.date)===today), mes=SALES.filter(s=>dLocal(s.date).slice(0,7)===ym);
   view.innerHTML=`<h2 class="title">${OWN?'Ventas':'Mis ventas de hoy'}</h2>
   <div class="kpis"><div class="kpi"><b>${money(tot(hoy))}</b><span>hoy</span></div><div class="kpi"><b>${hoy.length}</b><span>ventas hoy</span></div>${OWN?`<div class="kpi"><b>${money(tot(mes))}</b><span>este mes</span></div><div class="kpi"><b>${money(tot(SALES))}</b><span>en total</span></div>`:''}</div>
-  ${list.length?`<div class="card">${list.map(s=>`<div class="sale"><div style="min-width:0"><b>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</b>${s.cliente?' · '+esc(s.cliente):''}<br>
+  <button class="btn alt" data-corte style="margin-bottom:12px">🧮 Corte de caja</button>
+  ${list.length?`<div class="card">${list.map(s=>`<div class="sale"><div style="min-width:0"><b>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</b>${s.cliente?' · '+esc(s.cliente):''}${s.pago?' · '+esc(s.pago):''}<br>
     ${(s.items||[]).map(it=>`<small>${it.qty}× ${esc(it.es)}${it.car?' ('+esc(carCode(it.car))+')':''} · ${money(it.qty*it.price)}</small>`).join('<br>')}${s.desc?`<br><small>Descuento −${money(s.desc)}</small>`:''}${s.byName?`<br><span class="who">Vendió: ${esc(s.byName)}</span>`:''}</div>
     <div style="text-align:right"><span class="price">${money(s.total)}</span>${s.folio?`<br><span class="hint">#${esc(s.folio)}</span>`:''}<br><button class="copy" data-ticket="${s.id}">🧾 Ticket</button>${OWN?`<br><button class="copy" data-delsale="${s.id}">Cancelar</button>`:''}</div></div>`).join('')}</div>`
   :`<div class="card"><b>Aún no hay ventas${OWN?'':' hoy'}.</b><p class="hint" style="margin:.4em 0 0">Arma un carrito y cobra: aparecerá aquí.</p></div>`}
@@ -330,9 +339,9 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
     <div class="drow"><input id="alt-in" placeholder="Ej. 71110-TVA-A20" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);text-transform:uppercase;min-width:0"><button class="btn ghost" data-addalt>Agregar</button></div></div>
-   ${OWN?`<div class="card form"><span class="hint">Precio de venta${isSug(p.pn)?' (sugerido, comparado con eBay usado)':''}</span><div class="price">${money(priceOf(p.pn))}</div>
-     <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(p.sp||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
-     :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div></div>`}
+   ${OWN?`<div class="card form"><span class="hint">Precio de venta${isSug(p.pn)?' (sugerido'+(subePct()?', +'+subePct()+'%':'')+')':''}</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda (lista EE.UU., $${tcNow()} por dólar): <b>${money(newOf(p))}</b>${priceOf(p.pn)<newOf(p)?' · el cliente ahorra '+Math.round((1-priceOf(p.pn)/newOf(p))*100)+'%':' · ⚠ tu precio está arriba de la nueva'}</span>`:''}
+     <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(sugOf(p.pn)||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
+     :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda: ${money(newOf(p))}</span>`:''}</div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
     ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${AVAIL(x.s)?`<div class="hint" style="margin-top:4px">📍 ${ubiOf(c.id,p.pn)?`<b>${esc(ubiOf(c.id,p.pn))}</b>`:(x.s==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
@@ -395,6 +404,11 @@ function openMenu(){SHEET='menu';
      <label class="f" for="n-dir">Dirección<input id="n-dir" value="${esc(NEG.dir||'')}"></label>
      <label class="f" for="n-pie">Mensaje al final<input id="n-pie" value="${esc(NEG.pie||'')}" placeholder="Ej. Garantía de 7 días por pieza dañada. Gracias por su compra."></label>
      <button class="btn ghost" data-saveneg>Guardar</button><div class="status" id="n-status"></div></div></details>`:''}
+   ${OWN?`<details class="card form"><summary><b>Precios</b> <span class="hint">(aumento a sugeridos y precio nuevo)</span></summary><div class="form" style="margin-top:10px">
+     <label class="f" for="n-sube">Subir los precios sugeridos (%)<input id="n-sube" type="number" inputmode="decimal" value="${esc(subePct())}"></label>
+     <label class="f" for="n-tc">Pesos por dólar (para el precio nuevo de Honda)<input id="n-tc" type="number" inputmode="decimal" step="0.1" value="${esc(tcNow())}"></label>
+     <p class="hint" style="margin:0">El aumento se aplica a todas las piezas que no tienen precio puesto por ti. Las que tú preciaste se quedan igual. Pon 0 para regresar a los sugeridos originales.</p>
+     <button class="btn ghost" data-saveprecios>Guardar</button><div class="status" id="pr-status"></div></div></details>`:''}
    ${OWN?`<div id="lote-card"></div>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
@@ -404,6 +418,10 @@ function openMenu(){SHEET='menu';
    ${NEWV?`<div class="card form" style="border:2px solid var(--tag)"><b>Hay una versión nueva de la app</b><button class="btn alt" data-update>Actualizar ahora</button></div>`:''}
    <a class="btn ghost" style="text-align:center;text-decoration:none" href="tienda.html">👁 Ver la tienda como cliente</a>
    ${OWN?`<details class="card form"><summary><b>Clientes registrados (${CLIENTES.length})</b></summary>${CLIENTES.length?CLIENTES.map(c=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((c.name||c.user||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(c.name||'')}</b><br><span class="hint">⭐ ${c.puntos||0} puntos · ${c.compras||0} compras · Usuario: ${esc(c.user)}</span></div>${c.tel?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/52${esc(c.tel.slice(-10))}">WhatsApp</a>`:''}</div>`).join(''):'<p class="hint" style="margin:0">Aún no hay clientes registrados.</p>'}</details>`:''}
+   ${OWN?`<details class="card form"><summary><b>Reseñas de clientes (${RESENAS.length})</b> ${RESENAS.length?`<span class="hint">⭐ ${(RESENAS.reduce((a,r)=>a+r.estrellas,0)/RESENAS.length).toFixed(1)}</span>`:''}</summary>
+     <p class="hint" style="margin:0">Solo puede opinar quien compró: desde el ticket toca “⭐ Pedir reseña” y le llega un enlace que sirve una sola vez. Las ocultas no salen en la tienda.</p>
+     ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
+      <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
    <p class="note">Versión __VERSION__</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
@@ -433,7 +451,7 @@ async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.leng
   if(CART.some(l=>l.price===''||isNaN(+l.price))){stt.className='status err';stt.textContent='Pon precio a todas las líneas.';return}
   const items=CART.map(l=>({pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price,xid:l.xid||''}));
   const ref=doc(collection(fs,'ventas'));const folio=ref.id.slice(-6).toUpperCase();
-  const venta={items,sub:t.sub,desc:t.desc,total:t.total,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,folio};
+  const venta={items,sub:t.sub,desc:t.desc,total:t.total,pago:PAGO,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,folio};
   const cli=CLIENTES.find(x=>x.id===CLIID);if(cli){venta.cliId=cli.id;venta.puntos=ptsFor(t.total);if(!venta.cliente)venta.cliente=cli.name||cli.user}
   try{const b=writeBatch(fs);b.set(ref,venta);
     if(cli)b.set(doc(fs,'clientes',cli.id),{puntos:increment(venta.puntos),compras:increment(1),ultimaCompra:venta.date},{merge:true});
@@ -446,6 +464,30 @@ async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.leng
     CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';CLIID='';CLIQ='';LS.set('cliid','');saveCart();st.tab='ventas';render();toast(navigator.onLine?'Venta registrada':'Venta guardada en el teléfono; se sube cuando haya señal');openTicket(Object.assign({id:ref.id},venta))}
   catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
 let pendingDel=null;
+let CORTE_DIA=null;
+function corteCalc(dia){const ss=SALES.filter(s=>dLocal(s.date)===dia);const tot={};PAGOS.forEach(p=>tot[p]=0);
+  ss.forEach(s=>{const p=PAGOS.includes(s.pago)?s.pago:'Efectivo';tot[p]+=s.total||0});return {ss,tot,sin:ss.filter(s=>!s.pago).length}}
+function corteRes(){const el=$('#corte-res');if(!el)return;const {tot}=corteCalc(CORTE_DIA);const f=+($('#corte-fondo').value||0),c=$('#corte-contado').value;
+  const esp=f+tot.Efectivo;if(c===''){el.innerHTML=`<span>Debe haber en caja</span><b>${money(esp)}</b>`;return}
+  const d=Math.round((+c-esp)*100)/100;el.innerHTML=`<span>Debe haber en caja</span><b>${money(esp)}</b><span>Contaste</span><b>${money(+c)}</b><span>Resultado</span><b style="color:${Math.abs(d)<1?'#2e7d32':'#b3261e'}">${Math.abs(d)<1?'✓ Cuadra':d>0?'Sobran '+money(d):'Faltan '+money(-d)}</b>`}
+function openCorte(dia){SHEET='corte';CORTE_DIA=dia||CORTE_DIA||dLocal();const {ss,tot,sin}=corteCalc(CORTE_DIA);const all=ss.reduce((a,s)=>a+(s.total||0),0);
+  const hist=CORTES.slice(0,15);
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Corte de caja</span></div></div><div class="wrap body">
+   <div class="card form"><label class="f" for="corte-dia">Día<input id="corte-dia" type="date" value="${CORTE_DIA}"></label>
+    <p class="hint" style="margin:0">${OWN?'Todas las ventas del día':'Tus ventas del día'}: <b>${ss.length}</b> por <b>${money(all)}</b>${sin?` · ${sin} sin forma de pago (cuentan como efectivo)`:''}</p>
+    <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">${PAGOS.map(p=>`<div class="kpi"><b style="font-size:clamp(16px,5vw,26px)">${money(tot[p])}</b><span>${p.toLowerCase()}</span></div>`).join('')}</div></div>
+   <div class="card form"><b>Cuenta el efectivo</b>
+    <label class="f" for="corte-fondo">Fondo con el que abriste (cambio)<input id="corte-fondo" type="number" inputmode="decimal" min="0" value="${esc(LS.get('fondo',''))}" placeholder="Ej. 500"></label>
+    <label class="f" for="corte-contado">Efectivo que hay en la caja ahorita<input id="corte-contado" type="number" inputmode="decimal" min="0" placeholder="Cuenta billetes y monedas"></label>
+    <div class="sum" id="corte-res"></div>
+    <label class="f" for="corte-nota">Nota (opcional)<input id="corte-nota" placeholder="Ej. Se pagó la luz con $300 de la caja"></label>
+    <button class="btn alt" data-savecorte>Guardar corte</button><div class="status" id="corte-st"></div></div>
+   <div class="card"><b>Cortes anteriores</b>${hist.length?hist.map(c=>`<div class="sale"><div><b>${fmtDate(c.dia)}</b> · ${esc(c.byName||'')}<br><small>${c.n} ventas · ${money(c.total)} · efectivo esperado ${money(c.esperado)}${c.nota?' · '+esc(c.nota):''}</small></div><div style="text-align:right"><b style="color:${Math.abs(c.diff)<1?'inherit':'#b3261e'}">${Math.abs(c.diff)<1?'✓ Cuadró':c.diff>0?'+'+money(c.diff):'−'+money(-c.diff)}</b></div></div>`).join(''):'<p class="hint" style="margin:.4em 0 0">Aún no hay cortes guardados.</p>'}</div></div>`;
+  showSheet();document.body.style.overflow='hidden';corteRes()}
+function saveCorte(){const st2=$('#corte-st');const c=$('#corte-contado').value;if(c===''){st2.className='status err';st2.textContent='Escribe cuánto efectivo contaste.';return}
+  const {ss,tot}=corteCalc(CORTE_DIA);const fondo=+($('#corte-fondo').value||0);LS.set('fondo',$('#corte-fondo').value);const esperado=fondo+tot.Efectivo;
+  const r={dia:CORTE_DIA,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,n:ss.length,total:ss.reduce((a,s)=>a+(s.total||0),0),tot,fondo,contado:+c,esperado,diff:Math.round((+c-esperado)*100)/100,nota:$('#corte-nota').value.trim()};
+  addDoc(collection(fs,'cortes'),r).catch(e=>toast(errMsg(e)));if(!CORTES.some(x=>x.date===r.date))CORTES=[Object.assign({id:'tmp'},r),...CORTES];toast('Corte guardado');openCorte(CORTE_DIA)}
 function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Cancelar venta? Toca otra vez';return}
   const s=SALES.find(x=>x.id===id);if(!s)return;const b=writeBatch(fs);
   const byCar={};(s.items||[]).forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
@@ -606,22 +648,23 @@ function intakeNew(v){const r=doc(collection(fs,'extras'));let price=+v.price||0
 function ticketText(s){const L=[];if(NEG.nombre)L.push('*'+NEG.nombre+'*');if(NEG.tel)L.push('Tel. '+NEG.tel);if(NEG.dir)L.push(NEG.dir);
   L.push('Ticket #'+(s.folio||s.id.slice(-6).toUpperCase()),new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}));if(s.cliente)L.push('Cliente: '+s.cliente);L.push('------------------------');
   (s.items||[]).forEach(it=>{L.push(it.qty+'x '+it.es+'  '+money(it.qty*it.price));if(it.pn)L.push('   '+it.pn)});L.push('------------------------');
-  if(s.desc){L.push('Subtotal: '+money(s.sub),'Descuento: -'+money(s.desc))}L.push('*TOTAL: '+money(s.total)+'*');if(s.puntos)L.push('⭐ Puntos ganados: +'+s.puntos);if(s.byName)L.push('Atendió: '+s.byName);if(NEG.pie)L.push('',NEG.pie);return L.join('\n')}
+  if(s.desc){L.push('Subtotal: '+money(s.sub),'Descuento: -'+money(s.desc))}L.push('*TOTAL: '+money(s.total)+'*');if(s.pago)L.push('Pago: '+s.pago);if(s.puntos)L.push('⭐ Puntos ganados: +'+s.puntos);if(s.byName)L.push('Atendió: '+s.byName);if(NEG.pie)L.push('',NEG.pie);return L.join('\n')}
 function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio||s.id.slice(-6).toUpperCase();const ph=(s.cliente||'').replace(/\D/g,'');
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Ticket #${esc(fol)}</span></div></div>
   <div class="wrap body"><div class="tk">${NEG.nombre?`<h3>${esc(NEG.nombre)}</h3>`:'<h3>Piezas Accord</h3>'}${NEG.tel?`<div class="c">Tel. ${esc(NEG.tel)}</div>`:''}${NEG.dir?`<div class="c">${esc(NEG.dir)}</div>`:''}<hr>
    <div class="l"><span>Ticket</span><span>#${esc(fol)}</span></div><div class="l"><span>Fecha</span><span>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span></div>${s.cliente?`<div class="l"><span>Cliente</span><span>${esc(s.cliente)}</span></div>`:''}<hr>
    ${(s.items||[]).map(it=>`<div class="l"><span>${it.qty}× ${esc(it.es)}${it.pn?`<br><small>${esc(it.pn)}</small>`:''}</span><span>${money(it.qty*it.price)}</span></div>`).join('')}<hr>
    ${s.desc?`<div class="l"><span>Subtotal</span><span>${money(s.sub)}</span></div><div class="l"><span>Descuento</span><span>−${money(s.desc)}</span></div>`:''}
-   <div class="l big"><span>TOTAL</span><span>${money(s.total)}</span></div>${s.puntos?`<div class="l"><span>⭐ Puntos ganados</span><span>+${s.puntos}</span></div>`:''}${s.byName?`<div class="c"><small>Atendió: ${esc(s.byName)}</small></div>`:''}${NEG.pie?`<hr><div class="c"><small>${esc(NEG.pie)}</small></div>`:''}</div>
+   <div class="l big"><span>TOTAL</span><span>${money(s.total)}</span></div>${s.pago?`<div class="l"><span>Pago</span><span>${esc(s.pago)}</span></div>`:''}${s.puntos?`<div class="l"><span>⭐ Puntos ganados</span><span>+${s.puntos}</span></div>`:''}${s.byName?`<div class="c"><small>Atendió: ${esc(s.byName)}</small></div>`:''}${NEG.pie?`<hr><div class="c"><small>${esc(NEG.pie)}</small></div>`:''}</div>
    <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${ph.length===10?'52'+ph:ph.length>10?ph:''}?text=${encodeURIComponent(ticketText(s))}">WhatsApp</a>
+   <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/${ph.length===10?'52'+ph:ph.length>10?ph:''}?text=${encodeURIComponent('¡Gracias por tu compra'+(s.cliente?', '+s.cliente:'')+'! ¿Nos ayudas con tu opinión? Toma 20 segundos: '+pubURL()+'#resena='+s.id)}">⭐ Pedir reseña</a>
     <button class="btn ghost" data-tkshare="${esc(s.id)}">Compartir</button><button class="btn ghost" data-tkcopy="${esc(s.id)}">Copiar texto</button><button class="btn ghost" data-tkprint>Imprimir</button></div>
    ${NEG.nombre||!OWN?'':'<p class="note">Pon el nombre y teléfono de tu negocio en el menú ☰ → Datos del ticket.</p>'}</div>`;
   sheet._sale=s;showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- respaldo ----
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
 async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
-  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST,clientes:CLIENTES};
+  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST,clientes:CLIENTES,cortes:CORTES,resenas:RESENAS};
     try{const sq=await getDocs(collection(fs,'solicitudes'));out.solicitudes=sq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()});
       try{const v=await getDocs(collection(fs,'vista360'));out.vista360={};v.docs.forEach(d=>{out.vista360[d.id]=d.data()})}catch(e){}}
@@ -636,7 +679,7 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   Object.entries(J.alternos||{}).forEach(([k,v])=>ops.push(['alternos',k,v]));(J.ventas||[]).forEach(v=>ops.push(['ventas',v.id,strip(v)]));(J.extras||[]).forEach(v=>ops.push(['extras',v.id,strip(v)]));
   (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
-  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
+  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
   for(let i=0;i<ops.length;i+=50){const b=writeBatch(fs);ops.slice(i,i+50).forEach(([c,id,d])=>b.set(doc(fs,c,id),d));await b.commit();stt.textContent='Restaurando… '+Math.min(100,Math.round((i+50)/ops.length*100))+'%'}
   stt.className='status ok';stt.textContent='Respaldo restaurado.';rsArmed=null}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
 // ---- página pública: resumen de lo disponible ----
@@ -648,7 +691,7 @@ function pubSnapshot(){const items=[],rev=[];
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
-  return {v:3,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
+  return {v:3,fsug:fSug(),tc:tcNow(),cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
@@ -687,7 +730,7 @@ let qt;
 qIn.addEventListener('input',()=>{clearTimeout(qt);qt=setTimeout(()=>{st.q=qIn.value;st.limit=40;qx.hidden=!qIn.value;if(st.tab!=='buscar')st.tab='buscar';if(!sheet.hidden)closeSheet();render();window.scrollTo(0,0)},120)});
 qx.addEventListener('click',()=>{qIn.value='';st.q='';qx.hidden=true;render();qIn.focus()});
 $('#menu-btn').addEventListener('click',openMenu);
-document.addEventListener('input',e=>{const t=e.target;
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='corte-fondo'||t.id==='corte-contado'){corteRes();return}
   if(t.dataset.lp!=null){CART[+t.dataset.lp].price=t.value;saveCart();const tt=calc();const su=view.querySelector('.sum');if(su)su.innerHTML=sumHTML(tt);const b=view.querySelector('[data-checkout]');if(b)b.textContent='Cobrar '+money(tt.total)+' y descontar del inventario'}
   if(t.id==='cli'){CLIENTE=t.value;saveCart()}
   if(t.id==='cliq'){CLIQ=t.value;clearTimeout(window._cq);window._cq=setTimeout(()=>{render();const i=$('#cliq');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},250)}});
@@ -696,6 +739,7 @@ document.addEventListener('change',async e=>{const t=e.target;if(t.id!=='v3vid'&
     else{const fl=[...t.files].sort((a,b)=>a.lastModified-b.lastModified||a.name.localeCompare(b.name)).slice(0,36);stt.className='status';for(let i=0;i<fl.length;i++){frames.push(await shrink(fl[i],900,0.62));stt.textContent='Preparando fotos… '+(i+1)+'/'+fl.length}}
     if(frames.length<6){stt.className='status err';stt.textContent='Se necesitan al menos 6 fotos.';return}
     await save360(c,frames,stt)}catch(err){stt.className='status err';stt.textContent=(err&&err.message)||'No se pudo procesar.'}t.value=''});
+document.addEventListener('change',e=>{if(e.target.id==='corte-dia'&&e.target.value)openCorte(e.target.value)});
 document.addEventListener('change',e=>{if(e.target.id==='bk-file'&&e.target.files[0]){restore(e.target.files[0]);e.target.value=''}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-amt'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'amt',amt:t.value,pct:0,target:''};saveCart();render()}
@@ -733,6 +777,13 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('pubshare' in d){const tx='Piezas de Honda Accord 2018-2022 disponibles, con fotos y precio: '+pubURL();if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiada'});return}
   if('backup' in d){backup(false);return}
   if('backupfull' in d){backup(true);return}
+  if('pago' in d){PAGO=d.pago;LS.set('pago',PAGO);render();return}
+  if('corte' in d){openCorte(dLocal());return}
+  if('savecorte' in d){saveCorte();return}
+  if('rhide' in d){const r=RESENAS.find(x=>x.id===d.rhide);if(r)setDoc(doc(fs,'resenas',r.id),{oculta:!r.oculta},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if('rdel' in d){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Borrar? Toca otra vez';return}deleteDoc(doc(fs,'resenas',d.rdel)).catch(e=>toast(errMsg(e)));return}
+  if('saveprecios' in d){const sube=+$('#n-sube').value,tc=+$('#n-tc').value;const s2=$('#pr-status');if(isNaN(sube)||sube<-50||sube>300||!(tc>5&&tc<60)){s2.className='status err';s2.textContent='Revisa los números.';return}
+    NEG=Object.assign({},NEG,{subeSug:sube,tc});setDoc(doc(fs,'config','negocio'),{subeSug:sube,tc},{merge:true}).catch(e=>{s2.className='status err';s2.textContent=errMsg(e)});s2.className='status ok';s2.textContent='Guardado. La tienda se actualiza en unos segundos.';pubSync();return}
   if('saveneg' in d){const g=id=>$(id).value.trim();NEG=Object.assign({},NEG,{nombre:g('#n-nombre'),tel:g('#n-tel'),wa:g('#n-wa').replace(/\D/g,''),dir:g('#n-dir'),pie:g('#n-pie')});const s2=$('#n-status');
     setDoc(doc(fs,'config','negocio'),NEG).then(()=>{},e=>{s2.className='status err';s2.textContent=errMsg(e)});s2.className='status ok';s2.textContent='Guardado';return}
   if('close' in d){closeSheet();return}
@@ -845,9 +896,12 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   unsubs.push(onSnapshot(doc(fs,'publico','inventario'),d=>{LOADED.add('publico');if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));
   sub(collection(fs,'clientes'),s=>{CLIENTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.created||'').localeCompare(a.created||''));if(st.tab==='carrito'&&sheet.hidden&&!document.activeElement?.id?.startsWith('cli'))rr()});
   if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
+    sub(query(collection(fs,'cortes'),orderBy('date','desc'),limit(60)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data()))});
+    sub(collection(fs,'resenas'),s=>{RESENAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!sheet.hidden&&SHEET==='menu')openMenu()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
     sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}
-  else sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
+  else{sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
+    sub(query(collection(fs,'cortes'),where('by','==',u.uid)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''))})}
   render();prefetchAll();checkVersion()});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
