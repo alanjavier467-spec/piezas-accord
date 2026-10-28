@@ -93,7 +93,7 @@ function verOf(c){if(!c)return null;if(c._v!==undefined)return c._v;let r=null;
     if(v.length===17){const yc=v[9];const yr=yc==='J'?'18':yc==='K'?'19':/[L-N]/.test(yc)?'20':null;r=v[5]==='2'?'20T':yr}
     if(!r){const y=String(c.year||'');r=y==='2018'?'18':y==='2019'?'19':/^20(2\d)$/.test(y)?'20':null}}
   try{Object.defineProperty(c,'_v',{value:r,enumerable:false})}catch(e){}return r}
-function yNum(p,ver){if(!ver||ver==='20'||!p.y||!(ver in p.y))return p.pn;const y=p.y[ver];return y===''?null:[].concat(y).join(' / ')}
+function yNum(p,ver){if(ver==='20'&&p.y&&p.y['20']==='')return null;if(!ver||ver==='20'||!p.y||!(ver in p.y))return p.pn;const y=p.y[ver];return y===''?null:[].concat(y).join(' / ')}
 function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
 const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
@@ -221,7 +221,7 @@ function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const p
   ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
 const segHTML=(c,pn,cur)=>`<div class="seg" data-carid="${c.id}" data-pn="${esc(pn)}">${STS.filter(([k])=>k!=='vendida'||cur==='vendida').map(([k,l])=>`<button data-setst="${k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
 function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const pns=UPN.filter(pn=>stOf(c,pn).s===s);
-  const xs=(s==='quitada'||s==='esta')?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
+  const xs=s==='quitada'?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
   view.innerHTML=`<button class="back" data-back="carlist">‹ ${esc(c.code)}</button>
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
   <p class="hint" style="margin:0">${pns.length+xs.length} pieza${pns.length+xs.length===1?'':'s'} de ${esc(c.code)} en "${esc(STL[s])}". Toca una para verla o cambiarla.</p>
@@ -273,7 +273,7 @@ function render(){document.querySelectorAll('nav.tabs button').forEach(b=>b.setA
   ({buscar:vBuscar,catalogo:vCatalogo,carros:vCarros,carrito:vCarrito,ventas:vVentas})[st.tab]();hookImgs(view)}
 // ---- ficha ----
 let openIdx=null, SHEET='';
-function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?p.pn:(p.y&&k in p.y?(p.y[k]===''?null:[].concat(p.y[k]).join(' / ')):p.pn);return [k,n]});
+function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?(p.y&&p.y['20']===''?null:p.pn):(p.y&&k in p.y?(p.y[k]===''?null:[].concat(p.y[k]).join(' / ')):p.pn);return [k,n]});
   if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">Mismo número en 2018, 2019 y 2020 (1.5T y 2.0T).</p>`;
   return `<div class="card"><b>Número según el año</b><dl class="meta" style="margin-top:6px">${rows.map(([k,n])=>`<dt>${YL[k]}</dt><dd>${n?`<span class="pn">${esc(n)}</span>${n===p.pn&&k!=='20'?' <span class="hint">igual</span>':''}`:'<span class="hint">No viene en esta versión</span>'}</dd>`).join('')}</dl></div>`}
 function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
@@ -369,7 +369,7 @@ const toast=m=>{const el=document.createElement('div');el.className='card';el.st
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
 function setUbi(carId,pn,u){u=String(u||'').trim().toUpperCase();const cur=Object.assign({},(EST[carId]||{})[pn]||stOf(CARS.find(c=>c.id===carId),pn));cur.u=u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:cur});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:{s:cur.s,n:cur.n!=null?cur.n:0,u}}},{merge:true}).catch(e=>toast(errMsg(e)))}
-function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const val={s,n:AVAIL(s)?units(p):0};if(old.u&&AVAIL(s))val.u=old.u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
+function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const val={s,n:AVAIL(s)?units(p):0,u:AVAIL(s)?(old.u||''):''};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
   const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver')};
@@ -423,9 +423,10 @@ async function changePin(){const a=$('#pin-new').value.trim(),b=$('#pin-new2').v
 let LOTE=null;
 async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=await fetch('lote.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);LOTE=J;
   const done=LS.get('lotesHechos',[]);if(!J||!J.id||done.includes(J.id)){el.innerHTML='';return}
-  const n=(J.estado||[]).length+(J.extras||[]).length;const nc=Object.keys(J.carros||{}).length;
+  const n=(J.estado||[]).length+(J.extras||[]).length;const nc=Object.keys(J.carros||{}).length;const bx=(J.borrar||{}).extras||[],bf=(J.borrar||{}).fotos||[],mv=J.mover||[];
+  const pnName=pn=>pn&&pn.startsWith('X:')?((xById(pn.slice(2))||{}).name||'pieza agregada'):((BYPN[pn]||{}).es||pn);
   el.innerHTML=`<div class="card form" style="border:2px solid var(--tag)"><b>📦 Lote de inventario listo para subir</b><p class="hint" style="margin:0">${esc(J.titulo||'Inventario')}: ${n} piezas${(J.fotos||[]).length?', '+J.fotos.length+' fotos':''}. Revísalo y toca para subirlo.</p>
-   <div class="hint" style="max-height:180px;overflow:auto">${nc?`• Datos de carros: ${Object.keys(J.carros).map(esc).join(', ')}<br>`:''}${(J.estado||[]).map(e=>`• ${esc(e.car)} · ${esc(e.pn)} · ${esc((BYPN[e.pn]||{}).es||'')} · ${esc(STL[e.s]||e.s)}`).join('<br>')}${(J.extras||[]).map(x=>`<br>• Nueva: ${esc(x.name)} ×${x.qty||1}`).join('')}</div>
+   <div class="hint" style="max-height:180px;overflow:auto">${nc?`• Datos de carros: ${Object.keys(J.carros).map(esc).join(', ')}<br>`:''}${(J.estado||[]).map(e=>`• ${esc(e.car)} · ${esc(e.pn)} · ${esc((BYPN[e.pn]||{}).es||'')} · ${esc(STL[e.s]||e.s)}`).join('<br>')}${(J.extras||[]).map(x=>`<br>• Nueva: ${esc(x.name)} ×${x.qty||1}`).join('')}${(J.fotos||[]).map(f=>`<br>• Foto real → ${esc(f.pn)} · ${esc(pnName(f.pn))}`).join('')}${mv.map(m=>`<br>• Foto movida → ${esc(m.pn)} · ${esc(pnName(m.pn))}`).join('')}${bx.map(id=>`<br>• Se borra pieza agregada repetida: ${esc((xById(id)||{}).name||id)}`).join('')}${bf.length?`<br>• Se borran ${bf.length} fotos equivocadas o repetidas`:''}</div>
    <button class="btn alt" data-lote>Subir lote a la app</button><div class="status" id="lote-status"></div></div>`}catch(e){el.innerHTML=''}}
 let loteArmed=false;
 async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)return;if(!loteArmed){loteArmed=true;btn.textContent='Toca otra vez para confirmar';return}
@@ -435,8 +436,11 @@ async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)re
       {const es=e.s||'quitada';const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
     for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
-    for(const f of J.fotos||[]){const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:now,...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])}
-    for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
+    for(const m of J.mover||[]){ops.push([doc(fs,'fotos',m.id),{pn:m.pn,...(m.nota!=null?{nota:m.nota}:{})},{merge:true}]);ops.push([doc(fs,'fotosfull',m.id),{pn:m.pn},{merge:true}])}
+    for(const id of (J.borrar||{}).fotos||[]){ops.push([doc(fs,'fotosfull',id),null,'del']);ops.push([doc(fs,'fotos',id),null,'del'])}
+    for(const id of (J.borrar||{}).extras||[]){ops.push([doc(fs,'extras',id),null,'del'])}
+    {const t0=Date.now();(J.fotos||[]).forEach((f,k)=>{const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:new Date(t0-k*1000).toISOString(),...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])})}
+    for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o==='del'?b.delete(r):o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
     LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.';btn.remove()}
   catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}loteArmed=false}
 let impArmed=false;
