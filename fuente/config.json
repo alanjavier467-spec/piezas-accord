@@ -1,0 +1,12 @@
+{
+  "_nota": "Configuración real del proyecto. La copia para compartir es config.example.json.",
+  "firebase": {
+    "apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI",
+    "authDomain": "piezas-accord.firebaseapp.com",
+    "projectId": "piezas-accord",
+    "storageBucket": "piezas-accord.firebasestorage.app",
+    "messagingSenderId": "543559376331",
+    "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"
+  },
+  "ownerEmail": "alanjavier467@gmail.com"
+}

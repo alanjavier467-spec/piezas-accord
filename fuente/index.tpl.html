@@ -66,7 +66,7 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmai
 import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG=__FBCONFIG__;
-const OWNER='alanjavier467@gmail.com';
+const OWNER='__OWNER_EMAIL__';
 const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFC');
 async function userEmail(u){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normUser(u)));return 'u'+[...new Uint8Array(h)].slice(0,16).map(b=>b.toString(16).padStart(2,'0')).join('')+'@usuarios.piezas-accord.app'}
 const pinPass=p=>'pin-'+p+'-pz';

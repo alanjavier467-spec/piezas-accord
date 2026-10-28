@@ -1,0 +1,11 @@
+{
+  "name": "piezas-accord",
+  "private": true,
+  "description": "Tienda y app de inventario de Trío Accord (Firebase + GitHub Pages)",
+  "scripts": {
+    "build": "python3 fuente/build_repo.py",
+    "serve": "python3 -m http.server 8767",
+    "test": "node pruebas/prueba.js"
+  },
+  "devDependencies": { "playwright": "^1.47.0" }
+}

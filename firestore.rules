@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function mainOwner() { return signed() && request.auth.token.email == 'alanjavier467@gmail.com'; }
+    function isOwner() {
+      return mainOwner()
+        || (signed()
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dueño');
+    }
+    function isStaff() {
+      return signed()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+    function member() { return isOwner() || isStaff(); }
+
+    match /users/{uid} {
+      allow read: if isOwner() || (signed() && request.auth.uid == uid);
+      allow create: if isOwner()
+        || (signed() && request.auth.uid == uid
+            && request.resource.data.active == false
+            && request.resource.data.role == 'empleado');
+      allow update, delete: if isOwner();
+    }
+    match /carros/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
+    match /privado/{id} {
+      allow read, write: if isOwner();
+    }
+    match /estado/{id} {
+      allow read: if member();
+      allow create, update: if member();
+      allow delete: if isOwner();
+    }
+    match /precios/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
+    match /alternos/{id} {
+      allow read, write: if member();
+    }
+    match /ventas/{id} {
+      allow read: if isOwner() || (isStaff() && resource.data.by == request.auth.uid);
+      allow create: if isOwner()
+        || (isStaff()
+            && request.resource.data.by == request.auth.uid
+            && request.resource.data.desc <= request.resource.data.sub * 0.10 + 0.01);
+      allow update, delete: if isOwner();
+    }
+    match /fotos/{id} {
+      allow get: if true;
+      allow list, create: if member();
+      allow update, delete: if isOwner() || (member() && resource.data.by == request.auth.uid);
+    }
+    match /fotosfull/{id} {
+      allow get: if true;
+      allow list, create: if member();
+      allow update, delete: if isOwner() || (member() && get(/databases/$(database)/documents/fotos/$(id)).data.by == request.auth.uid);
+    }
+    match /extras/{id} {
+      allow read, create, update: if member();
+      allow delete: if isOwner();
+    }
+    match /config/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
+    match /vista360/{id} {
+      allow read: if member();
+      allow write: if isOwner();
+    }
+    match /clientes/{uid} {
+      allow read: if member() || (signed() && request.auth.uid == uid);
+      allow create: if signed() && request.auth.uid == uid;
+      allow update: if member() || (signed() && request.auth.uid == uid);
+      allow delete: if isOwner();
+    }
+    match /solicitudes/{id} {
+      allow create: if signed() && request.resource.data.uid == request.auth.uid;
+      allow read: if isOwner() || (signed() && resource.data.uid == request.auth.uid);
+      allow delete: if isOwner();
+    }
+    match /publico/{id} {
+      allow read: if true;
+      // la tienda: solo apps que mandan la lista de carros pueden escribirla (las muy viejas no)
+      allow write: if member() && (id != 'inventario' || (request.resource.data.cars is list && request.resource.data.cars.size() > 0));
+    }
+  }
+}
