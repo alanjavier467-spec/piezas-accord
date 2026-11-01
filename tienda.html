@@ -103,6 +103,11 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .pn{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:#f1efe8;border-radius:6px;padding:4px 8px;justify-self:start;width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .card .ft{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;display:flex;align-items:end;justify-content:space-between;gap:10px}
 .price{font-weight:700;font-size:17px}
+.promo-bar{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;width:100%;border:0;cursor:pointer;background:linear-gradient(90deg,#b3121f,#e8590c);color:#fff;border-radius:16px;padding:14px 18px;margin:0 0 16px;font:inherit;font-size:15px;text-align:center;box-shadow:0 6px 18px rgba(179,18,31,.25)}
+.promo-bar b{font-family:var(--fd);font-size:22px;letter-spacing:.5px}.promo-bar .cd{font-variant-numeric:tabular-nums;background:rgba(0,0,0,.22);border-radius:8px;padding:3px 9px;font-weight:700}
+.promo-bar.pre{background:linear-gradient(90deg,#17463c,#1f5a4c)}.promo-bar u{text-decoration:none;background:#fff;color:#b3121f;border-radius:8px;padding:4px 10px;font-weight:700;font-size:13px}
+.ptag{position:absolute;top:12px;right:12px;font-size:11px;background:#d4161f;color:#fff;border-radius:6px;padding:3px 7px;font-weight:700}
+.price s.antes{display:block;font-weight:400;font-size:11.5px;color:var(--muted)}.price.pr{color:#c8102e}
 .price small{display:block;font-weight:400;font-size:10.5px;color:var(--muted);margin-top:3px}
 .nuevo{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-bottom:-4px}.nuevo s{opacity:.85}.nuevo b{background:#e8f5c8;color:var(--green);border-radius:6px;padding:1px 6px;font-size:11px}
 .ahorro{background:#eef7dc;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.45}.ahorro s{color:var(--muted)}.ahorro small{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
@@ -260,7 +265,7 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
 let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
-const st={zone:'',dsec:null,carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,limit:24,route:'inicio',pay:'Cotización'};
+const st={zone:'',dsec:null,carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,promo:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
 const thumbs={};const thumb=id=>thumbs[id]||(thumbs[id]=getDoc(doc(fs,'fotos',id)).then(d=>d.exists()?d.data().thumb:null).catch(()=>null));
@@ -289,6 +294,19 @@ function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a
   const f=$('#fab');f.hidden=!n||st.route==='cotizacion';f.textContent='Ver mi cotización ('+n+')'}
 function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});saveQ()}
 // ---- precio nuevo de Honda (lista EE.UU. convertida) ----
+// ---- promoción (Buen Fin, Navidad…): la arma el dueño en la app; fechas en hora de Chihuahua ----
+let PR=null,LASTINV=null;
+const promoOf=()=>{const p=INV&&INV.promo;if(!p||!(+p.pct>0)||!p.ini||!p.fin)return null;const a=new Date(p.ini+'T00:00:00-06:00'),b=new Date(p.fin+'T23:59:59-06:00'),n=Date.now();
+  if(isNaN(a)||isNaN(b)||n>b||a-n>21*864e5)return null;return Object.assign({},p,{n:p.n||'Promoción',pct:+p.pct,a,b,act:n>=a})};
+const promoR=v=>Math.max(10,Math.round(v/10)*10);
+const fmtD=d=>d.toLocaleDateString('es-MX',{day:'numeric',month:'long',timeZone:'America/Chihuahua'});
+function cdTxt(ms){if(ms<0)ms=0;const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);return (d?d+'d ':'')+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+function promoBar(){if(!PR)return '';const nP=ALL.filter(i=>i.promo).length;
+  return PR.act?`<button class="promo-bar" data-promof>🔥 <b>${esc(PR.n.toUpperCase())}</b> <span>−${PR.pct}% en ${PR.todo?'todas las piezas disponibles':nP+' piezas seleccionadas'}</span> <span>Termina en <span class="cd" data-cd="${+PR.b}">${cdTxt(PR.b-Date.now())}</span></span> <u>Ver ofertas ›</u></button>`
+   :`<div class="promo-bar pre">🔥 <b>${esc(PR.n.toUpperCase())}</b> <span>−${PR.pct}% del ${fmtD(PR.a)} al ${fmtD(PR.b)}</span> <span>Empieza en <span class="cd" data-cd="${+PR.a}">${cdTxt(PR.a-Date.now())}</span></span></div>`}
+setInterval(()=>{document.querySelectorAll('[data-cd]').forEach(e=>e.textContent=cdTxt(+e.dataset.cd-Date.now()));
+  // al empezar o terminar la promoción, recalcula los precios sin recargar
+  const p=LASTINV&&promoOf();if(LASTINV&&((p&&p.act)||false)!==((PR&&PR.act)||false)){applyInv(...LASTINV);const y=scrollY;render();scrollTo(0,y)}},1000);
 const niceP=v=>!v?0:v<200?Math.max(10,Math.round(v/10)*10):Math.round(v/50)*50;
 const ahorro=it=>it.price&&it.nuevo&&it.price<=it.nuevo*0.85?Math.round((1-it.price/it.nuevo)*100):0;
 const nuevoHTML=it=>ahorro(it)?`<div class="nuevo">Nueva <s>${money(it.nuevo)}</s><b>−${ahorro(it)}%</b></div>`:'';
@@ -314,12 +332,12 @@ async function loadRes(){try{const sn=await getDocs(query(collection(fs,'resenas
   if(['inicio','nosotros'].includes(st.route)&&modal.hidden){const y=scrollY;render();scrollTo(0,y)}}catch(e){}}
 // ---- vistas ----
 function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
-  return `<div class="card"><div class="ph" data-det="${esc(it.k)}" role="button" aria-label="Ver ${esc(it.es)}" id="ph-${esc(it.k)}">${phHTML(it)}${exTag(it)}</div>
+  return `<div class="card"><div class="ph" data-det="${esc(it.k)}" role="button" aria-label="Ver ${esc(it.es)}" id="ph-${esc(it.k)}">${phHTML(it)}${exTag(it)}${it.promo?`<span class="ptag">🔥 −${PR.pct}%</span>`:''}</div>
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
-   ${nuevoHTML(it)}<div class="ft"><div class="price">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
+   ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
-  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&fitsVer(it,st.ver)&&
+  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
@@ -362,7 +380,7 @@ function sortArr(arr){const a=arr.slice();const s=st.sort;const nm=(x,y)=>x.es.l
 function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filtered());
   const feat=ALL.filter(i=>i.ex==='av'&&i.price).sort((a,b)=>b.price-a.price).slice(0,12);
   const secs=SECS.filter(s=>!st.cat||s.cat===st.cat);
-  view.innerHTML=`<section class="hero"><div><div class="kicker">Originales. Con historia. Listas para seguir.</div><h1>Tu Accord todavía tiene mucho camino.</h1>
+  view.innerHTML=`${promoBar()}<section class="hero"><div><div class="kicker">Originales. Con historia. Listas para seguir.</div><h1>Tu Accord todavía tiene mucho camino.</h1>
     <p>Encuentra la pieza que buscas por nombre o número.</p><p>Te ayudamos con la versión correcta.</p>
     <div class="cta"><a class="btn lime" href="#catalogo" data-go="cat">Explorar catálogo ↓</a><small>Accord Sport · 2018 — 2020</small></div></div>
     <div class="art"><img src="logo-trio.png" alt="Trío Accord"><span>Las buenas piezas se reconocen.</span></div></section>
@@ -374,7 +392,7 @@ function vInicio(){const nAv=ALL.filter(i=>i.av).length;const arr=sortArr(filter
    <div class="filters"><label class="search">⌕<input id="q" type="search" placeholder="Busca faro, headlight, 33100…" value="${esc(st.q)}" autocomplete="off"></label>
     <label class="sel">Tu Accord<select id="ver">${VERS.map(([k,l])=>`<option value="${k}" ${st.ver===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
    <div class="chips"><button class="chip ic" data-cat="" aria-pressed="${!st.cat}">${ico('')}Todas</button>${CATS.map(c=>`<button class="chip ic" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${ico(c)}${esc(c)}</button>`).join('')}
-    <button class="chip" data-stock aria-pressed="${st.stock}">✓ Solo en existencia${nAv?' ('+nAv+')':''}</button></div>
+    <button class="chip" data-stock aria-pressed="${st.stock}">✓ Solo en existencia${nAv?' ('+nAv+')':''}</button>${PR&&PR.act&&ALL.some(i=>i.promo)?`<button class="chip" data-promochip aria-pressed="${st.promo}">🔥 ${esc(PR.n)} (${ALL.filter(i=>i.promo).length})</button>`:''}</div>
    <div class="secrow"><label for="sec">Sección</label><select id="sec"><option value="">Todas las secciones</option>${secs.map(s=>`<option value="${s.i}" ${st.sec===String(s.i)?'selected':''}>${esc(s.es)}</option>`).join('')}</select></div>
    ${nAv?'':`<div class="note"><b>Catálogo completo de Honda Accord Sport.</b> Los precios son sugeridos; confirmamos existencia y compatibilidad por WhatsApp antes de cobrar.</div>`}
    ${st.carf?`<div class="note" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Mostrando solo piezas del carro <b>${esc(st.carf)}</b></span><button class="chip" data-carf="">✕ Ver todas</button></div>`:''}<div class="meta-row" style="align-items:center"><span>${arr.length.toLocaleString('es-MX')} piezas${st.ver?' para '+esc(VERS.find(v=>v[0]===st.ver)[1]):''}</span><label style="display:flex;align-items:center;gap:8px">Ordenar por<select id="sort" class="sortsel">${SORTS.map(([k,l])=>`<option value="${k}" ${st.sort===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
@@ -397,7 +415,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
    <a class="btn dark" id="qsend" target="_blank" rel="noopener" href="#" ${lines.length?'':'aria-disabled="true" style="opacity:.5;pointer-events:none"'}>Enviar solicitud por WhatsApp ↗</a>
    ${lines.length?' <button class="btn" data-qclear style="margin-left:8px">Vaciar</button>':''}</div>`;
   hook(view);const upd=()=>{const n=$('#qn').value.trim(),c=$('#qc').value.trim();LSs('qn',n);LSs('qc',c);
-    const msg='Hola, quiero cotizar estas piezas de Honda Accord:\n'+lines.map((o,i)=>(i+1)+'. '+o.it.es+' ('+numFor(o.it,st.ver)+') x'+o.q.qty+' — '+(o.it.price?money(o.it.price*o.q.qty):'precio a consultar')).join('\n')+'\nTotal aproximado: '+money(tot)+'\nForma de continuar: '+st.pay+(c?'\nMi Accord / comentario: '+c:'')+(n?'\nNombre: '+n:'')+(CLI?'\nCliente registrado: '+CLI.user+(CLI.tel?' · '+CLI.tel:''):'')+'\n¿Siguen disponibles?';
+    const msg='Hola, quiero cotizar estas piezas de Honda Accord'+(PR&&PR.act&&lines.some(o=>o.it.promo)?' (con precio de '+PR.n+')':'')+':\n'+lines.map((o,i)=>(i+1)+'. '+o.it.es+' ('+numFor(o.it,st.ver)+') x'+o.q.qty+' — '+(o.it.price?money(o.it.price*o.q.qty):'precio a consultar')).join('\n')+'\nTotal aproximado: '+money(tot)+'\nForma de continuar: '+st.pay+(c?'\nMi Accord / comentario: '+c:'')+(n?'\nNombre: '+n:'')+(CLI?'\nCliente registrado: '+CLI.user+(CLI.tel?' · '+CLI.tel:''):'')+'\n¿Siguen disponibles?';
     $('#qsend').href=waLink(msg)};['#qn','#qc'].forEach(s=>$(s).addEventListener('input',upd));upd();
   $('#qsend').addEventListener('click',()=>{if(!CLI||!lines.length)return;addDoc(collection(fs,'solicitudes'),{uid:CLI.uid,user:CLI.user,name:$('#qn').value.trim()||CLI.name||'',tel:CLI.tel||'',pay:st.pay,coment:$('#qc').value.trim(),total:tot,date:new Date().toISOString(),
     items:lines.map(o=>({k:o.it.k,pn:numFor(o.it,st.ver),es:o.it.es,qty:o.q.qty,price:o.it.price||0}))}).catch(()=>{})})}
@@ -508,7 +526,7 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
    <div class="bigwrap"><div class="bigph" id="bigph"></div>${viewsOf(it).length>1?'<button class="nav l" data-gal="-1" aria-label="Anterior">‹</button><button class="nav r" data-gal="1" aria-label="Siguiente">›</button>':''}</div>
    ${viewsOf(it).length>1?`<div class="thumbs">${viewsOf(it).map((v,j)=>`<button data-galj="${j}" aria-pressed="${j===0}">${imgOne(it,v)}</button>`).join('')}</div>`:''}
    <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(it.es)}</h2>${it.en?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
-   <div class="price" style="font-size:28px">${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
+   ${it.promo?`<div class="ptag" style="position:static;display:inline-block;margin-top:6px">🔥 ${esc(PR.n)} −${PR.pct}% · hasta el ${fmtD(PR.b)}</div>`:''}<div class="price${it.promo?' pr':''}" style="font-size:28px">${it.antes?`<s class="antes" style="font-size:15px">Antes ${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
    ${ahorro(it)?`<div class="ahorro">Nueva en Honda: <s>${money(it.nuevo)}</s> · <b>Te ahorras ${money(it.nuevo-it.price)} (${ahorro(it)}%)</b><small>Precio nuevo de referencia: lista oficial de Honda en EE.UU. convertida a pesos ($${+INV.tc||18.7} por dólar).</small></div>`:''}
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
@@ -543,6 +561,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if('carf' in d){st.carf=d.carf;st.limit=24;render();setTimeout(()=>{const g=$('#catalogo');if(g)g.scrollIntoView({behavior:'smooth'})},30);return}
   if('cat' in d){st.cat=d.cat;st.sec='';st.limit=24;render();return}
   if('stock' in d){st.stock=!st.stock;st.limit=24;render();return}
+  if('promochip' in d){st.promo=!st.promo;st.limit=24;render();return}
+  if('promof' in d){st.promo=true;st.stock=false;st.limit=24;render();setTimeout(()=>{const c=$('#catalogo');if(c)c.scrollIntoView({behavior:'smooth'})},60);return}
   if('more' in d){st.limit+=24;const y=scrollY;render();scrollTo(0,y);return}
   if(d.qq){const q=Q.find(x=>x.k===d.qq);if(q){q.qty=Math.max(1,q.qty+(+d.d));saveQ();render()}return}
   if(d.qrm){Q=Q.filter(x=>x.k!==d.qrm);saveQ();render();return}
@@ -554,7 +574,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261028-0226';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261101-1208';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -568,6 +588,8 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
     ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
+  LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}
+  if(!(PR&&PR.act))st.promo=false;
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;document.querySelectorAll('.nmf').forEach(e=>e.textContent=nm);

@@ -305,7 +305,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261028-0226';
+const VERSION='20261101-1208';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -330,6 +330,13 @@ let ME=null, OWN=false, PROFILE=null;
 let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], ALT={}, USERS=[];
 let FOTOS={}, FOTOLIST=[], EXTRAS=[], NEG={}, CLIENTES=[];
 const TC_DEF=18.7,SUBE_DEF=50;
+// ---- promoción (Buen Fin, Navidad…): % de descuento por fechas, a todo lo disponible o solo a piezas elegidas ----
+const PROMO_DEF={n:'Buen Fin',pct:15,ini:'2026-11-13',fin:'2026-11-17',todo:true,sel:[]};
+const promoCfg=()=>Object.assign({},PROMO_DEF,NEG.promo||{});
+const promoAct=()=>{const p=NEG.promo;if(!p||!p.on||!(+p.pct>0)||!p.ini||!p.fin)return null;const a=new Date(p.ini+'T00:00:00-06:00'),b=new Date(p.fin+'T23:59:59-06:00'),n=Date.now();return n>=a&&n<=b?p:null};
+const enPromo=k=>{const p=promoAct();return !!p&&(p.todo||(p.sel||[]).includes(k))};
+const precioV=(k,base)=>base&&enPromo(k)?Math.max(10,Math.round(base*(1-NEG.promo.pct/100)/10)*10):base;
+const promoFin=()=>{const p=NEG.promo;return p?new Date(p.fin+'T12:00:00-06:00').toLocaleDateString('es-MX',{day:'numeric',month:'long'}):''};
 const subePct=()=>NEG.subeSug!=null&&NEG.subeSug!==''?+NEG.subeSug:SUBE_DEF;const fSug=()=>1+subePct()/100;const tcNow=()=>+NEG.tc||TC_DEF;
 const nice=v=>!v?0:v<200?Math.max(10,Math.round(v/10)*10):Math.round(v/50)*50;
 const sugOf=pn=>nice(((BYPN[pn]||{}).sp||0)*fSug());
@@ -557,7 +564,8 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
     ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>
    ${yHTML(p)}
    <button class="btn ghost" data-zoom="${p.s}" data-zk="0" data-ref="${esc(p.ref)}">Ver diagrama (busca el #${esc(p.ref)})</button>
-   <button class="btn fbbtn" data-fb="${esc(p.pn)}">📣 Publicar en Facebook <small>(beta)</small></button>
+   ${promoHTML(p.pn,priceOf(p.pn))}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="${esc(p.pn)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="${esc(p.pn)}">🇺🇸 Anuncio en inglés</button></div>
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
     <div class="drow"><input id="alt-in" placeholder="Ej. 71110-TVA-A20" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);text-transform:uppercase;min-width:0"><button class="btn ghost" data-addalt>Agregar</button></div></div>
@@ -631,6 +639,13 @@ function openMenu(){SHEET='menu';
      <label class="f" for="n-tc">Pesos por dólar (para el precio nuevo de Honda)<input id="n-tc" type="number" inputmode="decimal" step="0.1" value="${esc(tcNow())}"></label>
      <p class="hint" style="margin:0">El aumento se aplica a todas las piezas que no tienen precio puesto por ti. Las que tú preciaste se quedan igual. Pon 0 para regresar a los sugeridos originales.</p>
      <button class="btn ghost" data-saveprecios>Guardar</button><div class="status" id="pr-status"></div></div></details>`:''}
+   ${OWN?(()=>{const p=promoCfg();return `<details class="card form"${p.on?' open':''}><summary><b>🔥 Promoción</b> <span class="hint">(Buen Fin, Navidad…)${promoAct()?' · <b style="color:#c8102e">ACTIVA</b>':p.on?' · programada':''}</span></summary><div class="form" style="margin-top:10px">
+     <label class="f" for="pm-n">Nombre<input id="pm-n" value="${esc(p.n)}" placeholder="Buen Fin"></label>
+     <div class="two"><label class="f" for="pm-ini">Empieza<input id="pm-ini" type="date" value="${esc(p.ini)}"></label><label class="f" for="pm-fin">Termina<input id="pm-fin" type="date" value="${esc(p.fin)}"></label></div>
+     <label class="f" for="pm-pct">Descuento (%)<input id="pm-pct" type="number" inputmode="numeric" min="1" max="70" value="${esc(p.pct)}"></label>
+     <label class="f" for="pm-todo">¿A qué piezas?<select id="pm-todo"><option value="1"${p.todo?' selected':''}>Todas las disponibles</option><option value="0"${p.todo?'':' selected'}>Solo las que yo elija (${(p.sel||[]).length})</option></select></label>
+     <p class="hint" style="margin:0">Si eliges “solo las que yo elija”, abre cada pieza y toca “Poner en promoción”. La tienda muestra un letrero con cuenta regresiva desde 3 semanas antes, el precio tachado y el nuevo. En la app, el carrito cobra el precio de promoción esos días. Al terminar se quita sola.</p>
+     <div class="two"><button class="btn alt" data-savepromo="1">${p.on?'Guardar':'Activar'}</button>${p.on?'<button class="btn ghost" data-savepromo="0">Apagar</button>':''}</div><div class="status" id="pm-status"></div></div></details>`})():''}
    ${OWN?`<div id="lote-card"></div>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
@@ -645,7 +660,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261028-0226</p></div>`;
+   <p class="note">Versión 20261101-1208</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -663,7 +678,7 @@ async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c
 let pendingDelCar=null;
 function delCar(id,btn){if(pendingDelCar!==id){pendingDelCar=id;btn.textContent='¿Seguro? Se borra el carro y su recorrido. Toca otra vez';return}
   deleteDoc(doc(fs,'carros',id)).catch(e=>toast(errMsg(e)));deleteDoc(doc(fs,'estado',id)).catch(()=>{});deleteDoc(doc(fs,'privado',id)).catch(()=>{});st.car=null;pendingDelCar=null;render()}
-function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:priceOf(p.pn)||''});saveCart();toast('Agregado al carrito');openPart(openIdx)}
+function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:precioV(p.pn,priceOf(p.pn))||''});saveCart();toast('Agregado al carrito');openPart(openIdx)}
 function cliPickHTML(t){const c=CLIENTES.find(x=>x.id===CLIID);
   if(c)return `<div class="carrow" style="border:2px solid var(--tag);border-radius:10px;padding:8px"><span style="font-size:22px">⭐</span><div style="min-width:0"><b>${esc(c.name||c.user)}</b><br><span class="hint">Cliente registrado · ${c.puntos||0} puntos · gana <b>+${ptsFor(t.total)}</b> con esta compra</span></div><button class="copy" data-unpickcli>Quitar</button></div>`;
   const q=norm(CLIQ).trim();const m=q?CLIENTES.filter(x=>norm((x.name||'')+' '+(x.user||'')+' '+(x.tel||'')).includes(q)).slice(0,6):[];
@@ -806,7 +821,8 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
     <label class="f" for="x-ubi">Lugar (T-3, G-1…)<input id="x-ubi" list="ubis" value="${esc(x.ubi||'')}" style="text-transform:uppercase"></label>${ubiList()}
     <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
    ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">🛒 Agregar al carrito</button>`:ic?`<p class="hint">${ic} en el carrito</p>`:''}
-   <button class="btn fbbtn" data-fb="X:${esc(id)}">📣 Publicar en Facebook <small>(beta)</small></button>
+   ${promoHTML('X:'+id,x.price)}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="X:${esc(id)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="X:${esc(id)}">🇺🇸 Anuncio en inglés</button></div>
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- agregar pieza con foto ----
@@ -913,24 +929,60 @@ function pubSnapshot(){const items=[],rev=[];
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
-  return {v:3,fsug:fSug(),tc:tcNow(),cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
+  const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
+  return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
+function promoHTML(k,base){const p=NEG.promo;if(!p||!p.on)return '';const on=p.todo||(p.sel||[]).includes(k);const act=promoAct();
+  const pv=base?Math.max(10,Math.round(base*(1-p.pct/100)/10)*10):0;
+  return `<div class="card form" style="border:2px solid ${on?'#c8102e':'var(--line)'}"><b>🔥 ${esc(p.n)} −${p.pct}%</b>
+   <span class="hint">${on?(base?`Precio de promoción: <b style="color:#c8102e">${money(pv)}</b> (antes ${money(base)})`:'Ponle precio para que entre en la promoción')+(act?' · activa hasta el '+promoFin():' · aún no empieza'):'Esta pieza no está en la promoción.'}</span>
+   ${OWN&&!p.todo?`<button class="btn ${on?'ghost':'alt'}" data-psel="${esc(k)}">${on?'Quitar de la promoción':'Poner en promoción'}</button>`:''}</div>`}
+// imagen cuadrada para el anuncio: foto + logo + precio + WhatsApp (+ listón de promoción)
+const loadImg=u=>new Promise((ok,no)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>ok(i);i.onerror=no;i.src=u});
+async function adImage(key,src,lang){const isX=key.startsWith('X:');const x=isX?xById(key.slice(2)):null;const p=isX?null:BYPN[key];
+  const name=isX?x.name:(lang==='en'&&p.en?p.en:p.es);const num=isX?(x.num||''):key;const base=isX?x.price:priceOf(key);const pv=precioV(key,base);
+  const W=1080,c=document.createElement('canvas');c.width=c.height=W;const g=c.getContext('2d');
+  g.fillStyle='#fff';g.fillRect(0,0,W,W);const PH=730;
+  if(src){try{const im=await loadImg(src);const r=Math.max(W/im.width,PH/im.height)*(src.startsWith('data:image/svg')||/\.svg/.test(src)?0.85:1);const w=im.width*r,h=im.height*r;g.save();g.beginPath();g.rect(0,0,W,PH);g.clip();g.drawImage(im,(W-w)/2,(PH-h)/2,w,h);g.restore()}catch(e){}}
+  const gr=g.createLinearGradient(0,PH-40,0,W);gr.addColorStop(0,'#1f5a4c');gr.addColorStop(1,'#123a31');g.fillStyle=gr;g.fillRect(0,PH,W,W-PH);
+  try{const lg=await loadImg('logo-trio-sm.png');g.fillStyle='rgba(255,255,255,.92)';g.beginPath();g.roundRect(28,28,150,150,26);g.fill();g.drawImage(lg,38,38,130,130)}catch(e){}
+  const act=enPromo(key)&&base;
+  if(act){g.save();g.translate(W-20,20);g.fillStyle='#d4161f';g.beginPath();g.roundRect(-440,0,440,120,22);g.fill();g.fillStyle='#fff';g.textAlign='center';g.font='900 46px system-ui,sans-serif';
+    g.fillText('🔥 '+String(NEG.promo.n).toUpperCase(),-220,54);g.font='800 40px system-ui,sans-serif';g.fillText('−'+NEG.promo.pct+'%',-220,102);g.restore()}
+  g.fillStyle='#fff';g.font='800 50px system-ui,sans-serif';g.textAlign='left';
+  const words=String(name).split(/\s+/);let line='',lines=[];for(const w of words){const t=line?line+' '+w:w;if(g.measureText(t).width>W-80&&line){lines.push(line);line=w}else line=t}lines.push(line);lines=lines.slice(0,2);
+  lines.forEach((l,i)=>g.fillText(l,40,PH+70+i*58));let y=PH+70+lines.length*58;
+  g.fillStyle='#d8ee8a';g.font='600 32px ui-monospace,monospace';if(num)g.fillText((lang==='en'?'OEM #':'No. ')+num+'  ·  Honda Accord 2018-2022',40,y+4);
+  const usd=v=>'$'+Math.max(5,Math.round(v/tcNow()/5)*5)+' USD';const fmt=v=>lang==='en'?usd(v):money(v);
+  const py=W-48;g.font='900 84px system-ui,sans-serif';g.fillStyle=act?'#ffd43b':'#d8ee8a';const pt=pv?fmt(pv):(lang==='en'?'Make an offer':'Precio a tratar');g.fillText(pt,40,py);
+  let px=48+g.measureText(pt).width;if(act){g.font='500 40px system-ui,sans-serif';g.fillStyle='rgba(255,255,255,.7)';const o=fmt(base);g.fillText(o,px,py-6);const ow=g.measureText(o).width;g.fillRect(px,py-20,ow,4)}
+  const wa=fixWa(NEG.wa||NEG.tel).replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3');g.textAlign='right';g.font='700 38px system-ui,sans-serif';g.fillStyle='#fff';g.fillText('WhatsApp',W-40,py-48);g.font='800 44px system-ui,sans-serif';g.fillText(wa,W-40,py);
+  return new Promise(ok=>c.toBlob(b=>ok(new File([b],'anuncio.jpg',{type:'image/jpeg'})),'image/jpeg',0.9))}
+function fbTextEn(key){const isX=key.startsWith('X:');const x=isX?xById(key.slice(2)):null;const p=isX?null:BYPN[key];
+  const name=isX?x.name:(p.en||p.es);const num=isX?(x.num||''):key;const base=isX?x.price:priceOf(key);const pv=precioV(key,base);const usd=v=>'$'+Math.max(5,Math.round(v/tcNow()/5)*5);
+  const cars=isX?(x.car?[CARS.find(c=>c.id===x.car)].filter(Boolean):[]):availCars(key).map(o=>o.c);const yrs=[...new Set(cars.map(c=>c.year).filter(Boolean))].join(', ');
+  const wa=fixWa(NEG.wa||NEG.tel);
+  return `${name} — Honda Accord 2018-2022 (Genuine OEM)\n\n💲 ${pv?usd(pv)+' USD':'Make an offer'}${enPromo(key)&&base?' (was '+usd(base)+')':''}\n🔢 OEM part number: ${num}\n🚗 Used original Honda part${yrs?' from a '+yrs+' Accord':''}\n📍 Chihuahua, MX — ask about pickup / shipping to El Paso\n\n📲 WhatsApp: +52 ${wa.replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3')}\n🛒 More parts & photos: ${pubURL()}#p=${encodeURIComponent(key)}\n\n#HondaAccord #Accord #OEM #ElPaso #AccordParts`}
 // ---- publicar en Facebook (beta): arma texto + fotos y abre el menú de compartir ----
 function fbText(key){const isX=key.startsWith('X:');const x=isX?xById(key.slice(2)):null;const p=isX?null:BYPN[key];
   const name=isX?x.name:p.es;const num=isX?(x.num||''):key;const price=isX?x.price:priceOf(key);
   const cars=isX?(x.car?[CARS.find(c=>c.id===x.car)].filter(Boolean):[]):availCars(key).map(o=>o.c);
   const yrs=[...new Set(cars.map(c=>c.year).filter(Boolean))].join(', ');const f=(FOTOS[key]||[])[0];const cond=isX?x.cond:(f&&f.cond);
   const wa=fixWa(NEG.wa||NEG.tel);
-  return `${name} — Honda Accord 2018-2020 Sport (original)\n\n💲 ${price?money(price)+' MXN':'Precio a tratar'}\n🔢 Número de parte: ${num}\n${cond?'✅ Estado: '+cond+'\n':''}🚗 Pieza original usada${yrs?' de Accord '+yrs:''}\n📍 Chihuahua, Chih.\n\n📲 WhatsApp: ${wa.replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3')}\n🛒 Ver fotos y más piezas: ${pubURL()}#p=${encodeURIComponent(key)}\n\n#HondaAccord #Accord2018 #Accord2019 #Accord2020 #RefaccionesChihuahua #Yonke`}
+  const pv=precioV(key,price);const pm=enPromo(key)&&price;
+  return `${pm?'🔥 '+NEG.promo.n.toUpperCase()+' −'+NEG.promo.pct+'% (hasta el '+promoFin()+')\n':''}${name} — Honda Accord 2018-2020 Sport (original)\n\n💲 ${pv?money(pv)+' MXN':'Precio a tratar'}${pm?' (antes '+money(price)+')':''}\n🔢 Número de parte: ${num}\n${cond?'✅ Estado: '+cond+'\n':''}🚗 Pieza original usada${yrs?' de Accord '+yrs:''}\n📍 Chihuahua, Chih.\n\n📲 WhatsApp: ${wa.replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3')}\n🛒 Ver fotos y más piezas: ${pubURL()}#p=${encodeURIComponent(key)}\n\n#HondaAccord #Accord2018 #Accord2019 #Accord2020 #RefaccionesChihuahua #Yonke`}
 async function fbFiles(key){const out=[];const fl=(FOTOS[key]||[]).slice(0,6);
   for(const f of fl){try{const u=(await getDoc(doc(fs,'fotosfull',f.id))).data()?.img||f.thumb;if(u)out.push(u)}catch(e){if(f.thumb)out.push(f.thumb)}}
   if(!out.length&&!key.startsWith('X:')){const p=BYPN[key];try{const b=await bundle(p.s);const u=b[p.pn+'|'+p.ref];if(u)out.push(u)}catch(e){}}
   return Promise.all(out.map(async(u,i)=>{const bl=await (await fetch(u)).blob();return new File([bl],'pieza-'+(i+1)+'.jpg',{type:bl.type||'image/jpeg'})}))}
-async function publishFB(key,btn){const old=btn.innerHTML;btn.textContent='Preparando…';
-  try{const text=fbText(key);let copied=false;try{await navigator.clipboard.writeText(text);copied=true}catch(e){}
+async function publishFB(key,btn,lang){const old=btn.innerHTML;btn.textContent='Preparando…';
+  try{const text=lang==='en'?fbTextEn(key):fbText(key);let copied=false;try{await navigator.clipboard.writeText(text);copied=true}catch(e){}
     const files=await fbFiles(key);
+    try{const src=(FOTOS[key]||[])[0];let u=null;if(src){try{u=(await getDoc(doc(fs,'fotosfull',src.id))).data()?.img||src.thumb}catch(e){u=src.thumb}}
+      else if(!key.startsWith('X:')){const p=BYPN[key];try{u=(await bundle(p.s))[p.pn+'|'+p.ref]}catch(e){}}
+      files.unshift(await adImage(key,u,lang))}catch(e){console.warn('ad',e)}
     if(navigator.canShare&&files.length&&navigator.canShare({files})){toast(copied?'Texto copiado. Elige Facebook, pega el texto (mantén presionado → Pegar) y publica.':'Elige Facebook y publica.');
       await navigator.share({files,text,title:text.split('\n')[0]}).catch(()=>{})}
     else{files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)});
@@ -984,7 +1036,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
     if(d.plus==='1'&&x){x.qty=(xAvail(x)?x.qty:0)+1;x.status='disponible';setDoc(doc(fs,'extras',x.id),{qty:x.qty,status:'disponible'},{merge:true}).catch(e=>toast(errMsg(e)))}
     toast(d.plus==='1'?'Sumada una más':'Foto agregada');openExtra(d.intx);return}
   if('intnew' in d){intakeNew(intakeVals());return}
-  if(d.addx){const x=xById(d.addx);CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:x.price||''});saveCart();toast('Agregado al carrito');openExtra(x.id);return}
+  if(d.addx){const x=xById(d.addx);CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:precioV('X:'+x.id,x.price)||''});saveCart();toast('Agregado al carrito');openExtra(x.id);return}
   if(d.saveubi){const p=PARTS[openIdx];const v=($('#ubi-'+d.saveubi)||{}).value||'';const x=stOf(CARS.find(c=>c.id===d.saveubi),p.pn);if(!AVAIL(x.s))setStatus(d.saveubi,p.pn,'quitada');setUbi(d.saveubi,p.pn,v);toast(v?'Lugar guardado: '+v.toUpperCase():'Lugar borrado');openPart(openIdx);return}
   if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida',ubi:(($('#x-ubi')||{}).value||'').trim().toUpperCase()};if(pr!==''){up.price=+pr;up.sug=false}
     Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)));toast('Guardado');openExtra(x.id);return}
@@ -1026,6 +1078,15 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
   if('savecar' in d){saveCar(d.savecar);return}
   if(d.fb){publishFB(d.fb,t);return}
+  if(d.fben){publishFB(d.fben,t,'en');return}
+  if(d.psel){const p=promoCfg();const sel=new Set(p.sel||[]);sel.has(d.psel)?sel.delete(d.psel):sel.add(d.psel);const promo=Object.assign({},NEG.promo||PROMO_DEF,{sel:[...sel]});
+    NEG=Object.assign({},NEG,{promo});setDoc(doc(fs,'config','negocio'),{promo},{merge:true}).catch(e=>toast(errMsg(e)));pubSync();toast(sel.has(d.psel)?'En promoción':'Quitada de la promoción');
+    if(d.psel.startsWith('X:'))openExtra(d.psel.slice(2));else openPart(openIdx);return}
+  if('savepromo' in d){const s2=$('#pm-status');const on=d.savepromo==='1';const old=promoCfg();
+    const promo={on,n:$('#pm-n').value.trim()||'Promoción',pct:Math.round(+$('#pm-pct').value),ini:$('#pm-ini').value,fin:$('#pm-fin').value,todo:$('#pm-todo').value==='1',sel:old.sel||[]};
+    if(on&&(!(promo.pct>=1&&promo.pct<=70)||!promo.ini||!promo.fin||promo.fin<promo.ini)){s2.className='status err';s2.textContent='Revisa el descuento (1–70 %) y las fechas.';return}
+    NEG=Object.assign({},NEG,{promo});setDoc(doc(fs,'config','negocio'),{promo},{merge:true}).catch(e=>{s2.className='status err';s2.textContent=errMsg(e)});
+    pubSync();toast(on?'Promoción guardada. La tienda se actualiza en unos segundos.':'Promoción apagada');openMenu();return}
   if(d.pickcli){CLIID=d.pickcli;CLIQ='';LS.set('cliid',CLIID);const c=CLIENTES.find(x=>x.id===CLIID);if(c&&!CLIENTE){CLIENTE=c.name||c.user;saveCart()}render();return}
   if('unpickcli' in d){CLIID='';LS.set('cliid','');render();return}
   if('update' in d){activateUpdate(t);return}
