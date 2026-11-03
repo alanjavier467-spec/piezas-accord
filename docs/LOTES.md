@@ -18,3 +18,6 @@ Un **lote** es un archivo `lote.json` que va en la raíz del sitio. Sirve para c
 - `fotos`: `full` de 1100 px (JPEG calidad 72) y `thumb` de 200 px (calidad 60). En una pieza agregada, `pn` = `X:<id>`. Si se repite un `id`, la foto se reemplaza.
 - `mover`: cambia una foto ya subida a otra pieza. `borrar`: quita fotos o piezas agregadas.
 - `carros.BOD`: "Bodega", un carro virtual para piezas que no vienen de ningún carro.
+
+## Ventas en un lote
+`"ventas":[{"id":"lote-...","items":[{"pn":"...","car":"A1","qty":1,"price":500}],"pago":"Efectivo","cliente":"","nota":"","date":"ISO"}]` registra la venta en *Ventas* (entra al corte de caja del día de `date`). No cambia el estado de la pieza: márcalo con `estado` (`s:"vendida", n:0`). Mismo `id` = no se duplica.

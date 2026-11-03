@@ -305,7 +305,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261101-1208';
+const VERSION='20261103-1643';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -660,7 +660,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261101-1208</p></div>`;
+   <p class="note">Versión 20261103-1643</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -766,6 +766,7 @@ async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)re
       {const es=e.s||'quitada';const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
     for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
+    for(const v of J.ventas||[]){const items=(v.items||[]).map(it=>{const c=it.car?CARS.find(y=>y.code===it.car||y.id===it.car):null;if(it.car&&!c)throw new Error('No existe el carro '+it.car);const p=it.pn?BYPN[it.pn]:null;return {pn:it.pn||'',es:it.es||(p?p.es:''),car:c?c.id:'',qty:it.qty||1,price:+it.price||0,xid:it.xid||''}});const sub=items.reduce((a,it)=>a+it.qty*it.price,0);const vid=v.id||('lote-'+J.id);ops.push([doc(fs,'ventas',vid),{items,sub,desc:v.desc||0,total:v.total!=null?+v.total:sub-(v.desc||0),pago:v.pago||'Efectivo',cliente:v.cliente||'',nota:v.nota||'',date:v.date||now,...by,folio:vid.slice(-6).toUpperCase()}])}
     for(const m of J.mover||[]){ops.push([doc(fs,'fotos',m.id),{pn:m.pn,...(m.nota!=null?{nota:m.nota}:{})},{merge:true}]);ops.push([doc(fs,'fotosfull',m.id),{pn:m.pn},{merge:true}])}
     for(const id of (J.borrar||{}).fotos||[]){ops.push([doc(fs,'fotosfull',id),null,'del']);ops.push([doc(fs,'fotos',id),null,'del'])}
     for(const id of (J.borrar||{}).extras||[]){ops.push([doc(fs,'extras',id),null,'del'])}
