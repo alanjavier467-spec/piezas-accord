@@ -307,7 +307,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261103-2101';
+const VERSION='20261103-2138';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -608,6 +608,7 @@ function openMenu(){SHEET='menu';
    <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Creador (administrador)':'Vendedor'}</span></div>
    <div class="card" id="offline-card2"></div>
    <button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button>
+   ${OWN?'<button class="btn" data-nuevo="1" style="font-size:17px;padding:14px">🆕 Lo nuevo que se subió</button>':''}
    <div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Página para clientes</b>
      <p class="hint" style="margin:0">Tus clientes ven lo disponible con fotos y precio, y te piden por WhatsApp al ${esc(fixWa(NEG.wa))}. Se actualiza sola.</p>
      <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" href="${pubURL()}" target="_blank" rel="noopener">Abrir</a><button class="btn ghost" data-pubshare>Compartir liga</button>
@@ -662,7 +663,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261103-2101</p></div>`;
+   <p class="note">Versión 20261103-2138</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -828,6 +829,22 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="X:${esc(id)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="X:${esc(id)}">🇺🇸 Anuncio en inglés</button></div>
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
+// ---- lo nuevo (dueño) ----
+function openNuevo(days){SHEET='nuevo';openIdx=null;openX=null;
+  const d0=new Date();d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-(days-1));const since=d0.toISOString();
+  const G=new Map();const add=(car,key,kind,obj)=>{const g=G.get(car)||new Map();if(!g.has(key))g.set(key,{kind,obj,fotos:0});if(kind!=='x0')g.get(key).fotos++;G.set(car,g)};
+  FOTOLIST.filter(f=>(f.date||'')>=since).forEach(f=>{if(f.pn&&f.pn.startsWith('X:')){const x=xById(f.pn.slice(2));if(x)add(x.car||'',f.pn,'x',x)}else{const pt=BYPN[f.pn];if(pt)add(f.car||'',f.pn,'p',pt)}});
+  EXTRAS.filter(x=>(x.date||'')>=since).forEach(x=>{const k='X:'+x.id;const g=G.get(x.car||'');if(!(g&&g.has(k)))add(x.car||'',k,'x0',x)});
+  const order=[...G.keys()].sort((a,b)=>(a?carCode(a):'ZZ').localeCompare(b?carCode(b):'ZZ'));
+  const total=[...G.values()].reduce((t,g)=>t+g.size,0);
+  const name=c=>{if(!c)return 'Sin carro';const k=CARS.find(x=>x.id===c);return k?(k.code+(k.year?' · '+k.year:'')+(k.code==='BOD'?' · Bodega':'')):c};
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Lo nuevo</span></div></div><div class="wrap body">
+   <h2 class="title" style="margin:0">Lo nuevo que se subió</h2>
+   <div class="row">${[[1,'Hoy'],[2,'Ayer y hoy'],[7,'7 días'],[30,'30 días']].map(([n,t])=>`<button class="chip" data-nuevo="${n}" aria-pressed="${n===days}">${t}</button>`).join('')}</div>
+   <div class="card"><b>${total} pieza${total===1?'':'s'} nueva${total===1?'':'s'}</b><br><span class="hint">${order.map(c=>`${esc(c?carCode(c):'Sin carro')}: ${G.get(c).size}`).join(' · ')||'Nada todavía en este periodo.'}</span></div>
+   ${order.map(c=>`<p class="sec-h">${esc(name(c))} (${G.get(c).size})</p><div class="list">${[...G.get(c).values()].map(v=>v.kind==='p'?itemHTML(v.obj,v.fotos?`<span class="realtag">+${v.fotos} foto${v.fotos>1?'s':''}</span>`:''):xItemHTML(v.obj)).join('')}</div>`).join('')}
+   <p class="hint">Cuenta piezas con foto subida o piezas agregadas en el periodo. Los cambios de estado sin foto no salen aquí.</p></div>`;
+  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
 // ---- agregar pieza con foto ----
 let INT=null;const CONDS=['Sanita','Buen estado','Detalles leves','Raspada','Para reparar'];
 function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
@@ -1052,6 +1069,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('tkprint' in d){window.print();return}
   if('pubcopy' in d){navigator.clipboard&&navigator.clipboard.writeText(pubURL()).then(()=>{t.textContent='Copiada'});return}
   if('pubshare' in d){const tx='Piezas de Honda Accord 2018-2022 disponibles, con fotos y precio: '+pubURL();if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiada'});return}
+  if('nuevo' in d){openNuevo(+d.nuevo||1);return}
   if('backup' in d){backup(false);return}
   if('backupfull' in d){backup(true);return}
   if('pago' in d){PAGO=d.pago;LS.set('pago',PAGO);render();return}
