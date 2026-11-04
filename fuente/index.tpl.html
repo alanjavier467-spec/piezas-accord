@@ -212,8 +212,11 @@ function vCarros(){
   if(st.car&&st.carSec!=null)return vWalk();
   if(st.car&&st.carList)return vCarList();
   if(st.car)return vCar();
+  if(st.all)return vAllList();
   const cs=carsSorted();
+  const tDisp=allDisp('').length,tRev=allRev('').length;
   view.innerHTML=`<h2 class="title">Carros</h2><p class="hint" style="margin:0">Cada carro es su propio estante. El de arriba es el más viejo: de ese conviene vender primero.</p>
+  ${cs.length?`<p class="sec-h">Todos los carros juntos</p><div class="kpis"><button class="kpi kpib" data-all="disp"><b>${tDisp}</b><span>piezas disponibles ›</span></button><button class="kpi kpib" data-all="revisar"><b>${tRev}</b><span>por revisar ›</span></button></div><p class="sec-h">Cada carro</p>`:''}
   ${cs.length?`<div class="card">${cs.map(c=>{const k=carCounts(c);return `<button class="carrow" data-car="${c.id}" style="width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none">
     <span class="carside"><span class="carcode">${esc(c.code)}</span>${c.foto?`<img class="carpic" src="${c.foto}" alt="">`:''}</span><span style="min-width:0"><b>${esc([c.year,c.trim,EXT[c.color]||c.color].filter(Boolean).join(' · '))}</b><br><span class="hint">${c.llegada?'Llegó '+fmtDate(c.llegada):'Sin fecha de llegada'}${c.vin?' · VIN …'+esc(c.vin.slice(-6)):''}</span></span>
     <span style="text-align:right"><span class="st st-esta">${k.esta+k.quitada} disp.</span><br>${k.revisar?`<span class="st st-revisar" style="margin-top:4px">${k.revisar} por revisar</span>`:''}</span></button>`}).join('')}</div>`:'<div class="card"><b>Aún no hay carros.</b></div>'}
@@ -281,6 +284,21 @@ function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
   <p class="hint" style="margin:0">${pns.length+xs.length} pieza${pns.length+xs.length===1?'':'s'} de ${esc(c.code)} en "${esc(STL[s])}". Toca una para verla o cambiarla.</p>
   ${pns.length||xs.length?`<div class="list">${xs.map(x=>xItemHTML(x)).join('')}${pns.slice(0,st.limit).map(pn=>itemHTML(BYPN[pn])).join('')}</div>${pns.length>st.limit?`<button class="more" data-more>Mostrar más (${pns.length-st.limit} restantes)</button>`:''}`:'<div class="empty">No hay piezas en este estado.</div>'}`;hookImgs(view)}
+// ---- todas las piezas de todos los carros ----
+function allDisp(car){const xs=EXTRAS.filter(x=>xAvail(x)&&(!car||x.car===car));
+  const pns=UPN.filter(pn=>CARS.some(c=>(!car||c.id===car)&&AVAIL(stOf(c,pn).s)));return [...xs.map(x=>({x})),...pns.map(pn=>({pn}))]}
+function allRev(car){return UPN.filter(pn=>CARS.some(c=>(!car||c.id===car)&&stOf(c,pn).s==='revisar')).map(pn=>({pn}))}
+function vAllList(){const rev=st.all==='revisar';const car=st.allCar||'';const cs=carsSorted();
+  const arr=rev?allRev(car):allDisp(car);
+  const cnt=id=>(rev?allRev(id):allDisp(id)).length;
+  const revTag=pn=>{const r=CARS.filter(c=>(!car||c.id===car)&&stOf(c,pn).s==='revisar');return `<span class="avail">${r.map(c=>`<span class="st st-revisar">${esc(c.code)}</span>`).join(' ')}</span>`};
+  const row=o=>o.x?xItemHTML(o.x):rev?itemHTML(BYPN[o.pn],revTag(o.pn)):itemHTML(BYPN[o.pn]);
+  view.innerHTML=`<button class="back" data-back="all">‹ Carros</button>
+  <h2 class="title">${rev?'Por revisar · todos':'Disponibles · todos'}</h2>
+  <p class="hint" style="margin:0">${rev?'Piezas que falta checar si siguen en el carro. Las etiquetas dicen de cuál carro es.':'Todo lo que hay para vender en todos los carros y la bodega. Las etiquetas dicen en qué carro está.'} Toca una pieza para verla o cambiarle el estado.</p>
+  <div class="chips" style="margin:10px 0;display:flex;flex-wrap:wrap;gap:6px"><button class="chip" data-allcar="" aria-pressed="${!car}">Todos (${cnt('')})</button>${cs.map(c=>{const n=cnt(c.id);return n?`<button class="chip" data-allcar="${esc(c.id)}" aria-pressed="${car===c.id}">${esc(c.code)} (${n})</button>`:''}).join('')}</div>
+  <div class="row" style="gap:6px;margin-bottom:8px"><button class="chip" data-all="disp" aria-pressed="${!rev}">Disponibles</button><button class="chip" data-all="revisar" aria-pressed="${rev}">Por revisar</button></div>
+  ${arr.length?`<div class="list">${arr.slice(0,st.limit).map(row).join('')}</div>${arr.length>st.limit?`<button class="more" data-more>Mostrar más (${arr.length-st.limit} restantes)</button>`:''}`:'<div class="empty">No hay piezas aquí.</div>'}`;hookImgs(view)}
 function vWalk(){const c=CARS.find(x=>x.id===st.car);const s=SECS[st.carSec];const seen=new Set();const ps=PARTS.filter(p=>p.s===s.i&&!seen.has(p.pn)&&seen.add(p.pn));
   view.innerHTML=`<button class="back" data-back="walk">‹ ${esc(c.code)}</button><h2 class="title">${esc(s.es)}</h2><p class="hint" style="margin:0">Carro ${esc(c.code)} · toca el estado de cada pieza. Se guarda solo, aunque no haya señal.</p>
   <div id="dg" class="list"></div>
@@ -818,7 +836,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='d-target'){DISC=t.value===''?{mode:'pct',pct:0,amt:'',target:''}:{mode:'target',target:t.value,pct:0,amt:''};saveCart();render()}
   if(t.dataset.lp!=null)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!ME)return;const d=t.dataset;if(d.pcar){pcarGo(t.closest('.pcar'),+d.pcar);return}
-  if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.carList=null;st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
+  if(d.tab){if(d.tab===st.tab&&sheet.hidden&&zoom.hidden){st.car=null;st.carSec=null;st.carList=null;st.all=null;st.allCar='';st.catView=null;st.secView=null}st.tab=d.tab;st.limit=40;if(!sheet.hidden||!zoom.hidden){closeSheet()}render();window.scrollTo(0,0);return}
   if(d.open){openPart(+d.open);return}
   if(d.openx){openExtra(d.openx);return}
   if('intake' in d){openIntake();return}
@@ -869,6 +887,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.back==='sec'){st.secView=null;render();return}
   if(d.back==='cat'){st.catView=null;render();return}
   if(d.back==='car'){st.car=null;st.carList=null;render();return}
+  if(d.back==='all'){st.all=null;st.allCar='';st.limit=40;render();window.scrollTo(0,0);return}
+  if(d.all){st.all=d.all;st.limit=40;render();window.scrollTo(0,0);return}
+  if('allcar' in d){st.allCar=d.allcar;st.limit=40;render();return}
   if(d.back==='carlist'){st.carList=null;st.limit=40;render();window.scrollTo(0,0);return}
   if(d.carlist){st.carList=d.carlist;st.limit=40;render();window.scrollTo(0,0);return}
   if(d.back==='walk'){st.carSec=null;render();return}
