@@ -189,7 +189,8 @@ nav.tabs button{position:relative}
 .gal button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:0;overflow:hidden;aspect-ratio:1;position:relative}
 .gal img{width:100%;height:100%;object-fit:cover;display:block}
 .gal em{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-style:normal;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shot{display:grid;place-items:center;gap:6px;border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;background:var(--sunk);cursor:pointer}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.shot{position:relative;display:grid;place-items:center;gap:6px;border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;background:var(--sunk);cursor:pointer}
 .shot input{position:absolute;width:1px;height:1px;opacity:0}
 .shot b{font-size:17px}
 .cand{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface)}
@@ -307,7 +308,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261103-2219';
+const VERSION='20261104-1040';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -681,7 +682,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261103-2219</p></div>`;
+   <p class="note">Versión 20261104-1040</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -870,8 +871,9 @@ function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
   const fp=forKey&&!forKey.startsWith('X:')?BYPN[forKey]:null, fx=forKey&&forKey.startsWith('X:')?xById(forKey.slice(2)):null;
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Agregar pieza con foto</span></div></div>
   <div class="wrap body">
-   ${fp||fx?`<div class="card"><span class="hint">Foto para:</span><br><b>${esc(fp?fp.es:fx.name)}</b> <span class="pn">${esc(fp?fp.pn:fx.num)}</span></div>`:'<p class="hint" style="margin:0">1) Toma la foto. 2) Escribe lo que sepas. 3) Te busco si ya existe en el catálogo.</p>'}
-   <label class="shot" for="i-file"><input id="i-file" type="file" accept="image/*" capture="environment" multiple><span style="font-size:34px">📷</span><b>Tomar foto</b><span class="hint">Puedes tomar varias</span></label>
+   ${fp||fx?`<div class="card"><span class="hint">Foto para:</span><br><b>${esc(fp?fp.es:fx.name)}</b> <span class="pn">${esc(fp?fp.pn:fx.num)}</span></div>`:'<p class="hint" style="margin:0">1) Toma la foto o elígela de la galería. 2) Escribe lo que sepas. 3) Te busco si ya existe en el catálogo.</p>'}
+   <div class="shots"><label class="shot" for="i-file"><input id="i-file" class="i-pick" type="file" accept="image/*" capture="environment" multiple><span style="font-size:34px">📷</span><b>Tomar foto</b><span class="hint">Con la cámara</span></label>
+   <label class="shot" for="i-gal"><input id="i-gal" class="i-pick" type="file" accept="image/*" multiple><span style="font-size:34px">🖼️</span><b>De la galería</b><span class="hint">Elige varias</span></label></div>
    <div class="gal" id="i-prev"></div>
    <div class="card form">
     ${fp||fx?'':`<label class="f" for="i-num">Número que trae la pieza<input id="i-num" placeholder="Ej. 33100-TVA-A01" style="font-family:var(--f-mono);text-transform:uppercase" autocomplete="off"></label>
@@ -884,9 +886,9 @@ function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
     <div class="status" id="i-status"></div></div>
    <div id="i-cands"></div></div>`;
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';
-  $('#i-file').addEventListener('change',async e=>{const fsel=[...e.target.files];const pv=$('#i-prev');const stt=$('#i-status');stt.className='status';stt.textContent='Preparando fotos…';
+  document.querySelectorAll('.i-pick').forEach(inp=>inp.addEventListener('change',async e=>{const fsel=[...e.target.files];const pv=$('#i-prev');const stt=$('#i-status');stt.className='status';stt.textContent='Preparando fotos…';
     for(const f of fsel){try{const full=await shrink(f,1100,.72),thumb=await shrink(f,200,.6);INT.imgs.push({full,thumb})}catch(err){}}
-    pv.innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');stt.textContent=INT.imgs.length?INT.imgs.length+' foto(s) lista(s)':'No se pudo leer la foto';e.target.value=''})}
+    pv.innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');stt.textContent=INT.imgs.length?INT.imgs.length+' foto(s) lista(s)':'No se pudo leer la foto';e.target.value=''}))}
 function intakeVals(){const g=id=>($(id)||{}).value||'';return {num:g('#i-num').trim().toUpperCase().replace(/\s+/g,''),name:g('#i-name').trim(),nota:g('#i-nota').trim(),car:g('#i-car'),price:g('#i-price'),cond:INT.cond}}
 function candidates(num,name){const m=new Map();const add=(p,sc)=>{const o=m.get(p.pn);if(!o||o.sc<sc)m.set(p.pn,{p:BYPN[p.pn],sc})};
   const c=num.replace(/[^A-Z0-9]/gi,'').toLowerCase();
