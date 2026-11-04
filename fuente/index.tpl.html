@@ -205,7 +205,7 @@ function vCatalogo(){
   if(st.catView){const ss=SECS.filter(s=>s.cat===st.catView);
     view.innerHTML=`<button class="back" data-back="cat">‹ Categorías</button><h2 class="title">${esc(st.catView)}</h2>${ss.map(s=>`<button class="cat" data-sec="${s.i}"><b>${esc(s.es)}</b><span>${s.n} ›</span></button>`).join('')}`;return}
   view.innerHTML=`<h2 class="title">Catálogo por diagrama</h2>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${SECS.filter(s=>s.cat===c).length} secciones ›</span></button>`).join('')}`}
-function carCounts(c){const k={esta:0,quitada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});return k}
+function carCounts(c){const k={esta:0,quitada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
 const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}catch(e){return s}};
 function vCarros(){
   if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
