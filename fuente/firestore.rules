@@ -95,6 +95,7 @@ service cloud.firestore {
       allow read: if isOwner() || resource.data.oculta == false;
       // solo se puede opinar con el enlace de una venta real, una sola vez
       allow create: if exists(/databases/$(database)/documents/ventas/$(id))
+        && get(/databases/$(database)/documents/ventas/$(id)).data.get('cancelada', false) == false
         && request.resource.data.keys().hasOnly(['estrellas','texto','nombre','date','oculta'])
         && request.resource.data.estrellas is int
         && request.resource.data.estrellas >= 1 && request.resource.data.estrellas <= 5
@@ -102,6 +103,11 @@ service cloud.firestore {
         && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0 && request.resource.data.nombre.size() <= 40
         && request.resource.data.oculta == false;
       allow update, delete: if isOwner();
+    }
+    // historial: cada miembro anota sus propios movimientos; solo el creador los lee; nadie los cambia
+    match /movimientos/{id} {
+      allow read: if isOwner();
+      allow create: if member() && request.resource.data.by == request.auth.uid;
     }
     match /publico/{id} {
       allow read: if true;

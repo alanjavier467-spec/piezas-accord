@@ -4,10 +4,10 @@ const RAIZ=path.join(__dirname,'..');const MOCK=path.join(__dirname,'mock');
 const OWNER=JSON.parse(fs.readFileSync(path.join(RAIZ,'fuente','config.json'),'utf8')).ownerEmail;
 const URL='http://localhost:8767/';const OUT=path.join(__dirname,'capturas');fs.mkdirSync(OUT,{recursive:true});
 const R=[];const log=(k,ok,msg)=>{R.push({k,ok,msg});console.log((ok?'OK   ':'FALLA')+' '+k+' — '+msg)};
-async function page(b,{user,state,ls}={}){const ctx=await b.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+async function page(b,{user,state,ls,extra}={}){const ctx=await b.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
   for(const m of ['app','auth','firestore'])await ctx.route('https://www.gstatic.com/firebasejs/10.12.2/firebase-'+m+'.js',r=>r.fulfill({path:path.join(MOCK,(m==='firestore'?'fs':m)+'.js'),contentType:'text/javascript'}));
   const p=await ctx.newPage();p.errs=[];p.on('pageerror',e=>p.errs.push(e.message));
-  await p.addInitScript(([o,u,s,l])=>{window.__owner=o;if(u!=='__default')window.__user=u;window.__S=s||{};for(const k in (l||{}))localStorage.setItem(k,JSON.stringify(l[k]))},[OWNER,user===undefined?'__default':user,state,ls]);
+  await p.addInitScript(([o,u,s,l,x])=>{window.__owner=o;if(u!=='__default')window.__user=u;window.__S=s||{};Object.assign(window,x||{});for(const k in (l||{}))localStorage.setItem(k,JSON.stringify(l[k]))},[OWNER,user===undefined?'__default':user,state,ls,extra]);
   return p}
 const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
 (async()=>{const b=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});
@@ -60,6 +60,23 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   p=await page(b,{state:st4});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
   S=await p.evaluate(()=>window.__S);const inv=S['publico/inventario'];const sz=Buffer.byteLength(JSON.stringify(inv||{}));
   log('publico-def-esta',true,`con 1 carro "todo en el carro" la tienda publica ${(inv.items||[]).length} piezas como disponibles; documento ≈ ${Math.round(sz/1024)} KB (límite de Firestore 1024 KB)`);
+  await p.context().close();
+
+  // 8) Otro teléfono ya la vendió (el servidor dice vendida; este teléfono todavía no se entera)
+  const st5={...JSON.parse(JSON.stringify(base)),'estado/A1':{m:{[pn]:{s:'quitada',n:1}}}};
+  p=await page(b,{state:st5,ls:{comanda:[{pn,es:'Pieza de prueba',car:'A1',qty:1,price:500}]},extra:{__SRV:{'estado/A1':{m:{[pn]:{s:'vendida',n:0}}}}}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);await p.click('[data-checkout]');await p.waitForTimeout(800);
+  S=await p.evaluate(()=>window.__S);ventas=Object.keys(S).filter(k=>k.startsWith('ventas/'));
+  log('venta-simultanea',ventas.length===0,ventas.length?'se cobró aunque el servidor ya la tenía vendida':'bloqueada: '+await p.textContent('#co-status'));
+  await p.context().close();
+
+  // 9) Cancelar una venta: no se borra, se marca y la pieza regresa como estaba
+  const st6={...JSON.parse(JSON.stringify(base)),'estado/A1':{m:{[pn]:{s:'quitada',n:1,u:'T-2'}}}};
+  p=await page(b,{state:st6,ls:{comanda:[{pn,es:'Pieza de prueba',car:'A1',qty:1,price:500}]}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);await p.click('[data-checkout]');await p.waitForTimeout(900);
+  await p.click('[data-close]').catch(()=>{});await p.waitForTimeout(300);await p.click('[data-delsale]');await p.waitForTimeout(150);await p.click('[data-delsale]');await p.waitForTimeout(900);
+  S=await p.evaluate(()=>window.__S);ventas=Object.entries(S).filter(([k])=>k.startsWith('ventas/'));const est=S['estado/A1'].m[pn];const mv=Object.keys(S).filter(k=>k.startsWith('movimientos/')).length;
+  log('cancelar-venta',ventas.length===1&&ventas[0][1].cancelada===true&&est.s==='quitada'&&est.n===1&&mv>=2,`venta guardada como cancelada: ${!!(ventas[0]&&ventas[0][1].cancelada)}; pieza: ${JSON.stringify(est)}; movimientos: ${mv}`);
   await p.context().close();
 
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});
