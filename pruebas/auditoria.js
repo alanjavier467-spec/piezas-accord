@@ -1,0 +1,65 @@
+// Pruebas de auditoría con Firebase simulado (sin internet, sin tocar producción).
+const {chromium}=require('playwright');const path=require('path'),fs=require('fs');
+const RAIZ=path.join(__dirname,'..');const MOCK=path.join(__dirname,'mock');
+const OWNER=JSON.parse(fs.readFileSync(path.join(RAIZ,'fuente','config.json'),'utf8')).ownerEmail;
+const URL='http://localhost:8767/';const OUT=path.join(__dirname,'capturas');fs.mkdirSync(OUT,{recursive:true});
+const R=[];const log=(k,ok,msg)=>{R.push({k,ok,msg});console.log((ok?'OK   ':'FALLA')+' '+k+' — '+msg)};
+async function page(b,{user,state,ls}={}){const ctx=await b.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+  for(const m of ['app','auth','firestore'])await ctx.route('https://www.gstatic.com/firebasejs/10.12.2/firebase-'+m+'.js',r=>r.fulfill({path:path.join(MOCK,(m==='firestore'?'fs':m)+'.js'),contentType:'text/javascript'}));
+  const p=await ctx.newPage();p.errs=[];p.on('pageerror',e=>p.errs.push(e.message));
+  await p.addInitScript(([o,u,s,l])=>{window.__owner=o;if(u!=='__default')window.__user=u;window.__S=s||{};for(const k in (l||{}))localStorage.setItem(k,JSON.stringify(l[k]))},[OWNER,user===undefined?'__default':user,state,ls]);
+  return p}
+const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
+(async()=>{const b=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});
+  const data=JSON.parse(fs.readFileSync(path.join(RAIZ,'data.json')));const has=pn=>data.parts.some(p=>p.pn===pn);
+  const pn=has(PN)?PN:data.parts.find(p=>/faro|calavera|luz/i.test(p.es)).pn;
+  const base={'carros/A1':{code:'A1',year:'2018',ver:'',color:'NH731P',def:'falta',vin:''},'config/negocio':{nombre:'Prueba'},'publico/inventario':{v:3,cars:[{code:'A1'}],items:[],xs:[]}};
+
+  // 1) Carga como dueño
+  let p=await page(b,{state:JSON.parse(JSON.stringify(base))});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2500);
+  log('carga-dueño',!p.errs.length,p.errs.length?p.errs.join(' | '):'la app abre sin errores de JavaScript');
+  // 2) Buscador
+  const Q=['calavera','luz trasera','stop','tail light','calabera','faro','fraro','headlight','defensa','facia','fascia','parachoques','bumper','espejo','retrovisor','33100','33100TVA','tva a01','rin','undefined','salpicadera','cofre','cajuela','tapete','bocina','claxon','estereo','radio'];
+  const res={};for(const q of Q){await p.fill('#q',q);await p.waitForTimeout(350);res[q]=await p.evaluate(()=>{const h=[...document.querySelectorAll('#view .hint')].map(e=>e.textContent).find(t=>/resultado/.test(t));return h?parseInt(h):0})}
+  fs.writeFileSync(path.join(OUT,'busquedas.json'),JSON.stringify(res,null,1));log('buscador',true,JSON.stringify(res));
+  await p.context().close();
+
+  // 3) Venta de una pieza que otro ya vendió (carrito viejo en el teléfono)
+  const st={...JSON.parse(JSON.stringify(base)),'estado/A1':{m:{[pn]:{s:'vendida',n:0}}}};
+  p=await page(b,{state:st,ls:{comanda:[{pn,es:'Pieza de prueba',car:'A1',qty:1,price:500}]}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);await p.click('[data-checkout]');await p.waitForTimeout(800);
+  let S=await p.evaluate(()=>window.__S);let ventas=Object.keys(S).filter(k=>k.startsWith('ventas/'));
+  log('doble-venta',ventas.length===0,ventas.length?`se registró una venta de ${pn} aunque ya estaba "vendida" con 0 piezas (estado final: ${JSON.stringify(S['estado/A1'].m[pn])})`:'la app bloqueó la venta');
+  await p.screenshot({path:path.join(OUT,'doble-venta.png')});await p.context().close();
+
+  // 4) Vender 3 cuando solo hay 1
+  const st2={...JSON.parse(JSON.stringify(base)),'estado/A1':{m:{[pn]:{s:'quitada',n:1,u:'T-1'}}}};
+  p=await page(b,{state:st2,ls:{comanda:[{pn,es:'Pieza de prueba',car:'A1',qty:3,price:500}]}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);await p.click('[data-checkout]');await p.waitForTimeout(800);
+  S=await p.evaluate(()=>window.__S);ventas=Object.entries(S).filter(([k])=>k.startsWith('ventas/'));
+  log('sobreventa',!(ventas.length&&ventas[0][1].items[0].qty>1),ventas.length?`venta de ${ventas[0][1].items[0].qty} piezas con solo 1 en existencia; estado final ${JSON.stringify(S['estado/A1'].m[pn])}`:'bloqueada');
+  await p.context().close();
+
+  // 5) Vendedor: precio por línea vs tope de 10 %
+  const emp={uid:'e1',email:'u123@usuarios.piezas-accord.app'};
+  const st3={...JSON.parse(JSON.stringify(base)),'users/e1':{name:'Vendedor',role:'empleado',active:true},'estado/A1':{m:{[pn]:{s:'quitada',n:1}}},['precios/'+pn]:{price:5000}};
+  p=await page(b,{user:emp,state:st3,ls:{comanda:[{pn,es:'Pieza de prueba',car:'A1',qty:1,price:5000}]}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);
+  const canEdit=await p.$('[data-lp="0"]');if(canEdit){await p.fill('[data-lp="0"]','1000');await p.dispatchEvent('[data-lp="0"]','change');await p.waitForTimeout(300)}
+  await p.click('[data-checkout]');await p.waitForTimeout(800);S=await p.evaluate(()=>window.__S);ventas=Object.entries(S).filter(([k])=>k.startsWith('ventas/'));
+  const v=ventas[0]&&ventas[0][1];log('vendedor-precio',!(v&&v.total<4500),v?`vendedor cobró ${v.total} por una pieza de precio 5000 (sub ${v.sub}, desc ${v.desc}); la regla de 10 % solo mira desc/sub`:'sin venta');
+  await p.context().close();
+
+  // 6) Tienda: carga y conteo de disponibles con carro "def: esta"
+  p=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A1',year:'2018',ver:'',color:'',foto:'',n:1}],items:[JSON.stringify([pn,500,1,'A1','','Usado',0])],xs:[],rev:[]}}});
+  await p.goto(URL+'tienda.html');await p.waitForTimeout(2500);log('tienda',!p.errs.length,p.errs.length?p.errs.join(' | '):'la tienda abre sin errores');
+  await p.screenshot({path:path.join(OUT,'tienda.png'),fullPage:false});await p.context().close();
+
+  // 7) Publicación de la tienda con un carro con "def: esta" (todas las piezas del catálogo)
+  const st4={...JSON.parse(JSON.stringify(base)),'carros/A1':{code:'A1',year:'2018',def:'esta',color:'NH731P'}};
+  p=await page(b,{state:st4});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
+  S=await p.evaluate(()=>window.__S);const inv=S['publico/inventario'];const sz=Buffer.byteLength(JSON.stringify(inv||{}));
+  log('publico-def-esta',true,`con 1 carro "todo en el carro" la tienda publica ${(inv.items||[]).length} piezas como disponibles; documento ≈ ${Math.round(sz/1024)} KB (límite de Firestore 1024 KB)`);
+  await p.context().close();
+
+  fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});
