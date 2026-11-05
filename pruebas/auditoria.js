@@ -79,4 +79,16 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   log('cancelar-venta',ventas.length===1&&ventas[0][1].cancelada===true&&est.s==='quitada'&&est.n===1&&mv>=2,`venta guardada como cancelada: ${!!(ventas[0]&&ventas[0][1].cancelada)}; pieza: ${JSON.stringify(est)}; movimientos: ${mv}`);
   await p.context().close();
 
+  // 10) Vendedor con PIN viejo de 4: debe cambiarlo antes de trabajar; no descarga la lista de clientes
+  const st7={...JSON.parse(JSON.stringify(base)),'users/e1':{name:'Vendedor',role:'empleado',active:true},'clientes/c1':{user:'pepe',name:'Pepe',tel:'6141112233'},'clientes/c2':{user:'ana',name:'Ana',tel:'6149998877'}};
+  p=await page(b,{user:emp,state:st7,ls:{comanda:[{pn:'',es:'Mano de obra',car:'',qty:1,price:100}]}});await p.addInitScript(()=>{if(!sessionStorage.getItem('ya')){sessionStorage.setItem('ya','1');sessionStorage.setItem('pin4','1')}});
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);
+  const pide=await p.$('#pin-new');log('pin-viejo',!!pide,pide?'pide cambiar el PIN a 6 números antes de trabajar':'no pidió cambio de PIN');
+  await p.evaluate(()=>sessionStorage.setItem('pin4',''));await p.reload();await p.waitForTimeout(2000);
+  await p.click('[data-tab="carrito"]');await p.waitForTimeout(300);
+  const cl0=await p.evaluate(()=>document.body.innerText.includes('Ana'));
+  await p.fill('#cliq','614 999 8877');await p.waitForTimeout(900);const cl1=await p.evaluate(()=>document.body.innerText.includes('Ana'));
+  log('clientes-privados',!cl0&&cl1,`lista completa visible: ${cl0}; encuentra a la clienta por teléfono: ${cl1}`);
+  await p.context().close();
+
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});

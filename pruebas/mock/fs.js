@@ -3,7 +3,7 @@ const notify=()=>subs.forEach(f=>f());
 export const initializeFirestore=()=>({});export const persistentLocalCache=()=>({});export const persistentMultipleTabManager=()=>({});
 export const collection=(fs,p)=>({kind:'col',path:p});
 export const doc=(a,b,c)=>{const p=a.kind==='col'?a.path+'/'+(b||Math.random().toString(36).slice(2)):b+'/'+c;return {kind:'doc',path:p,id:p.split('/')[1]}};
-export const getDocs=async q=>({docs:Object.entries(S).filter(([k])=>k.startsWith(q.path+'/')).map(([k,v])=>({id:k.split('/')[1],data:()=>v}))});
+export const getDocs=async q=>{window.__queries=(window.__queries||[]).concat(q.path);let docs=Object.entries(S).filter(([k])=>k.startsWith(q.path+'/')&&k.split('/').length===2).map(([k,v])=>({id:k.split('/')[1],data:()=>v}));(q.cs||[]).forEach(c=>{if(c.w)docs=docs.filter(d=>d.data()[c.w[0]]===c.w[1])});return {docs}};
 export const where=(f,o,v)=>({w:[f,v]});export const orderBy=()=>({});export const limit=()=>({});
 export const query=(c,...cs)=>({kind:'col',path:c.path,cs});
 // metadata: window.__fromCache=true simula datos viejos de la caché del teléfono
