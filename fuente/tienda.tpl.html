@@ -291,8 +291,9 @@ const imgOne=(it,vw,cls)=>!vw?'<span class="box">📦</span>':vw.t==='cat'?`<img
 const phHTML=it=>{const V=viewsOf(it);const i=Math.min(CARDV[it.k]||0,Math.max(0,V.length-1));const nx=V[(i+1)%V.length];
   return `${imgOne(it,V[i])}${V.length>1?`<span class="swap" data-swap="${esc(it.k)}">${nx.t==='real'?'📷 Ver foto real':'✏️ Ver dibujo Honda'}</span><span class="dots">${V.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}</span>`:''}`};
 const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
-const exTag=it=>it.ex==='av'?'<span class="tag ok">Disponible</span>':it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
-const exTxt=it=>it.ex==='av'?'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):''):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
+// enc = la pieza sigue montada en el carro y nadie la ha revisado: se ofrece, pero se confirma su estado al cotizar
+const exTag=it=>it.ex==='av'?(it.enc?'<span class="tag ok">En el carro</span>':'<span class="tag ok">Disponible</span>'):it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
+const exTxt=it=>it.ex==='av'?(it.enc?'En el carro'+carsTxt(it)+' · se desmonta al pedirla; confirmamos su estado al cotizar':'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):'')):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
 const inQ=k=>Q.some(q=>q.k===k);
 function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a,q)=>a+q.qty,0);
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
@@ -409,7 +410,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
   view.innerHTML=`<div class="qt"><div class="kicker">Te ayudamos a elegir</div><h1>Tu cotización</h1><p style="font-size:16px;margin:0 0 22px">Confirmaremos precio, compatibilidad y existencia antes de cobrar.</p>
    ${lines.length?lines.map(({q,it})=>`<div class="qline"><span class="ph">${imgTag(it)}</span><div style="min-width:0"><b style="cursor:pointer" data-det="${esc(it.k)}">${esc(it.es)}</b><br><span class="pn">${esc(numFor(it,st.ver))}</span>
       <div class="qty"><button data-qq="${esc(it.k)}" data-d="-1" aria-label="Menos">−</button><b>${q.qty}</b><button data-qq="${esc(it.k)}" data-d="1" aria-label="Más">+</button><button data-qrm="${esc(it.k)}" style="border:0;background:none;color:var(--muted);font-size:12.5px;margin-left:6px">Quitar</button></div></div>
-      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?'Disponible'+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
+      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?(it.enc?'En el carro':'Disponible')+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
    :`<div class="empty">Aún no has agregado piezas. <a href="#inicio" style="color:var(--green);font-weight:600">Explorar catálogo →</a></div>`}
    <h3 style="font-size:19px;margin:26px 0 4px">¿Cómo te gustaría continuar?</h3>
    <div class="opts">${['Cotización','Efectivo','Transferencia','Pago en línea'].map(o=>`<button class="chip" data-pay="${o}" aria-pressed="${st.pay===o}">${o}</button>`).join('')}</div>
@@ -587,10 +588,10 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   if(INV.cars&&INV.cars.length){try{localStorage.setItem('tCars',JSON.stringify(INV.cars))}catch(e){}}
   else{try{const c=JSON.parse(localStorage.getItem('tCars')||'null');if(c&&c.length)INV.cars=c}catch(e){}}
   const P=a=>typeof a==='string'?JSON.parse(a):a;const REV=new Set(INV.rev||[]);ALL=[];
-  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars}});
+  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug,ec])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars,ec:!!ec}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),enc:!!(iv&&iv.ec),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}

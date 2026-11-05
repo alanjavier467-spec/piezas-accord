@@ -47,7 +47,7 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.click('[data-tab="carrito"]');await p.waitForTimeout(400);
   const canEdit=await p.$('[data-lp="0"]');if(canEdit){await p.fill('[data-lp="0"]','1000');await p.dispatchEvent('[data-lp="0"]','change');await p.waitForTimeout(300)}
   await p.click('[data-checkout]');await p.waitForTimeout(800);S=await p.evaluate(()=>window.__S);ventas=Object.entries(S).filter(([k])=>k.startsWith('ventas/'));
-  const v=ventas[0]&&ventas[0][1];log('vendedor-precio',!(v&&v.total<4500),v?`vendedor cobró ${v.total} por una pieza de precio 5000 (sub ${v.sub}, desc ${v.desc}); la regla de 10 % solo mira desc/sub`:'sin venta');
+  const v=ventas[0]&&ventas[0][1];log('vendedor-precio',!(v&&v.total<4500),v?`el vendedor cobró ${v.total} por una pieza de lista 5000 (campo de precio visible: ${!!canEdit})`:'sin venta');
   await p.context().close();
 
   // 6) Tienda: carga y conteo de disponibles con carro "def: esta"
@@ -59,7 +59,8 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   const st4={...JSON.parse(JSON.stringify(base)),'carros/A1':{code:'A1',year:'2018',def:'esta',color:'NH731P'}};
   p=await page(b,{state:st4});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
   S=await p.evaluate(()=>window.__S);const inv=S['publico/inventario'];const sz=Buffer.byteLength(JSON.stringify(inv||{}));
-  log('publico-def-esta',true,`con 1 carro "todo en el carro" la tienda publica ${(inv.items||[]).length} piezas como disponibles; documento ≈ ${Math.round(sz/1024)} KB (límite de Firestore 1024 KB)`);
+  const enc=(inv.items||[]).filter(x=>JSON.parse(x)[7]===1).length;
+  log('publico-def-esta',enc===(inv.items||[]).length&&sz<900*1024,`con 1 carro "todo en el carro" se publican ${(inv.items||[]).length} piezas, ${enc} marcadas "En el carro"; documento ≈ ${Math.round(sz/1024)} KB (límite 1024 KB)`);
   await p.context().close();
 
   // 8) Otro teléfono ya la vendió (el servidor dice vendida; este teléfono todavía no se entera)
@@ -89,6 +90,17 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   const cl0=await p.evaluate(()=>document.body.innerText.includes('Ana'));
   await p.fill('#cliq','614 999 8877');await p.waitForTimeout(900);const cl1=await p.evaluate(()=>document.body.innerText.includes('Ana'));
   log('clientes-privados',!cl0&&cl1,`lista completa visible: ${cl0}; encuentra a la clienta por teléfono: ${cl1}`);
+  await p.context().close();
+
+  // 11) Teléfono con datos viejos de la caché: no debe publicar la tienda
+  p=await page(b,{state:JSON.parse(JSON.stringify(st4)),extra:{__fromCache:true}});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
+  S=await p.evaluate(()=>window.__S);log('tienda-cache',(S['publico/inventario'].items||[]).length===0,`piezas publicadas desde la caché: ${(S['publico/inventario'].items||[]).length}`);
+  await p.context().close();
+
+  // 12) Tienda: pieza que sigue montada y sin revisar sale "En el carro", no "Disponible"
+  p=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A1',year:'2018',ver:'',color:'',foto:'',n:1}],items:[JSON.stringify([pn,500,1,'A1','','',0,1])],xs:[],rev:[]}}});
+  await p.goto(URL+'tienda.html#buscar');await p.waitForTimeout(2500);
+  const txt=await p.evaluate(()=>document.body.innerText);log('tienda-en-carro',/En el carro/.test(txt),/En el carro/.test(txt)?'la tienda dice "En el carro" para piezas sin desmontar':'no aparece la etiqueta');
   await p.context().close();
 
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});
