@@ -238,6 +238,7 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .upd .btn{width:100%;font-size:19px;padding:16px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 
 .fbbtn{background:#1877f2;border-color:#1877f2;color:#fff}.fbbtn small{opacity:.8;font-weight:400}
+.st-apartada{background:var(--warn-bg);color:var(--warn);font-weight:700}
 
 </style>
 </head>
@@ -248,7 +249,7 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
     <p class="hint" style="margin:0"><b>Acceso para vendedores y creadores.</b> ¿Eres cliente? <a href="tienda.html">Ve a la tienda</a>.</p>
     <p class="hint" style="margin:0" id="l-hint">Entra con tu usuario y tu PIN de 4 números.</p>
     <label class="f" for="l-email">Usuario<input id="l-email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
-    <label class="f" for="l-pass"><span id="l-plabel">PIN (4 números)</span><input id="l-pass" type="password" autocomplete="current-password" inputmode="numeric"></label>
+    <label class="f" for="l-pass"><span id="l-plabel">PIN</span><input id="l-pass" type="password" autocomplete="current-password" inputmode="numeric"></label>
     <label class="f" for="l-pass2" id="l-p2box" hidden>Repite tu PIN<input id="l-pass2" type="password" inputmode="numeric" autocomplete="new-password"></label>
     <button class="btn" id="l-go">Entrar</button>
     <button class="btn ghost" id="l-signup">Soy nuevo: crear mi cuenta</button>
@@ -288,14 +289,16 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updatePassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,runTransaction,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG={"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"};
 const OWNER='alanjavier467@gmail.com';
 const normUser=u=>String(u||'').trim().toLowerCase().normalize('NFC');
 async function userEmail(u){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normUser(u)));return 'u'+[...new Uint8Array(h)].slice(0,16).map(b=>b.toString(16).padStart(2,'0')).join('')+'@usuarios.piezas-accord.app'}
 const pinPass=p=>'pin-'+p+'-pz';
-const okPin=p=>/^\d{4}$/.test(p);
+const okPin=p=>/^(\d{4}|\d{6})$/.test(p);   // para entrar: los PIN viejos de 4 siguen sirviendo
+const okPinNuevo=p=>/^\d{6}$/.test(p);       // PIN nuevo o cambiado: 6 números
+let PIN4=false;try{PIN4=sessionStorage.getItem('pin4')==='1'}catch(e){}
 const fb=initializeApp(CFG);
 const auth=getAuth(fb);
 const fs=initializeFirestore(fb,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
@@ -308,7 +311,43 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
-const VERSION='20261104-1040';
+// ---- buscador tolerante (lo comparten la app y la tienda; build_repo.py lo pega en las dos) ----
+// Sinónimos (fuente/sinonimos.json) + plural/singular + una letra de diferencia. Todo en el teléfono, sin internet.
+// En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
+// ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
+const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"]]};
+function mkBuscador(norm,textos){
+  const G=new Map();const FRASES=[];
+  (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
+    all.map(w=>w.replace(/^>/,'')).forEach(w=>{G.set(w,[...new Set((G.get(w)||[]).concat(ns))]);if(w.includes(' '))FRASES.push(w)})});
+  FRASES.sort((a,b)=>b.length-a.length);
+  const VOC=new Set();textos.forEach(t=>norm(t).split(/[^a-z0-9ñ]+/).forEach(w=>{if(w.length>=3&&!/^\d+$/.test(w))VOC.add(w)}));G.forEach((v,k)=>{if(!k.includes(' '))VOC.add(k)});
+  const VL=[...VOC];
+  // distancia de Damerau-Levenshtein con tope (sale en cuanto pasa de max)
+  function dist(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let p2=null,p=Array.from({length:b.length+1},(_,j)=>j);
+    for(let i=1;i<=a.length;i++){const c=[i];let lo=i;for(let j=1;j<=b.length;j++){let v=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));
+      if(p2&&i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])v=Math.min(v,p2[j-2]+1);c.push(v);if(v<lo)lo=v}if(lo>max)return max+1;p2=p;p=c}return p[b.length]}
+  const sing=w=>w.length>4&&w.endsWith('es')?[w.slice(0,-2),w.slice(0,-1)]:w.length>3&&w.endsWith('s')?[w.slice(0,-1)]:[];
+  // separa la búsqueda en unidades (frases conocidas como "luz trasera" cuentan como una)
+  function unidades(nq){let r=' '+nq+' ';const u=[];for(const f of FRASES){if(r.includes(' '+f+' ')){u.push(f);r=r.split(' '+f+' ').join(' ')}}
+    return u.concat(r.split(/\s+/).filter(Boolean))}
+  // devuelve {grupos:[[alternativas por unidad]], corr:{palabra:corrección}}
+  function expandir(q){const nq=norm(q).trim();const corr={};
+    // palabras cortas (4 letras o menos) cuentan solo como palabra completa: "mat" no encuentra "matrícula" ni "rin" encuentra "spring"
+    const W=y=>y.length<=4?' '+y+' ':' '+y;
+    const grupos=unidades(nq).map(w=>{const alts=new Set([w.length<=4&&G.has(w)?W(w):w,...sing(w).map(x=>x.length<=4?W(x):x)]);[w,...sing(w)].forEach(x=>(G.get(x)||[]).forEach(y=>alts.add(W(y))));
+      if(w.length>=5&&!/\d/.test(w)&&!G.has(w)&&!VOC.has(w)&&!sing(w).some(x=>VOC.has(x))){const max=w.length>=8?2:1;let best=null,bd=max+1;
+        for(const v of VL){if(Math.abs(v.length-w.length)>max||v[0]!==w[0]&&v[1]!==w[1])continue;const d=dist(w,v,max);if(d<bd){bd=d;best=v;if(d===1&&max===1)break}}
+        if(best){corr[w]=best;alts.add(W(best));(G.get(best)||[]).forEach(y=>alts.add(W(y)))}}
+      return [...alts]});
+    return {grupos,corr}}
+  // ¿el texto (ya normalizado) cumple todas las unidades?
+  const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
+  const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
+  return {expandir,cumple}}
+
+const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
+const VERSION='20261105-0235';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -322,15 +361,18 @@ function verOf(c){if(!c)return null;if(c._v!==undefined)return c._v;let r=null;
     if(!r){const y=String(c.year||'');r=y==='2018'?'18':y==='2019'?'19':/^20(2\d)$/.test(y)?'20':null}}
   try{Object.defineProperty(c,'_v',{value:r,enumerable:false})}catch(e){}return r}
 function yNum(p,ver){if(ver==='20'&&p.y&&p.y['20']==='')return null;if(!ver||ver==='20'||!p.y||!(ver in p.y))return p.pn;const y=p.y[ver];return y===''?null:[].concat(y).join(' / ')}
+// Accord 2021–2022 (facelift): estas secciones cambiaron (rines, faro de niebla, faro, facia delantera, parrilla); sin dato del usuario quedan "Por revisar"
+const FACE21=new Set([35,51,57,109,111]);
+const es21=c=>{const v=(c.vin||'').toUpperCase().trim();return (v.length===17&&/[MN]/.test(v[9]))||+c.year>=2021};
 function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
-const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
+const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['apartada','Apartada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
 const AVAIL=s=>s==='esta'||s==='quitada';
 const EMP_MAX_DISC=10;
 
 // ---- estado ----
 let ME=null, OWN=false, PROFILE=null;
-let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], ALT={}, USERS=[];
+let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], CANCELADAS=[], ALT={}, USERS=[], LOTES={};
 let FOTOS={}, FOTOLIST=[], EXTRAS=[], NEG={}, CLIENTES=[];
 const TC_DEF=18.7,SUBE_DEF=50;
 // ---- promoción (Buen Fin, Navidad…): % de descuento por fechas, a todo lo disponible o solo a piezas elegidas ----
@@ -357,9 +399,11 @@ const ptsFor=t=>Math.floor((+t||0)/100);
 function saveCart(){LS.set('comanda',CART);LS.set('desc',DISC);LS.set('cliente',CLIENTE);const b=$('#badge');const n=CART.reduce((a,l)=>a+l.qty,0);b.hidden=!n;b.textContent=n}
 const carsSorted=()=>CARS.slice().sort((a,b)=>(a.llegada||'9999').localeCompare(b.llegada||'9999')||a.code.localeCompare(b.code));
 const units=p=>p&&p.cr?p.cr:1;
-function stOf(car,pn){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color)return {s:'na',n:0};
+function stOf(car,pn,mm){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color)return {s:'na',n:0};
   if(p&&p.y){const vr=verOf(car);if(vr&&p.y[vr]==='')return {s:'na',n:0}}
-  const e=(EST[car.id]||{})[pn];const def=car.def||'esta';
+  const e=((mm||EST[car.id])||{})[pn];const def=car.def||'esta';
+  if(!e&&p&&FACE21.has(p.s)&&es21(car))return {s:'revisar',n:0};
+  if(e&&e.s==='apartada'&&e.ap&&Date.parse(e.ap.v)<Date.now())return {s:AVAIL(e.prev)?e.prev:'quitada',n:e.n||units(p)};
   if(!e)return {s:def,n:AVAIL(def)?units(p):0};
   return {s:e.s,n:e.n!=null?e.n:(AVAIL(e.s)?units(p):0)}}
 const availCars=pn=>carsSorted().map(c=>({c,x:stOf(c,pn)})).filter(o=>AVAIL(o.x.s)&&o.x.n>0);
@@ -381,13 +425,13 @@ const imgTag=p=>`<img data-s="${p.s}" data-k="${esc(p.pn+'|'+p.ref)}" alt="">`;
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?`<img src="${f[0].thumb}" alt="Foto real">`:imgTag(p)};
 
 // ---- búsqueda ----
-function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];
+function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
   const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.toLowerCase().includes(compact))altHits.add(v.pn)}
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
     else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
     else if(altHits.has(p.pn))sc=90;
-    else if(words.every(w=>p.key.includes(w))){sc=10;if(norm(p.es).startsWith(words[0]))sc+=6;if(norm(p.es).includes(nq))sc+=4;if(norm(p.en).includes(nq))sc+=3}
+    else if(BUS.cumple(p.key,EX.grupos)){sc=10;const es=norm(p.es);if(es.startsWith(cw[0]))sc+=6;if(es.includes(cq))sc+=4;else if(cw.every(w=>es.includes(w)))sc+=2;if(norm(p.en).includes(cq))sc+=3}
     if(sc)out.push([sc,p])}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
@@ -412,13 +456,15 @@ function vBuscar(){let arr=search(st.q);
   if(!arr){if(st.onlyStock||st.cat)arr=PARTS;else{
     const tips=['faro','headlight','espejo','sensor','bomba','defensa','33100','módulo','rin','asiento'];
     view.innerHTML=`<button class="btn alt" data-intake style="width:100%;margin-bottom:10px;font-size:17px;padding:14px">📷 Agregar pieza con foto</button>`+chips+(EXTRAS.filter(xAvail).length?`<p class="sec-h">Piezas que agregaste con foto (${EXTRAS.filter(xAvail).length})</p><div class="list">${EXTRAS.filter(xAvail).slice(0,6).map(xItemHTML).join('')}</div>`:'')+`<div class="card"><b>Escribe arriba lo que buscas.</b><p class="hint" style="margin:.4em 0 0">Número completo o un pedazo (con o sin guiones), nombre en español o en inglés, o el número que trae la pieza si lo guardaron como alterno.</p><div class="row" style="margin-top:8px">${tips.map(t=>`<button class="chip" data-try="${t}">${t}</button>`).join('')}</div></div>
-    <div id="offline-card"></div>
+    <div id="offline-card"></div>${OWN&&LS.get('sinRes',[]).length?`<details class="card"><summary><b>Búsquedas sin resultado</b> <span class="hint">(en este teléfono)</span></summary><p class="hint" style="margin:.4em 0">Si alguna es otra forma de llamar a una pieza, agrégala a <code>fuente/sinonimos.json</code>.</p><div class="row">${LS.get('sinRes',[]).map(q=>`<button class="chip" data-try="${esc(q)}">${esc(q)}</button>`).join('')}</div></details>`:''}
     <p class="sec-h">O explora por categoría</p>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${PARTS.filter(p=>SECS[p.s].cat===c).length} piezas ›</span></button>`).join('')}`;renderOffline();return}}
   if(st.cat)arr=arr.filter(p=>SECS[p.s].cat===st.cat);
   if(st.onlyStock)arr=arr.filter(p=>availCars(p.pn).length);
   const seen=new Set();arr=arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn));
   const xs=st.q?searchExtras(st.q).filter(x=>!st.onlyStock||xAvail(x)):[];
-  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}</p>`+renderList(arr)}
+  // búsquedas sin resultado (en este teléfono): sirven para saber qué sinónimo falta agregar
+  if(st.q&&!arr.length&&!xs.length&&!st.cat&&!st.onlyStock){clearTimeout(window._sr);window._sr=setTimeout(()=>{const q=norm(st.q).trim();if(q.length<3)return;const L=LS.get('sinRes',[]).filter(x=>x!==q);L.unshift(q);LS.set('sinRes',L.slice(0,30))},1500)}
+  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}${Object.keys(CORR).length?' · buscando también: <b>'+Object.entries(CORR).map(([a,b])=>esc(b)).join(', ')+'</b>':''}</p>`+renderList(arr)}
 function vCatalogo(){
   if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
     view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}
@@ -428,7 +474,7 @@ function vCatalogo(){
   if(st.catView){const ss=SECS.filter(s=>s.cat===st.catView);
     view.innerHTML=`<button class="back" data-back="cat">‹ Categorías</button><h2 class="title">${esc(st.catView)}</h2>${ss.map(s=>`<button class="cat" data-sec="${s.i}"><b>${esc(s.es)}</b><span>${s.n} ›</span></button>`).join('')}`;return}
   view.innerHTML=`<h2 class="title">Catálogo por diagrama</h2>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${SECS.filter(s=>s.cat===c).length} secciones ›</span></button>`).join('')}`}
-function carCounts(c){const k={esta:0,quitada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
+function carCounts(c){const k={esta:0,quitada:0,apartada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
 const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}catch(e){return s}};
 function vCarros(){
   if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
@@ -540,7 +586,7 @@ function vCarrito(){const t=calc();const pcts=OWN?[0,2,5,10,15,20,25,30]:[0,2,5,
   ${CART.length?`<div class="ticket">${CART.map((l,i)=>`<div class="tline"><div style="min-width:0"><b>${esc(l.es)}</b><br><span class="hint"><span class="pn">${esc(l.pn||(l.xid?'Pieza agregada':'Concepto libre'))}</span>${l.car?' · de '+esc(carCode(l.car)):''}</span></div>
      <div style="text-align:right"><span class="price">${money(l.qty*(+l.price||0))}</span></div>
      <div class="ctl" style="grid-column:1/-1"><button data-q="${i}" data-d="-1" aria-label="Menos">−</button><b>${l.qty}</b><button data-q="${i}" data-d="1" aria-label="Más">+</button>
-     <span class="hint">×</span><input type="number" inputmode="decimal" min="0" value="${esc(l.price)}" data-lp="${i}" aria-label="Precio unitario"><button data-rm="${i}" aria-label="Quitar">🗑</button></div></div>`).join('')}
+     <span class="hint">×</span>${OWN||(l.lista===undefined&&!l.pn&&!l.xid)||l.lista===''?`<input type="number" inputmode="decimal" min="0" value="${esc(l.price)}" data-lp="${i}" aria-label="Precio unitario">`:`<b>${money(l.price)}</b>`}<button data-rm="${i}" aria-label="Quitar">🗑</button></div></div>`).join('')}
    <div class="sum">${sumHTML(t)}</div></div>
    <div class="card form"><b>Descuento</b>
     <div class="pcts">${pcts.map(p=>`<button data-pct="${p}" aria-pressed="${DISC.mode==='pct'&&+DISC.pct===p}">${p?p+'%':'Sin'}</button>`).join('')}</div>
@@ -563,16 +609,21 @@ function vVentas(){
   <div class="kpis"><div class="kpi"><b>${money(tot(hoy))}</b><span>hoy</span></div><div class="kpi"><b>${hoy.length}</b><span>ventas hoy</span></div>${OWN?`<div class="kpi"><b>${money(tot(mes))}</b><span>este mes</span></div><div class="kpi"><b>${money(tot(SALES))}</b><span>en total</span></div>`:''}</div>
   <button class="btn alt" data-corte style="margin-bottom:12px">🧮 Corte de caja</button>
   ${list.length?`<div class="card">${list.map(s=>`<div class="sale"><div style="min-width:0"><b>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</b>${s.cliente?' · '+esc(s.cliente):''}${s.pago?' · '+esc(s.pago):''}<br>
-    ${(s.items||[]).map(it=>`<small>${it.qty}× ${esc(it.es)}${it.car?' ('+esc(carCode(it.car))+')':''} · ${money(it.qty*it.price)}</small>`).join('<br>')}${s.desc?`<br><small>Descuento −${money(s.desc)}</small>`:''}${s.byName?`<br><span class="who">Vendió: ${esc(s.byName)}</span>`:''}</div>
+    ${(s.items||[]).map(it=>`<small>${it.qty}× ${esc(it.es)}${it.car?' ('+esc(carCode(it.car))+')':''} · ${money(it.qty*it.price)}</small>`).join('<br>')}${s.desc?`<br><small>Descuento −${money(s.desc)}</small>`:''}${s.byName?`<br><span class="who">Vendió: ${esc(s.byName)}</span>`:''}${s.sinSenal?'<br><span class="who" style="color:#b3261e">Cobrada sin señal: confirma que la pieza no se vendió en otro teléfono</span>':''}</div>
     <div style="text-align:right"><span class="price">${money(s.total)}</span>${s.folio?`<br><span class="hint">#${esc(s.folio)}</span>`:''}<br><button class="copy" data-ticket="${s.id}">🧾 Ticket</button>${OWN?`<br><button class="copy" data-delsale="${s.id}">Cancelar</button>`:''}</div></div>`).join('')}</div>`
   :`<div class="card"><b>Aún no hay ventas${OWN?'':' hoy'}.</b><p class="hint" style="margin:.4em 0 0">Arma un carrito y cobra: aparecerá aquí.</p></div>`}
+  ${CANCELADAS.length?`<details class="card"><summary><b>Ventas canceladas (${CANCELADAS.length})</b></summary>${CANCELADAS.slice(0,50).map(s=>`<div class="sale"><div style="min-width:0"><s>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · ${money(s.total)}</s>${s.folio?' · #'+esc(s.folio):''}<br><small>${(s.items||[]).map(it=>it.qty+'× '+esc(it.es)).join(', ')}</small><br><span class="who">Canceló: ${esc(s.canceladaPorNombre||'')} · ${s.canceladaFecha?new Date(s.canceladaFecha).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}):''}</span></div></div>`).join('')}</details>`:''}
   ${OWN?'<button class="btn ghost" data-export>Exportar ventas a Excel (CSV)</button>':''}`}
-function render(){document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===st.tab?'page':'false'));
+function render(){if(PIN4&&ME&&!OWN){view.innerHTML=`<div class="card form" style="border:2px solid var(--tag)"><b>Cambia tu PIN a 6 números</b><p class="hint" style="margin:0">Por seguridad, los PIN de 4 números ya no se aceptan para cuentas nuevas. Cámbialo una vez y sigue trabajando normal.</p>
+   <label class="f" for="pin-new">PIN nuevo (6 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="6"></label>
+   <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="6"></label>
+   <button class="btn alt" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div>`;return}
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===st.tab?'page':'false'));
   ({buscar:vBuscar,catalogo:vCatalogo,carros:vCarros,carrito:vCarrito,ventas:vVentas})[st.tab]();hookImgs(view);after360()}
 // ---- ficha ----
 let openIdx=null, SHEET='';
 function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?(p.y&&p.y['20']===''?null:p.pn):(p.y&&k in p.y?(p.y[k]===''?null:[].concat(p.y[k]).join(' / ')):p.pn);return [k,n]});
-  if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">Mismo número en 2018, 2019 y 2020 (1.5T y 2.0T).</p>`;
+  if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">El catálogo (2020 Sport) no marca otro número para 2018, 2019 ni 2.0T. Si la pieza física trae otro número, guárdalo abajo.</p>`;
   return `<div class="card"><b>Número según el año</b><dl class="meta" style="margin-top:6px">${rows.map(([k,n])=>`<dt>${YL[k]}</dt><dd>${n?`<span class="pn">${esc(n)}</span>${n===p.pn&&k!=='20'?' <span class="hint">igual</span>':''}`:'<span class="hint">No viene en esta versión</span>'}</dd>`).join('')}</dl></div>`}
 function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
   const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
@@ -594,7 +645,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
      <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(sugOf(p.pn)||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
      :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda: ${money(newOf(p))}</span>`:''}</div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
-    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
+    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':x.s==='revisar'&&FACE21.has(p.s)&&es21(c)&&!(EST[c.id]||{})[p.pn]?'Por revisar (2021–22 cambió)':STL[x.s]}${x.s==='apartada'?(()=>{const a=((EST[c.id]||{})[p.pn]||{}).ap||{};return ' · '+esc(a.q||'')+' hasta '+(a.v?new Date(a.v).toLocaleString('es-MX',{weekday:'short',hour:'numeric',minute:'2-digit'}):'')})():''}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${AVAIL(x.s)?`<div class="hint" style="margin-top:4px">📍 ${ubiOf(c.id,p.pn)?`<b>${esc(ubiOf(c.id,p.pn))}</b>`:(x.s==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado o lugar</summary>${segHTML(c,p.pn,x.s)}
        <div class="drow" style="margin-top:8px"><input id="ubi-${c.id}" list="ubis" placeholder="Lugar: T-3, G-1…" value="${esc(ubiOf(c.id,p.pn))}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0"><button class="btn ghost" data-saveubi="${c.id}">Guardar lugar</button></div></details>`}</div>
@@ -602,7 +653,10 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
   </div>`;
   sheet.insertAdjacentHTML('beforeend',ubiList());
   {const box=sheet.querySelector('.pcar');if(box&&box.querySelector('.parr')){let x0=null;box.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});box.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)pcarGo(box,dx<0?1:-1)},{passive:true})}}
+  if(OWN){sheet.querySelector('.wrap.body').insertAdjacentHTML('beforeend',`<details class="card" data-hist="${esc(p.pn)}"><summary><b>Historial de esta pieza</b></summary><div class="hint" id="hist-b">Cargando…</div></details>`);loadHist(p.pn)}
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+async function loadHist(pn){try{const sn=await getDocs(query(collection(fs,'movimientos'),where('pn','==',pn),limit(40)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const el=$('#hist-b');if(!el)return;
+  el.innerHTML=L.length?L.map(m=>`${new Date(m.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})} · ${esc(m.car?carCode(m.car):'')} · ${esc(m.tipo)}: ${esc(STL[m.de]||m.de||'')} → ${esc(STL[m.a]||m.a||'')}${m.qty?' ('+m.qty+')':''} · ${esc(m.byName||'')}`).join('<br>'):'Sin movimientos registrados todavía.'}catch(e){const el=$('#hist-b');if(el)el.textContent='No se pudo cargar.'}}
 // capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
 let LAYERS=0;
 function showSheet(){if(sheet.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}sheet.hidden=false}
@@ -641,7 +695,7 @@ function openMenu(){SHEET='menu';
      <details><summary><b>Agregar vendedor</b></summary><div class="form" style="margin-top:10px">
       <label class="f" for="u-name">Nombre<input id="u-name" placeholder="Ej. Juan"></label>
       <label class="f" for="u-email">Usuario (con el que va a entrar)<input id="u-email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ej. juan, El Güero, juan2"></label>
-      <label class="f" for="u-pass">PIN de 4 números<input id="u-pass" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ej. 4821"></label>
+      <label class="f" for="u-pass">PIN de 4 números<input id="u-pass" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Ej. 482193"></label>
       <button class="btn" data-adduser>Crear vendedor</button><div class="status" id="u-status"></div>
       <p class="note" style="margin:0">Necesitas señal para crear vendedores. Pásale su usuario y PIN; él puede cambiar su PIN desde su menú ☰. También pueden crear su cuenta ellos mismos en la pantalla de entrada; te aparece aquí para que la actives.</p></div></details></div>`:''}
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Respaldo</b>
@@ -671,8 +725,8 @@ function openMenu(){SHEET='menu';
    ${OWN?`<div id="lote-card"></div>`:''}
    ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
-     <label class="f" for="pin-new">PIN nuevo (4 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="4"></label>
-     <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="4"></label>
+     <label class="f" for="pin-new">PIN nuevo (6 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="6"></label>
+     <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="6"></label>
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    ${NEWV?`<div class="card form" style="border:2px solid var(--tag)"><b>Hay una versión nueva de la app</b><button class="btn alt" data-update>Actualizar ahora</button></div>`:''}
    <a class="btn ghost" style="text-align:center;text-decoration:none" href="tienda.html">👁 Ver la tienda como cliente</a>
@@ -682,14 +736,20 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261104-1040</p></div>`;
+   <p class="note">Versión 20261105-0235</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
 function setUbi(carId,pn,u){u=String(u||'').trim().toUpperCase();const cur=Object.assign({},(EST[carId]||{})[pn]||stOf(CARS.find(c=>c.id===carId),pn));cur.u=u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:cur});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:{s:cur.s,n:cur.n!=null?cur.n:0,u}}},{merge:true}).catch(e=>toast(errMsg(e)))}
-function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const val={s,n:AVAIL(s)?units(p):0,u:AVAIL(s)?(old.u||''):''};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
+function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const c=CARS.find(x=>x.id===carId);const cur=c?stOf(c,pn):{s:old.s,n:old.n};
+  // la cantidad se respeta si la pieza sigue disponible (antes se reiniciaba a 1)
+  const keepN=(AVAIL(cur.s)||cur.s==='apartada')&&cur.n>0?cur.n:units(p);
+  let val={s,n:AVAIL(s)?keepN:0,u:AVAIL(s)?(old.u||''):''};
+  if(s==='apartada'){const q=(prompt('¿Para quién se aparta? (nombre o teléfono)')||'').trim();if(!q)return;const h=Math.max(1,Math.min(240,parseInt(prompt('¿Cuántas horas la apartas?','48'))||48));
+    val={s:'apartada',n:AVAIL(cur.s)?keepN:units(p),u:old.u||'',prev:AVAIL(cur.s)?cur.s:'quitada',ap:{q,v:new Date(Date.now()+h*36e5).toISOString(),by:PROFILE?.name||ME.email}}}
+  EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});mov1({tipo:'estado',pn,car:carId,de:cur.s,a:s,qty:val.n});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
   const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver'),link360:v('link360').trim(),n360:(CARS.find(c=>c.id===id)||{}).n360||0};
@@ -700,28 +760,66 @@ async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c
 let pendingDelCar=null;
 function delCar(id,btn){if(pendingDelCar!==id){pendingDelCar=id;btn.textContent='¿Seguro? Se borra el carro y su recorrido. Toca otra vez';return}
   deleteDoc(doc(fs,'carros',id)).catch(e=>toast(errMsg(e)));deleteDoc(doc(fs,'estado',id)).catch(()=>{});deleteDoc(doc(fs,'privado',id)).catch(()=>{});st.car=null;pendingDelCar=null;render()}
-function addToCart(carId){const p=PARTS[openIdx];CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:precioV(p.pn,priceOf(p.pn))||''});saveCart();toast('Agregado al carrito');openPart(openIdx)}
+function addToCart(carId){const p=PARTS[openIdx];{const pr=precioV(p.pn,priceOf(p.pn))||'';CART.push({pn:p.pn,es:p.es,car:carId,qty:1,price:pr,lista:pr})}saveCart();toast('Agregado al carrito');openPart(openIdx)}
+// el vendedor busca un cliente por teléfono (10 números) o por su usuario exacto; nunca baja la lista completa
+async function buscaCliente(q){const tel=String(q||'').replace(/\D/g,''),u=String(q||'').trim();const out=new Map();const keep=CLIENTES.filter(x=>x.id===CLIID);keep.forEach(x=>out.set(x.id,x));
+  try{const qs=[];if(tel.length===10)qs.push(query(collection(fs,'clientes'),where('tel','==',tel),limit(5)));if(u.length>=3){qs.push(query(collection(fs,'clientes'),where('user','==',u),limit(5)));if(u.toLowerCase()!==u)qs.push(query(collection(fs,'clientes'),where('user','==',u.toLowerCase()),limit(5)))}
+    for(const q2 of qs){const sn=await getDocs(q2);sn.docs.forEach(d=>out.set(d.id,Object.assign({id:d.id},d.data())))}}catch(e){console.warn(e)}
+  CLIENTES=[...out.values()]}
 function cliPickHTML(t){const c=CLIENTES.find(x=>x.id===CLIID);
   if(c)return `<div class="carrow" style="border:2px solid var(--tag);border-radius:10px;padding:8px"><span style="font-size:22px">⭐</span><div style="min-width:0"><b>${esc(c.name||c.user)}</b><br><span class="hint">Cliente registrado · ${c.puntos||0} puntos · gana <b>+${ptsFor(t.total)}</b> con esta compra</span></div><button class="copy" data-unpickcli>Quitar</button></div>`;
-  const q=norm(CLIQ).trim();const m=q?CLIENTES.filter(x=>norm((x.name||'')+' '+(x.user||'')+' '+(x.tel||'')).includes(q)).slice(0,6):[];
-  return `<label class="f" for="cliq">⭐ Cliente registrado (para sumarle puntos)<input id="cliq" value="${esc(CLIQ)}" placeholder="Busca por nombre, usuario o teléfono" autocomplete="off"></label>
+  const q=norm(CLIQ).trim(),qd=q.replace(/\D/g,'');const m=q?CLIENTES.filter(x=>!OWN||norm((x.name||'')+' '+(x.user||'')+' '+(x.tel||'')).includes(q)||(qd.length>=4&&String(x.tel||'').includes(qd))).slice(0,6):[];
+  return `<label class="f" for="cliq">⭐ Cliente registrado (para sumarle puntos)<input id="cliq" value="${esc(CLIQ)}" placeholder="${OWN?'Busca por nombre, usuario o teléfono':'Teléfono a 10 números o usuario exacto'}" autocomplete="off"></label>
    ${m.length?`<div class="list">${m.map(x=>`<button class="item" style="grid-template-columns:1fr auto" data-pickcli="${esc(x.id)}"><span class="t"><b>${esc(x.name||x.user)}</b><span class="hint">${esc(x.user)}${x.tel?' · '+esc(x.tel):''}</span></span><span class="hint">${x.puntos||0} pts</span></button>`).join('')}</div>`:q?'<p class="hint" style="margin:0">No encontré ese cliente. Puede registrarse en la tienda con el botón 👤.</p>':''}`}
-async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.length)return;
+// ---- cobrar: nunca vender lo que no hay ----
+// suma lo que pide el carrito por pieza física (carro+número o pieza agregada)
+function needOf(items){const need={};items.forEach(it=>{const k=it.xid?'X:'+it.xid:(it.car&&it.pn?it.car+'|'+it.pn:'');if(k)need[k]=(need[k]||0)+it.qty});return need}
+// problemas de existencia; estMap(carId) y xMap(xid) dan el estado a revisar (teléfono o servidor)
+function faltan(items,estMap,xMap){const out=[];
+  for(const [k,q] of Object.entries(needOf(items))){
+    if(k.startsWith('X:')){const x=xMap(k.slice(2));const hay=x&&x.status!=='vendida'?(+x.qty||0):0;if(hay<q)out.push(`${x?x.name:'Pieza agregada'}: hay ${hay}, se quieren cobrar ${q}`);continue}
+    const [cid,pn]=k.split('|');const c=CARS.find(x=>x.id===cid);if(!c)continue;const x=stOf(c,pn,estMap(cid));const hay=AVAIL(x.s)?x.n:0;
+    if(hay<q)out.push(`${(BYPN[pn]||{}).es||pn} (${c.code}): ${x.s==='vendida'?'ya está vendida':x.s==='apartada'?'está apartada':'hay '+hay}, se quieren cobrar ${q}`)}
+  return out}
+// calcula cómo quedan las existencias; guarda en cada línea cómo estaba la pieza (para cancelar bien)
+function planVenta(items,estMap,xMap){const est={},xs={};
+  items.forEach(it=>{if(it.xid){const x=xMap(it.xid);if(!x)return;const cur=xs[it.xid]?xs[it.xid].qty:(+x.qty||0);const q=Math.max(0,cur-it.qty);it.prev={s:x.status||'disponible',n:cur};xs[it.xid]={qty:q,status:q?'disponible':'vendida'};return}
+    if(!it.car||!it.pn)return;const c=CARS.find(x=>x.id===it.car);if(!c)return;const m=est[it.car]=est[it.car]||{};
+    const cur=m[it.pn]?{s:m[it.pn].prev,n:m[it.pn].n,live:m[it.pn].s}:stOf(c,it.pn,estMap(it.car));const s0=cur.live||cur.s;
+    const n=Math.max(0,cur.n-it.qty);it.prev={s:s0,n:cur.n};m[it.pn]={s:n>0?s0:'vendida',n,prev:s0}});
+  return {est,xs}}
+let COBRANDO=false;
+async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.length||COBRANDO)return;
   if(CART.some(l=>l.price===''||isNaN(+l.price))){stt.className='status err';stt.textContent='Pon precio a todas las líneas.';return}
-  const items=CART.map(l=>({pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price,xid:l.xid||''}));
+  const items=CART.map(l=>{const o={pn:l.pn||'',es:l.es,car:l.car||'',qty:l.qty,price:+l.price,xid:l.xid||''};if(l.lista)o.lista=+l.lista;return o});
+  const prob=faltan(items,cid=>EST[cid],xById);
+  if(prob.length){stt.className='status err';stt.textContent='No se puede cobrar: '+prob.join(' · ')+'. Quita o corrige esas líneas.';return}
   const ref=doc(collection(fs,'ventas'));const folio=ref.id.slice(-6).toUpperCase();
   const venta={items,sub:t.sub,desc:t.desc,total:t.total,pago:PAGO,cliente:CLIENTE.trim(),date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,folio};
   const cli=CLIENTES.find(x=>x.id===CLIID);if(cli){venta.cliId=cli.id;venta.puntos=ptsFor(t.total);if(!venta.cliente)venta.cliente=cli.name||cli.user}
-  try{const b=writeBatch(fs);b.set(ref,venta);
-    if(cli)b.set(doc(fs,'clientes',cli.id),{puntos:increment(venta.puntos),compras:increment(1),ultimaCompra:venta.date},{merge:true});
-    items.forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;const q=Math.max(0,(x.qty||1)-it.qty);x.qty=q;x.status=q?'disponible':'vendida';b.set(doc(fs,'extras',it.xid),{qty:q,status:x.status},{merge:true})});
-    const byCar={};items.forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
-    for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
-      its.forEach(it=>{const x=stOf(c,it.pn);const n=Math.max(0,x.n-it.qty);m[it.pn]={s:n>0?x.s:'vendida',n,prev:x.s}});
-      EST[cid]=Object.assign({},EST[cid]||{},m);b.set(doc(fs,'estado',cid),{m},{merge:true})}
-    b.commit().catch(e=>toast(errMsg(e)));
-    CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';CLIID='';CLIQ='';LS.set('cliid','');saveCart();st.tab='ventas';render();toast(navigator.onLine?'Venta registrada':'Venta guardada en el teléfono; se sube cuando haya señal');openTicket(Object.assign({id:ref.id},venta))}
-  catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
+  const escribir=(w,plan)=>{w.set(ref,venta);
+    if(cli)w.set(doc(fs,'clientes',cli.id),{puntos:increment(venta.puntos),compras:increment(1),ultimaCompra:venta.date},{merge:true});
+    for(const [xid,v] of Object.entries(plan.xs))w.set(doc(fs,'extras',xid),v,{merge:true});
+    for(const [cid,m] of Object.entries(plan.est))w.set(doc(fs,'estado',cid),{m},{merge:true});
+    movs(w,items.map(it=>({tipo:'venta',pn:it.pn||'X:'+it.xid,car:it.car,de:it.prev?it.prev.s:'',a:'vendida',qty:it.qty,ref:ref.id})))};
+  const local=()=>{const plan=planVenta(items,cid=>EST[cid],xById);venta.sinSenal=true;const b=writeBatch(fs);escribir(b,plan);b.commit().catch(e=>toast(errMsg(e)));return plan};
+  COBRANDO=true;stt.className='status';stt.textContent='Cobrando…';let plan;
+  try{if(!navigator.onLine)plan=local();
+    else{try{plan=await runTransaction(fs,async tx=>{
+        const cids=[...new Set(items.filter(it=>it.car&&it.pn&&!it.xid).map(it=>it.car))],xids=[...new Set(items.filter(it=>it.xid).map(it=>it.xid))];
+        const em={},xm={};for(const cid of cids){const d=await tx.get(doc(fs,'estado',cid));em[cid]=d.exists()?((d.data()||{}).m||{}):{}}
+        for(const xid of xids){const d=await tx.get(doc(fs,'extras',xid));if(d.exists())xm[xid]=Object.assign({id:xid},d.data())}
+        const p2=faltan(items,cid=>em[cid],xid=>xm[xid]);if(p2.length){const e=new Error('Otro teléfono ya la vendió: '+p2.join(' · '));e.code='sin-existencia';throw e}
+        const pl=planVenta(items,cid=>em[cid],xid=>xm[xid]);escribir(tx,pl);return pl})}
+      catch(e){if(e.code==='sin-existencia')throw e;if(/unavailable|deadline|network/i.test(String(e.code||e.message)))plan=local();else throw e}}}
+  catch(e){COBRANDO=false;stt.className='status err';stt.textContent=e.code==='sin-existencia'?e.message+'. No se cobró nada.':errMsg(e);return}
+  COBRANDO=false;
+  for(const [cid,m] of Object.entries(plan.est))EST[cid]=Object.assign({},EST[cid]||{},m);
+  for(const [xid,v] of Object.entries(plan.xs)){const x=xById(xid);if(x)Object.assign(x,v)}
+  CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';CLIID='';CLIQ='';LS.set('cliid','');saveCart();st.tab='ventas';render();toast(venta.sinSenal?'Venta guardada en el teléfono; se sube cuando haya señal':'Venta registrada');openTicket(Object.assign({id:ref.id},venta))}
+// ---- historial de movimientos (quién movió qué pieza y cuándo) ----
+function movs(w,list){const date=new Date().toISOString();list.forEach(m=>{if(!m.pn)return;w.set(doc(collection(fs,'movimientos')),Object.assign({date,by:ME.uid,byName:PROFILE?.name||ME.email},m))})}
+function mov1(m){const b=writeBatch(fs);movs(b,[m]);b.commit().catch(()=>{})}
 let pendingDel=null;
 let CORTE_DIA=null;
 function corteCalc(dia){const ss=SALES.filter(s=>dLocal(s.date)===dia);const tot={};PAGOS.forEach(p=>tot[p]=0);
@@ -748,33 +846,38 @@ function saveCorte(){const st2=$('#corte-st');const c=$('#corte-contado').value;
   const r={dia:CORTE_DIA,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,n:ss.length,total:ss.reduce((a,s)=>a+(s.total||0),0),tot,fondo,contado:+c,esperado,diff:Math.round((+c-esperado)*100)/100,nota:$('#corte-nota').value.trim()};
   addDoc(collection(fs,'cortes'),r).catch(e=>toast(errMsg(e)));if(!CORTES.some(x=>x.date===r.date))CORTES=[Object.assign({id:'tmp'},r),...CORTES];toast('Corte guardado');openCorte(CORTE_DIA)}
 function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Cancelar venta? Toca otra vez';return}
-  const s=SALES.find(x=>x.id===id);if(!s)return;const b=writeBatch(fs);
-  const byCar={};(s.items||[]).forEach(it=>{if(it.car&&it.pn)(byCar[it.car]=byCar[it.car]||[]).push(it)});
-  for(const [cid,its] of Object.entries(byCar)){const c=CARS.find(x=>x.id===cid);if(!c)continue;const m={};
-    its.forEach(it=>{const x=stOf(c,it.pn);const cur=(EST[cid]||{})[it.pn]||{};const back=cur.prev||'esta';m[it.pn]={s:AVAIL(x.s)?x.s:back,n:x.n+it.qty}});b.set(doc(fs,'estado',cid),{m},{merge:true})}
-  (s.items||[]).forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;b.set(doc(fs,'extras',it.xid),{qty:(x.qty||0)+it.qty,status:'disponible'},{merge:true})});
+  const s=SALES.find(x=>x.id===id);if(!s)return;const b=writeBatch(fs);const m2={};
+  (s.items||[]).forEach(it=>{if(!it.car||!it.pn||it.xid)return;const c=CARS.find(x=>x.id===it.car);if(!c)return;const m=m2[it.car]=m2[it.car]||{};
+    const cur=m[it.pn]||stOf(c,it.pn);const hay=AVAIL(cur.s)?cur.n:0;const back=it.prev&&AVAIL(it.prev.s)?it.prev.s:(AVAIL(cur.s)?cur.s:'quitada');
+    m[it.pn]={s:AVAIL(cur.s)?cur.s:back,n:hay+it.qty}});
+  for(const [cid,m] of Object.entries(m2))b.set(doc(fs,'estado',cid),{m},{merge:true});
+  const xq={};(s.items||[]).forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;xq[it.xid]=(xq[it.xid]!=null?xq[it.xid]:(x.status==='vendida'?0:(+x.qty||0)))+it.qty});
+  for(const [xid,q] of Object.entries(xq))b.set(doc(fs,'extras',xid),{qty:q,status:'disponible'},{merge:true});
   if(s.cliId&&s.puntos)b.set(doc(fs,'clientes',s.cliId),{puntos:increment(-s.puntos),compras:increment(-1)},{merge:true});
-  b.delete(doc(fs,'ventas',id));b.commit().then(()=>toast('Venta cancelada; las piezas regresaron'),e=>toast(errMsg(e)));pendingDel=null}
+  b.set(doc(fs,'ventas',id),{cancelada:true,canceladaPor:ME.uid,canceladaPorNombre:PROFILE?.name||ME.email,canceladaFecha:new Date().toISOString()},{merge:true});
+  movs(b,(s.items||[]).map(it=>({tipo:'cancelación',pn:it.pn||'X:'+it.xid,car:it.car,de:'vendida',a:'regresó',qty:it.qty,ref:id})));
+  b.commit().then(()=>toast('Venta cancelada; las piezas regresaron'),e=>toast(errMsg(e)));pendingDel=null}
 function exportCSV(){const rows=[['Fecha','Cliente','Vendedor','Numero de parte','Pieza','Carro','Cantidad','Precio','Importe','Descuento venta','Total venta']];
   SALES.forEach(s=>(s.items||[]).forEach((it,k)=>rows.push([s.date.slice(0,16).replace('T',' '),s.cliente||'',s.byName||'',it.pn||(it.xid?(xById(it.xid)||{}).num||'(agregada)':''),it.es,it.car?carCode(it.car):'',it.qty,it.price,it.qty*it.price,k?'':s.desc||0,k?'':s.total])));
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ventas-accord.csv';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),500)}
 async function addUser(){const user=$('#u-email').value.trim(),pin=$('#u-pass').value.trim();const name=$('#u-name').value.trim()||user;const stt=$('#u-status');
   if(!user){stt.className='status err';stt.textContent='Escribe el usuario.';return}
-  if(!okPin(pin)){stt.className='status err';stt.textContent='El PIN debe ser de 4 números.';return}
+  if(!okPinNuevo(pin)){stt.className='status err';stt.textContent='El PIN debe ser de 6 números.';return}
   stt.className='status';stt.textContent='Creando…';
   try{const email=await userEmail(user);const sec=initializeApp(CFG,'sec'+Date.now());const sa=getAuth(sec);const cred=await createUserWithEmailAndPassword(sa,email,pinPass(pin));
     await setDoc(doc(fs,'users',cred.user.uid),{name,user,email,role:'empleado',active:true,created:new Date().toISOString()});await signOut(sa);
     stt.className='status ok';stt.textContent='Listo. Pásale a '+name+' su usuario «'+user+'» y su PIN.'}
   catch(e){stt.className='status err';stt.textContent=e.code==='auth/email-already-in-use'?'Ese usuario ya existe. Elige otro.':'No se pudo crear: '+(e.code||e.message)}}
 async function changePin(){const a=$('#pin-new').value.trim(),b=$('#pin-new2').value.trim();const stt=$('#pin-status');
-  if(!okPin(a)){stt.className='status err';stt.textContent='El PIN debe ser de 4 números.';return}if(a!==b){stt.className='status err';stt.textContent='Los dos PIN no son iguales.';return}
-  try{await updatePassword(ME,pinPass(a));stt.className='status ok';stt.textContent='Listo, tu PIN nuevo ya funciona.'}
+  if(!okPinNuevo(a)){stt.className='status err';stt.textContent='El PIN debe ser de 6 números.';return}if(a!==b){stt.className='status err';stt.textContent='Los dos PIN no son iguales.';return}
+  try{await updatePassword(ME,pinPass(a));PIN4=false;try{sessionStorage.setItem('pin4','')}catch(e){}stt.className='status ok';stt.textContent='Listo, tu PIN nuevo ya funciona.';if(SHEET!=='menu')setTimeout(render,900)}
   catch(e){stt.className='status err';stt.textContent=e.code==='auth/requires-recent-login'?'Por seguridad: cierra sesión, vuelve a entrar y cámbialo enseguida.':'No se pudo: '+(e.code||e.message)}}
 // ---- lotes preparados por Claude (inventario desde el chat) ----
 let LOTE=null;
 async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=await fetch('lote.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);LOTE=J;
-  const done=LS.get('lotesHechos',[]);if(!J||!J.id||done.includes(J.id)){el.innerHTML='';return}
+  if(!LOADED.has('config')){el.innerHTML='';return}
+  const done=LS.get('lotesHechos',[]).concat(Object.keys(LOTES));if(!J||!J.id||done.includes(J.id)){el.innerHTML='';return}
   const n=(J.estado||[]).length+(J.extras||[]).length;const nc=Object.keys(J.carros||{}).length;const bx=(J.borrar||{}).extras||[],bf=(J.borrar||{}).fotos||[],mv=J.mover||[];
   const pnName=pn=>pn&&pn.startsWith('X:')?((xById(pn.slice(2))||{}).name||'pieza agregada'):((BYPN[pn]||{}).es||pn);
   el.innerHTML=`<div class="card form" style="border:2px solid var(--tag)"><b>📦 Lote de inventario listo para subir</b><p class="hint" style="margin:0">${esc(J.titulo||'Inventario')}: ${n} piezas${(J.fotos||[]).length?', '+J.fotos.length+' fotos':''}. Revísalo y toca para subirlo.</p>
@@ -783,18 +886,21 @@ async function checkLote(){const el=$('#lote-card');if(!el)return;try{const J=aw
 let loteArmed=false;
 async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)return;if(!loteArmed){loteArmed=true;btn.textContent='Toca otra vez para confirmar';return}
   stt.className='status';stt.textContent='Subiendo…';const ops=[];const now=new Date().toISOString();const by={by:ME.uid,byName:PROFILE?.name||ME.email};
-  try{for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c&&!body.crear)throw new Error('No existe el carro '+code);const b=Object.assign({},body);delete b.crear;if(!c){b.code=b.code||code;CARS.push(Object.assign({id:code},b))}ops.push([doc(fs,'carros',c?c.id:code),b,{merge:true}])}
+  const omit=[];
+  try{if(Object.keys(LOTES).includes(J.id))throw new Error('Este lote ya se subió');for(const [code,body] of Object.entries(J.carros||{})){const c=CARS.find(x=>x.code===code||x.id===code);if(!c&&!body.crear)throw new Error('No existe el carro '+code);const b=Object.assign({},body);delete b.crear;if(!c){b.code=b.code||code;CARS.push(Object.assign({id:code},b))}ops.push([doc(fs,'carros',c?c.id:code),b,{merge:true}])}
     for(const e of J.estado||[]){const c=CARS.find(x=>x.code===e.car||x.id===e.car);if(!c)throw new Error('No existe el carro '+e.car);const p=BYPN[e.pn];if(!p)throw new Error('No existe '+e.pn);
-      {const es=e.s||'quitada';const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
+      {const es=e.s||'quitada';const cur=stOf(c,e.pn);if(cur.s==='vendida'&&AVAIL(es)&&!e.forzar){omit.push(c.code+' '+e.pn);continue}
+       const v={s:es,n:e.n!=null?e.n:(AVAIL(es)?1:0)};if(e.u)v.u=String(e.u).toUpperCase();ops.push([doc(fs,'estado',c.id),{m:{[e.pn]:v}},{merge:true}])}
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
-    for(const x of J.extras||[]){const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
+    for(const x of J.extras||[]){const old=xById(x.id);if(old&&old.status==='vendida'&&!x.forzar){omit.push(x.name);continue}const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
     for(const v of J.ventas||[]){const items=(v.items||[]).map(it=>{const c=it.car?CARS.find(y=>y.code===it.car||y.id===it.car):null;if(it.car&&!c)throw new Error('No existe el carro '+it.car);const p=it.pn?BYPN[it.pn]:null;return {pn:it.pn||'',es:it.es||(p?p.es:''),car:c?c.id:'',qty:it.qty||1,price:+it.price||0,xid:it.xid||''}});const sub=items.reduce((a,it)=>a+it.qty*it.price,0);const vid=v.id||('lote-'+J.id);ops.push([doc(fs,'ventas',vid),{items,sub,desc:v.desc||0,total:v.total!=null?+v.total:sub-(v.desc||0),pago:v.pago||'Efectivo',cliente:v.cliente||'',nota:v.nota||'',date:v.date||now,...by,folio:vid.slice(-6).toUpperCase()}])}
     for(const m of J.mover||[]){ops.push([doc(fs,'fotos',m.id),{pn:m.pn,...(m.nota!=null?{nota:m.nota}:{})},{merge:true}]);ops.push([doc(fs,'fotosfull',m.id),{pn:m.pn},{merge:true}])}
     for(const id of (J.borrar||{}).fotos||[]){ops.push([doc(fs,'fotosfull',id),null,'del']);ops.push([doc(fs,'fotos',id),null,'del'])}
     for(const id of (J.borrar||{}).extras||[]){ops.push([doc(fs,'extras',id),null,'del'])}
     {const t0=Date.now();(J.fotos||[]).forEach((f,k)=>{const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:new Date(t0-k*1000).toISOString(),...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])})}
     for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o==='del'?b.delete(r):o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
-    LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.';btn.remove()}
+    await setDoc(doc(fs,'config','lotes'),{hechos:{[J.id]:{date:now,by:by.byName}}},{merge:true});LOTES[J.id]={date:now};
+    LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.'+(omit.length?' No toqué '+omit.length+' piezas que ya estaban vendidas: '+omit.slice(0,8).join(', ')+(omit.length>8?'…':''):'');btn.remove()}
   catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}loteArmed=false}
 let impArmed=false;
 async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=true;btn.textContent='Toca otra vez para confirmar';return}
@@ -943,6 +1049,10 @@ function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio|
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
 async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
   try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST,clientes:CLIENTES,cortes:CORTES,resenas:RESENAS};
+    // ventas, cortes e historial completos (la pantalla solo carga los últimos)
+    {const vq=await getDocs(collection(fs,'ventas'));out.ventas=vq.docs.map(d=>Object.assign({id:d.id},d.data()))}
+    {const cq=await getDocs(collection(fs,'cortes'));out.cortes=cq.docs.map(d=>Object.assign({id:d.id},d.data()))}
+    try{const mq=await getDocs(collection(fs,'movimientos'));out.movimientos=mq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     try{const sq=await getDocs(collection(fs,'solicitudes'));out.solicitudes=sq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()});
       try{const v=await getDocs(collection(fs,'vista360'));out.vista360={};v.docs.forEach(d=>{out.vista360[d.id]=d.data()})}catch(e){}}
@@ -958,20 +1068,25 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
   (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
-  for(let i=0;i<ops.length;i+=50){const b=writeBatch(fs);ops.slice(i,i+50).forEach(([c,id,d])=>b.set(doc(fs,c,id),d));await b.commit();stt.textContent='Restaurando… '+Math.min(100,Math.round((i+50)/ops.length*100))+'%'}
+  (J.movimientos||[]).forEach(v=>ops.push(['movimientos',v.id,strip(v)]));
+  // envíos de máximo 6 MB y 400 documentos (Firestore acepta hasta 10 MB y 500)
+  let i=0;while(i<ops.length){const b=writeBatch(fs);let bytes=0,k=0;while(i<ops.length&&k<400){const sz=JSON.stringify(ops[i][2]||{}).length;if(k&&bytes+sz>6e6)break;const [c,id,d]=ops[i];b.set(doc(fs,c,id),d);bytes+=sz;k++;i++}
+    await b.commit();stt.textContent='Restaurando… '+Math.round(i/ops.length*100)+'%'}
   stt.className='status ok';stt.textContent='Respaldo restaurado.';rsArmed=null}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
 // ---- página pública: resumen de lo disponible ----
-const WA_DEF='6142737975';const fixWa=w=>{w=String(w||'').replace(/\D/g,'');return !w||w==='6142637975'?WA_DEF:w};let PUBLAST=null,pubT=null,LOADED=new Set();
+const WA_DEF='6142737975';const fixWa=w=>{w=String(w||'').replace(/\D/g,'');return !w||w==='6142637975'?WA_DEF:w};let PUBLAST=null,pubT=null,LOADED=new Set(),CACHE=new Set();
+// marca si una fuente ya llegó del servidor; mientras alguna venga de la caché del teléfono, no se publica la tienda
+const srv=(k,s)=>{if(s&&s.metadata&&s.metadata.fromCache)CACHE.add(k);else{CACHE.delete(k);LOADED.add(k)}};
 const pubURL=()=>location.origin+location.pathname.replace(/[^/]*$/,'')+'tienda.html';
 function pubSnapshot(){const items=[],rev=[];
   for(const pn of UPN){const a=availCars(pn);if(!a.length){if(CARS.some(c=>stOf(c,pn).s==='revisar'))rev.push(pn);continue}const f=(FOTOS[pn]||[])[0];
-    items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),(FOTOS[pn]||[]).slice(0,5).map(x=>x.id).join(','),f?(f.cond||''):'',isSug(pn)?1:0])}
+    items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),(FOTOS[pn]||[]).slice(0,5).map(x=>x.id).join(','),f?(f.cond||''):'',isSug(pn)?1:0,a.every(o=>o.x.s==='esta')?1:0])}
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
   const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
   return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
-function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
+function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
 function promoHTML(k,base){const p=NEG.promo;if(!p||!p.on)return '';const on=p.todo||(p.sel||[]).includes(k);const act=promoAct();
@@ -1047,7 +1162,7 @@ $('#menu-btn').addEventListener('click',openMenu);
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='corte-fondo'||t.id==='corte-contado'){corteRes();return}
   if(t.dataset.lp!=null){CART[+t.dataset.lp].price=t.value;saveCart();const tt=calc();const su=view.querySelector('.sum');if(su)su.innerHTML=sumHTML(tt);const b=view.querySelector('[data-checkout]');if(b)b.textContent='Cobrar '+money(tt.total)+' y descontar del inventario'}
   if(t.id==='cli'){CLIENTE=t.value;saveCart()}
-  if(t.id==='cliq'){CLIQ=t.value;clearTimeout(window._cq);window._cq=setTimeout(()=>{render();const i=$('#cliq');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},250)}});
+  if(t.id==='cliq'){CLIQ=t.value;clearTimeout(window._cq);window._cq=setTimeout(async()=>{if(!OWN)await buscaCliente(CLIQ);render();const i=$('#cliq');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},250)}});
 document.addEventListener('change',async e=>{const t=e.target;if(t.id!=='v3vid'&&t.id!=='v3pics')return;const c=CARS.find(x=>x.id===st.car);const stt=$('#v3status');if(!c||!t.files.length)return;
   try{let frames=[];if(t.id==='v3vid'){stt.className='status';frames=await framesFromVideo(t.files[0],24,stt)}
     else{const fl=[...t.files].sort((a,b)=>a.lastModified-b.lastModified||a.name.localeCompare(b.name)).slice(0,36);stt.className='status';for(let i=0;i<fl.length;i++){frames.push(await shrink(fl[i],900,0.62));stt.textContent='Preparando fotos… '+(i+1)+'/'+fl.length}}
@@ -1076,7 +1191,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
     if(d.plus==='1'&&x){x.qty=(xAvail(x)?x.qty:0)+1;x.status='disponible';setDoc(doc(fs,'extras',x.id),{qty:x.qty,status:'disponible'},{merge:true}).catch(e=>toast(errMsg(e)))}
     toast(d.plus==='1'?'Sumada una más':'Foto agregada');openExtra(d.intx);return}
   if('intnew' in d){intakeNew(intakeVals());return}
-  if(d.addx){const x=xById(d.addx);CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:precioV('X:'+x.id,x.price)||''});saveCart();toast('Agregado al carrito');openExtra(x.id);return}
+  if(d.addx){const x=xById(d.addx);{const pr=precioV('X:'+x.id,x.price)||'';CART.push({pn:'',xid:x.id,es:x.name+(x.num?' ('+x.num+')':''),car:x.car||'',qty:1,price:pr,lista:pr})}saveCart();toast('Agregado al carrito');openExtra(x.id);return}
   if(d.saveubi){const p=PARTS[openIdx];const v=($('#ubi-'+d.saveubi)||{}).value||'';const x=stOf(CARS.find(c=>c.id===d.saveubi),p.pn);if(!AVAIL(x.s))setStatus(d.saveubi,p.pn,'quitada');setUbi(d.saveubi,p.pn,v);toast(v?'Lugar guardado: '+v.toUpperCase():'Lugar borrado');openPart(openIdx);return}
   if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida',ubi:(($('#x-ubi')||{}).value||'').trim().toUpperCase()};if(pr!==''){up.price=+pr;up.sug=false}
     Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)));toast('Guardado');openExtra(x.id);return}
@@ -1181,9 +1296,9 @@ const L={box:$('#login'),email:$('#l-email'),pass:$('#l-pass'),st:$('#l-status')
 let SIGNUP=false,SIGNING=false;
 const isMail=()=>L.email.value.includes('@');
 function loginMode(){const m=isMail();L.neu.hidden=L.email.value.trim().toLowerCase()!==OWNER;$('#l-reset').hidden=!m;$('#l-signup').hidden=m;
-  $('#l-plabel').textContent=m?'Contraseña':'PIN (4 números)';L.pass.inputMode=m?'text':'numeric';
+  $('#l-plabel').textContent=m?'Contraseña':SIGNUP?'PIN (6 números)':'PIN';L.pass.inputMode=m?'text':'numeric';
   $('#l-p2box').hidden=!SIGNUP||m;$('#l-go').textContent=SIGNUP&&!m?'Crear mi cuenta':'Entrar';$('#l-signup').textContent=SIGNUP?'Ya tengo cuenta: entrar':'Soy nuevo: crear mi cuenta';
-  $('#l-hint').textContent=m?'Entra con tu correo y contraseña.':SIGNUP?'Elige un usuario (el que quieras, que nadie más tenga) y un PIN de 4 números.':'Entra con tu usuario y tu PIN de 4 números.'}
+  $('#l-hint').textContent=m?'Entra con tu correo y contraseña.':SIGNUP?'Elige un usuario (el que quieras, que nadie más tenga) y un PIN de 6 números.':'Entra con tu usuario y tu PIN.'}
 L.email.addEventListener('input',loginMode);
 $('#l-signup').addEventListener('click',()=>{SIGNUP=!SIGNUP;loginMode()});
 const lmsg=(m,ok)=>{L.st.className='status '+(ok?'ok':'err');L.st.textContent=m};
@@ -1191,9 +1306,10 @@ const authErr=e=>({'auth/invalid-credential':isMail()?'Correo o contraseña inco
 $('#l-go').addEventListener('click',async()=>{const u=L.email.value.trim(),p=L.pass.value.trim();
   if(!u){lmsg('Escribe tu usuario.');return}
   if(isMail()){lmsg('Entrando…',true);signInWithEmailAndPassword(auth,u,L.pass.value).catch(e=>lmsg(authErr(e)));return}
-  if(!okPin(p)){lmsg('El PIN es de 4 números.');return}
+  if(!okPin(p)){lmsg('El PIN es de 6 números (o de 4 si es de antes).');return}
+  if(SIGNUP&&!okPinNuevo(p)){lmsg('Elige un PIN de 6 números.');return}
   const email=await userEmail(u);
-  if(!SIGNUP){lmsg('Entrando…',true);signInWithEmailAndPassword(auth,email,pinPass(p)).catch(e=>lmsg(authErr(e)));return}
+  if(!SIGNUP){lmsg('Entrando…',true);PIN4=p.length===4;try{sessionStorage.setItem('pin4',PIN4?'1':'')}catch(e){}signInWithEmailAndPassword(auth,email,pinPass(p)).catch(e=>lmsg(authErr(e)));return}
   if(p!==$('#l-pass2').value.trim()){lmsg('Los dos PIN no son iguales.');return}
   lmsg('Creando tu cuenta…',true);SIGNING=true;
   try{const cred=await createUserWithEmailAndPassword(auth,email,pinPass(p));
@@ -1203,7 +1319,7 @@ $('#l-go').addEventListener('click',async()=>{const u=L.email.value.trim(),p=L.p
 L.neu.addEventListener('click',()=>{lmsg('Creando…',true);createUserWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
 $('#l-reset').addEventListener('click',()=>{const em=L.email.value.trim();if(!em){lmsg('Escribe tu correo arriba primero.');return}sendPasswordResetEmail(auth,em).then(()=>lmsg('Te mandamos un correo para cambiar la contraseña.',true),e=>lmsg(authErr(e)))});
 let unsubs=[];
-onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=new Set();PUBLAST=null;
+onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=new Set();CACHE=new Set();PUBLAST=null;
   if(!u){if(!ENTRAR){location.replace('tienda.html');return}$('#app').hidden=true;L.box.hidden=false;if(REGISTRO&&!SIGNUP){SIGNUP=true;loginMode()}return}
   OWN=(u.email||'').toLowerCase()===OWNER;PROFILE=OWN?{name:'Alan'}:null;
   if(!OWN){try{const s=await getDoc(doc(fs,'users',u.uid));PROFILE=s.exists()?s.data():null}catch(e){PROFILE=null}
@@ -1213,21 +1329,23 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   L.box.hidden=true;$('#app').hidden=false;saveCart();
   const rr=()=>{if(sheet.hidden){const y=window.scrollY;render();window.scrollTo(0,y)}};
   const sub=(q,f)=>unsubs.push(onSnapshot(q,f,e=>console.warn(e)));
-  sub(collection(fs,'carros'),s=>{LOADED.add('carros');pubSync();CARS=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
-  sub(collection(fs,'estado'),s=>{LOADED.add('estado');pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
-  sub(collection(fs,'precios'),s=>{LOADED.add('precios');pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
+  const subM=(q,f)=>unsubs.push(onSnapshot(q,{includeMetadataChanges:true},f,e=>console.warn(e)));
+  subM(collection(fs,'carros'),s=>{srv('carros',s);pubSync();CARS=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
+  subM(collection(fs,'estado'),s=>{srv('estado',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
+  subM(collection(fs,'precios'),s=>{srv('precios',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
   sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;rr()});
-  sub(collection(fs,'fotos'),s=>{LOADED.add('fotos');pubSync();FOTOLIST=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr()});
-  sub(collection(fs,'extras'),s=>{LOADED.add('extras');pubSync();EXTRAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));rr()});
-  sub(collection(fs,'config'),s=>{LOADED.add('config');const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{};pubSync()});
-  unsubs.push(onSnapshot(doc(fs,'publico','inventario'),d=>{LOADED.add('publico');if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));
-  sub(collection(fs,'clientes'),s=>{CLIENTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.created||'').localeCompare(a.created||''));if(st.tab==='carrito'&&sheet.hidden&&!document.activeElement?.id?.startsWith('cli'))rr()});
-  if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
+  subM(collection(fs,'fotos'),s=>{srv('fotos',s);pubSync();FOTOLIST=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr()});
+  subM(collection(fs,'extras'),s=>{srv('extras',s);pubSync();EXTRAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));rr()});
+  subM(collection(fs,'config'),s=>{srv('config',s);const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{};const lt=s.docs.find(x=>x.id==='lotes');LOTES=lt?((lt.data()||{}).hechos||{}):{};pubSync()});
+  unsubs.push(onSnapshot(doc(fs,'publico','inventario'),{includeMetadataChanges:true},d=>{srv('publico',d);if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));
+  if(!OWN){CLIENTES=[];if(CLIID)getDoc(doc(fs,'clientes',CLIID)).then(d=>{if(d.exists())CLIENTES=[Object.assign({id:CLIID},d.data())];rr()}).catch(()=>{})}
+  else sub(collection(fs,'clientes'),s=>{CLIENTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.created||'').localeCompare(a.created||''));if(st.tab==='carrito'&&sheet.hidden&&!document.activeElement?.id?.startsWith('cli'))rr()});
+  if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{const all=s.docs.map(d=>Object.assign({id:d.id},d.data()));SALES=all.filter(x=>!x.cancelada);CANCELADAS=all.filter(x=>x.cancelada);rr()});
     sub(query(collection(fs,'cortes'),orderBy('date','desc'),limit(60)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data()))});
     sub(collection(fs,'resenas'),s=>{RESENAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!sheet.hidden&&SHEET==='menu')openMenu()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
     sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}
-  else{sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{SALES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));rr()});
+  else{sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{const all=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));SALES=all.filter(x=>!x.cancelada);CANCELADAS=all.filter(x=>x.cancelada);rr()});
     sub(query(collection(fs,'cortes'),where('by','==',u.uid)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''))})}
   render();prefetchAll();checkVersion()});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

@@ -254,6 +254,42 @@ let ME=null,CLI=null,STAFF=false,SIGNING=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
+// ---- buscador tolerante (lo comparten la app y la tienda; build_repo.py lo pega en las dos) ----
+// Sinónimos (fuente/sinonimos.json) + plural/singular + una letra de diferencia. Todo en el teléfono, sin internet.
+// En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
+// ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
+const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"]]};
+function mkBuscador(norm,textos){
+  const G=new Map();const FRASES=[];
+  (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
+    all.map(w=>w.replace(/^>/,'')).forEach(w=>{G.set(w,[...new Set((G.get(w)||[]).concat(ns))]);if(w.includes(' '))FRASES.push(w)})});
+  FRASES.sort((a,b)=>b.length-a.length);
+  const VOC=new Set();textos.forEach(t=>norm(t).split(/[^a-z0-9ñ]+/).forEach(w=>{if(w.length>=3&&!/^\d+$/.test(w))VOC.add(w)}));G.forEach((v,k)=>{if(!k.includes(' '))VOC.add(k)});
+  const VL=[...VOC];
+  // distancia de Damerau-Levenshtein con tope (sale en cuanto pasa de max)
+  function dist(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let p2=null,p=Array.from({length:b.length+1},(_,j)=>j);
+    for(let i=1;i<=a.length;i++){const c=[i];let lo=i;for(let j=1;j<=b.length;j++){let v=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));
+      if(p2&&i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])v=Math.min(v,p2[j-2]+1);c.push(v);if(v<lo)lo=v}if(lo>max)return max+1;p2=p;p=c}return p[b.length]}
+  const sing=w=>w.length>4&&w.endsWith('es')?[w.slice(0,-2),w.slice(0,-1)]:w.length>3&&w.endsWith('s')?[w.slice(0,-1)]:[];
+  // separa la búsqueda en unidades (frases conocidas como "luz trasera" cuentan como una)
+  function unidades(nq){let r=' '+nq+' ';const u=[];for(const f of FRASES){if(r.includes(' '+f+' ')){u.push(f);r=r.split(' '+f+' ').join(' ')}}
+    return u.concat(r.split(/\s+/).filter(Boolean))}
+  // devuelve {grupos:[[alternativas por unidad]], corr:{palabra:corrección}}
+  function expandir(q){const nq=norm(q).trim();const corr={};
+    // palabras cortas (4 letras o menos) cuentan solo como palabra completa: "mat" no encuentra "matrícula" ni "rin" encuentra "spring"
+    const W=y=>y.length<=4?' '+y+' ':' '+y;
+    const grupos=unidades(nq).map(w=>{const alts=new Set([w.length<=4&&G.has(w)?W(w):w,...sing(w).map(x=>x.length<=4?W(x):x)]);[w,...sing(w)].forEach(x=>(G.get(x)||[]).forEach(y=>alts.add(W(y))));
+      if(w.length>=5&&!/\d/.test(w)&&!G.has(w)&&!VOC.has(w)&&!sing(w).some(x=>VOC.has(x))){const max=w.length>=8?2:1;let best=null,bd=max+1;
+        for(const v of VL){if(Math.abs(v.length-w.length)>max||v[0]!==w[0]&&v[1]!==w[1])continue;const d=dist(w,v,max);if(d<bd){bd=d;best=v;if(d===1&&max===1)break}}
+        if(best){corr[w]=best;alts.add(W(best));(G.get(best)||[]).forEach(y=>alts.add(W(y)))}}
+      return [...alts]});
+    return {grupos,corr}}
+  // ¿el texto (ya normalizado) cumple todas las unidades?
+  const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
+  const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
+  return {expandir,cumple}}
+
+let BUS=null;
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
 const LSg=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};const LSs=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const VERS=[['','Todas las versiones (Sport)'],['18','2018 Sport · 1.5T CVT'],['19','2019 Sport · 1.5T CVT'],['20','2020 Sport · 1.5T CVT'],['20T','2020 Sport · 2.0T']];
@@ -291,8 +327,9 @@ const imgOne=(it,vw,cls)=>!vw?'<span class="box">📦</span>':vw.t==='cat'?`<img
 const phHTML=it=>{const V=viewsOf(it);const i=Math.min(CARDV[it.k]||0,Math.max(0,V.length-1));const nx=V[(i+1)%V.length];
   return `${imgOne(it,V[i])}${V.length>1?`<span class="swap" data-swap="${esc(it.k)}">${nx.t==='real'?'📷 Ver foto real':'✏️ Ver dibujo Honda'}</span><span class="dots">${V.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}</span>`:''}`};
 const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
-const exTag=it=>it.ex==='av'?'<span class="tag ok">Disponible</span>':it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
-const exTxt=it=>it.ex==='av'?'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):''):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
+// enc = la pieza sigue montada en el carro y nadie la ha revisado: se ofrece, pero se confirma su estado al cotizar
+const exTag=it=>it.ex==='av'?(it.enc?'<span class="tag ok">En el carro</span>':'<span class="tag ok">Disponible</span>'):it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
+const exTxt=it=>it.ex==='av'?(it.enc?'En el carro'+carsTxt(it)+' · se desmonta al pedirla; confirmamos su estado al cotizar':'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):'')):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
 const inQ=k=>Q.some(q=>q.k===k);
 function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a,q)=>a+q.qty,0);
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
@@ -341,9 +378,9 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
-function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
+function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
   return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
+    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>
@@ -409,7 +446,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
   view.innerHTML=`<div class="qt"><div class="kicker">Te ayudamos a elegir</div><h1>Tu cotización</h1><p style="font-size:16px;margin:0 0 22px">Confirmaremos precio, compatibilidad y existencia antes de cobrar.</p>
    ${lines.length?lines.map(({q,it})=>`<div class="qline"><span class="ph">${imgTag(it)}</span><div style="min-width:0"><b style="cursor:pointer" data-det="${esc(it.k)}">${esc(it.es)}</b><br><span class="pn">${esc(numFor(it,st.ver))}</span>
       <div class="qty"><button data-qq="${esc(it.k)}" data-d="-1" aria-label="Menos">−</button><b>${q.qty}</b><button data-qq="${esc(it.k)}" data-d="1" aria-label="Más">+</button><button data-qrm="${esc(it.k)}" style="border:0;background:none;color:var(--muted);font-size:12.5px;margin-left:6px">Quitar</button></div></div>
-      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?'Disponible'+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
+      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?(it.enc?'En el carro':'Disponible')+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
    :`<div class="empty">Aún no has agregado piezas. <a href="#inicio" style="color:var(--green);font-weight:600">Explorar catálogo →</a></div>`}
    <h3 style="font-size:19px;margin:26px 0 4px">¿Cómo te gustaría continuar?</h3>
    <div class="opts">${['Cotización','Efectivo','Transferencia','Pago en línea'].map(o=>`<button class="chip" data-pay="${o}" aria-pressed="${st.pay===o}">${o}</button>`).join('')}</div>
@@ -579,7 +616,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261104-1040';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261105-0235';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -587,10 +624,10 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   if(INV.cars&&INV.cars.length){try{localStorage.setItem('tCars',JSON.stringify(INV.cars))}catch(e){}}
   else{try{const c=JSON.parse(localStorage.getItem('tCars')||'null');if(c&&c.length)INV.cars=c}catch(e){}}
   const P=a=>typeof a==='string'?JSON.parse(a):a;const REV=new Set(INV.rev||[]);ALL=[];
-  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars}});
+  const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug,ec])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars,ec:!!ec}});
   const seen=new Set();
   for(const p of dj.parts){if(seen.has(p.pn))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),enc:!!(iv&&iv.ec),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}

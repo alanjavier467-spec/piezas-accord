@@ -75,15 +75,24 @@ service cloud.firestore {
       allow write: if isOwner();
     }
     match /clientes/{uid} {
-      allow read: if member() || (signed() && request.auth.uid == uid);
-      allow create: if signed() && request.auth.uid == uid;
-      allow update: if member() || (signed() && request.auth.uid == uid);
+      // el vendedor abre un cliente o busca por teléfono/usuario (máx. 5 resultados); la lista completa solo el creador
+      allow get: if member() || (signed() && request.auth.uid == uid);
+      allow list: if isOwner() || (isStaff() && request.query.limit != null && request.query.limit <= 5);
+      // el cliente se registra sin puntos ni compras, y después solo cambia su nombre y teléfono
+      allow create: if signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['user','name','tel','email','created']);
+      allow update: if isOwner()
+        || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['puntos','compras','ultimaCompra']))
+        || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','tel']));
       allow delete: if isOwner();
     }
     match /solicitudes/{id} {
-      allow create: if signed() && request.resource.data.uid == request.auth.uid;
+      allow create: if signed() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','user','name','tel','pay','coment','total','date','items'])
+        && request.resource.data.items is list && request.resource.data.items.size() <= 60
+        && request.resource.data.coment is string && request.resource.data.coment.size() <= 600;
       allow read: if isOwner() || (signed() && resource.data.uid == request.auth.uid);
-      allow delete: if isOwner();
+      allow update, delete: if isOwner();
     }
     match /cortes/{id} {
       allow read: if isOwner() || (isStaff() && resource.data.by == request.auth.uid);
@@ -95,6 +104,7 @@ service cloud.firestore {
       allow read: if isOwner() || resource.data.oculta == false;
       // solo se puede opinar con el enlace de una venta real, una sola vez
       allow create: if exists(/databases/$(database)/documents/ventas/$(id))
+        && get(/databases/$(database)/documents/ventas/$(id)).data.get('cancelada', false) == false
         && request.resource.data.keys().hasOnly(['estrellas','texto','nombre','date','oculta'])
         && request.resource.data.estrellas is int
         && request.resource.data.estrellas >= 1 && request.resource.data.estrellas <= 5
@@ -103,10 +113,23 @@ service cloud.firestore {
         && request.resource.data.oculta == false;
       allow update, delete: if isOwner();
     }
+    // historial: cada miembro anota sus propios movimientos; solo el creador los lee; nadie los cambia
+    match /movimientos/{id} {
+      allow read: if isOwner();
+      allow create: if member() && request.resource.data.by == request.auth.uid;
+    }
     match /publico/{id} {
       allow read: if true;
       // la tienda: solo apps que mandan la lista de carros pueden escribirla (las muy viejas no)
-      allow write: if member() && (id != 'inventario' || (request.resource.data.cars is list && request.resource.data.cars.size() > 0));
+      // el vendedor no puede cambiar el WhatsApp, nombre, dirección ni pie de la tienda: eso solo lo pone el creador
+      allow write: if isOwner() && (id != 'inventario' || (request.resource.data.cars is list && request.resource.data.cars.size() > 0));
+      allow create, update: if isStaff() && id == 'inventario'
+        && request.resource.data.cars is list && request.resource.data.cars.size() > 0
+        && resource != null
+        && request.resource.data.get('wa','') == resource.data.get('wa','')
+        && request.resource.data.get('nombre','') == resource.data.get('nombre','')
+        && request.resource.data.get('dir','') == resource.data.get('dir','')
+        && request.resource.data.get('pie','') == resource.data.get('pie','');
     }
   }
 }
