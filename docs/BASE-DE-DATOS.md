@@ -25,6 +25,7 @@ Las cuentas son de Firebase Authentication. El usuario se convierte en `u<sha256
 | `precios/{pn}` | `price`, `es` | miembros | creador |
 | `alternos/{númeroAlterno}` | `pn` (número de catálogo), `es`, `by`, `date` | miembros | miembros |
 | `fotos/{id}` | `pn` (o `X:<idExtra>`), `thumb` (JPEG base64 de 200 px), `cond`, `nota`, `car`, `date`, `by` | cualquiera por id; miembros para listar | miembros (editar/borrar: quien la subió o creador) |
+| `indice/fotos` | `v`, `ult` (fecha de la foto más nueva vista), `m: { <idFoto>: {pn, cond, nota, car, date, by, byName} }`. Lista ligera de fotos sin imagen: la app la lee en una sola lectura y baja cada miniatura de `fotos/{id}` solo cuando aparece en pantalla. Cabe hasta unas 6,000 fotos | miembros | miembros (borrar: creador) |
 | `fotosfull/{id}` | `pn`, `img` (JPEG base64 de 1100 px) | igual que `fotos` | igual que `fotos` |
 | `extras/{id}` | Piezas agregadas fuera del catálogo: `name`, `num`, `cond`, `nota`, `car`, `qty`, `status` (`disponible`/`vendida`), `price`, `sug`, `ubi`, `date`, `by` | miembros | miembros (borrar: creador) |
 | `ventas/{id}` | `folio`, `items[] {pn, xid?, es, car, qty, price, lista?, prev?}`, `sub`, `desc`, `total`, `cliente`, `cliId?`, `puntos?`, `date`, `by`, `byName`, `sinSenal?`, `cancelada?`, `canceladaPor?`, `canceladaFecha?`. `prev` = cómo estaba la pieza al venderla; cancelar marca `cancelada` y no borra | creador; vendedor solo las suyas | crear: miembros (vendedor máx. 10 % de descuento); editar/borrar: creador |

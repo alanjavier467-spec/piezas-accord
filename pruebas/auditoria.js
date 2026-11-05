@@ -128,4 +128,22 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   log('tienda-buscador',!!tq&&/Calavera derecha/i.test(tt),tq?(/Calavera derecha/i.test(tt)?'"calabera" encuentra la calavera en la tienda':'no encontró la calavera'):'no hallé el buscador de la tienda');
   await p.context().close();
 
+  // 16) Fotos "por pantalla": la primera vez el dueño arma la lista ligera; las miniaturas se bajan solo al verse
+  const PX='data:image/gif;base64,R0lGODlhAQABAAAAACw=';const pns=[...new Set(data.parts.map(x=>x.pn))].slice(0,60);
+  const sf={...JSON.parse(JSON.stringify(base))};pns.forEach((q,i)=>{sf['fotos/f'+i]={pn:q,thumb:PX,cond:'Usado',car:'A1',date:'2026-10-'+String(10+i%20).padStart(2,'0')+'T10:00:00Z',by:'u1'}});
+  sf['estado/A1']={m:{[pns[0]]:{s:'quitada',n:1}}};
+  p=await page(b,{state:sf});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(3000);
+  S=await p.evaluate(()=>window.__S);const idx=S['indice/fotos'];const r0=await p.evaluate(()=>window.__reads.fotos||0);
+  await p.fill('#q',pns[0]);await p.waitForTimeout(900);const im=await p.evaluate(()=>{const i=document.querySelector('#view .item img[data-tf]');return i?!!i.getAttribute('src'):null});const r1=await p.evaluate(()=>window.__reads.fotos||0);
+  await p.waitForTimeout(4500);S=await p.evaluate(()=>window.__S);const pubF=(S['publico/inventario'].items||[]).map(x=>JSON.parse(x)).find(x=>x[0]===pns[0]);
+  log('fotos-indice',idx&&Object.keys(idx.m).length===60&&r0===0&&im===true&&r1<=3&&pubF&&pubF[4]==='f0',`lista ligera con ${idx?Object.keys(idx.m).length:0} fotos; miniaturas bajadas al abrir: ${r0}; al buscar 1 pieza: ${r1}, miniatura visible: ${im}; la tienda publica su foto: ${pubF?pubF[4]:'no'}`);
+  await p.context().close();
+  // 17) Con la lista ya armada, una foto subida por un teléfono con la app vieja se agrega sola
+  const sg=JSON.parse(JSON.stringify(sf));sg['indice/fotos']=JSON.parse(JSON.stringify(idx));sg['fotos/nueva']={pn:pns[1],thumb:PX,cond:'',car:'',date:'2026-11-04T10:00:00Z',by:'e1'};
+  p=await page(b,{state:sg});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(3000);
+  S=await p.evaluate(()=>window.__S);const ra=await p.evaluate(()=>window.__reads.fotos||0);
+  await p.fill('#q',pns[2]);await p.waitForTimeout(900);const im2=await p.evaluate(()=>{const i=document.querySelector('#view .item img[data-tf]');return i?!!i.getAttribute('src'):null});const rb=await p.evaluate(()=>window.__reads.fotos||0);
+  log('fotos-nuevas',!!S['indice/fotos'].m.nueva&&ra===0&&im2===true&&rb-ra===1,`foto de app vieja agregada a la lista: ${!!S['indice/fotos'].m.nueva}; miniaturas al abrir: ${ra}; al buscar 1 pieza se bajó ${rb-ra} y se ve: ${im2}`);
+  await p.context().close();
+
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});
