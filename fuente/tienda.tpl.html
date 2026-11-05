@@ -254,6 +254,8 @@ let ME=null,CLI=null,STAFF=false,SIGNING=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
+__BUSQUEDA__
+let BUS=null;
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
 const LSg=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};const LSs=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const VERS=[['','Todas las versiones (Sport)'],['18','2018 Sport · 1.5T CVT'],['19','2019 Sport · 1.5T CVT'],['20','2020 Sport · 1.5T CVT'],['20T','2020 Sport · 2.0T']];
@@ -342,9 +344,9 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
-function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');
+function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
   return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||w.every(t=>it.key.includes(t))))}
+    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>

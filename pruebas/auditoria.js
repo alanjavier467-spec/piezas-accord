@@ -21,7 +21,9 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   // 2) Buscador
   const Q=['calavera','luz trasera','stop','tail light','calabera','faro','fraro','headlight','defensa','facia','fascia','parachoques','bumper','espejo','retrovisor','33100','33100TVA','tva a01','rin','undefined','salpicadera','cofre','cajuela','tapete','bocina','claxon','estereo','radio'];
   const res={};for(const q of Q){await p.fill('#q',q);await p.waitForTimeout(350);res[q]=await p.evaluate(()=>{const h=[...document.querySelectorAll('#view .hint')].map(e=>e.textContent).find(t=>/resultado/.test(t));return h?parseInt(h):0})}
-  fs.writeFileSync(path.join(OUT,'busquedas.json'),JSON.stringify(res,null,1));log('buscador',true,JSON.stringify(res));
+  fs.writeFileSync(path.join(OUT,'busquedas.json'),JSON.stringify(res,null,1));
+  const deben=['calavera','calabera','fraro','facia','estereo','retrovisor','luz trasera','tail light','tapete','bocina'];const sin=deben.filter(q=>!res[q]);
+  log('buscador',!sin.length&&res.calavera<=20&&res.tapete<=30,sin.length?'sin resultados: '+sin.join(', '):JSON.stringify(res))
   await p.context().close();
 
   // 3) Venta de una pieza que otro ya vendió (carrito viejo en el teléfono)
@@ -101,6 +103,29 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   p=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A1',year:'2018',ver:'',color:'',foto:'',n:1}],items:[JSON.stringify([pn,500,1,'A1','','',0,1])],xs:[],rev:[]}}});
   await p.goto(URL+'tienda.html#buscar');await p.waitForTimeout(2500);
   const txt=await p.evaluate(()=>document.body.innerText);log('tienda-en-carro',/En el carro/.test(txt),/En el carro/.test(txt)?'la tienda dice "En el carro" para piezas sin desmontar':'no aparece la etiqueta');
+  await p.context().close();
+
+  // 13) Apartar una pieza: deja de estar disponible y guarda para quién y hasta cuándo
+  const st8={...JSON.parse(JSON.stringify(base)),'estado/A1':{m:{[pn]:{s:'quitada',n:1,u:'T-1'}}}};
+  p=await page(b,{state:st8});const resp=['Juan 6141234567','24'];p.on('dialog',d=>d.accept(resp.shift()));
+  await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2000);await p.fill('#q',pn);await p.waitForTimeout(500);await p.click('[data-open]');await p.waitForTimeout(600);
+  await p.click('.carrow details summary');await p.click('[data-setst="apartada"]');await p.waitForTimeout(600);
+  S=await p.evaluate(()=>window.__S);const ap=S['estado/A1'].m[pn];const btnAdd=await p.$('[data-add]');
+  log('apartar',ap.s==='apartada'&&ap.ap&&ap.ap.q.startsWith('Juan')&&ap.n===1&&!btnAdd,`estado: ${JSON.stringify({s:ap.s,n:ap.n,q:ap.ap&&ap.ap.q})}; botón de carrito visible: ${!!btnAdd}`);
+  await p.context().close();
+
+  // 14) Accord 2021: el faro (cambió con el facelift) no se publica como disponible sin revisarlo
+  const st9={...JSON.parse(JSON.stringify(base)),'carros/A1':{code:'A1',year:'2021',def:'esta',color:'NH731P'}};
+  p=await page(b,{state:st9});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
+  S=await p.evaluate(()=>window.__S);const its=(S['publico/inventario'].items||[]).map(x=>JSON.parse(x)[0]);
+  log('accord-2021',!its.includes('33100-TVA-A01')&&(S['publico/inventario'].rev||[]).includes('33100-TVA-A01'),`faro 33100-TVA-A01 publicado como disponible: ${its.includes('33100-TVA-A01')}; como "por confirmar": ${(S['publico/inventario'].rev||[]).includes('33100-TVA-A01')}`);
+  await p.context().close();
+
+  // 15) Buscador de la tienda tolerante a errores
+  p=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A1',year:'2018'}],items:[],xs:[],rev:[]}}});
+  await p.goto(URL+'tienda.html#catalogo');await p.waitForTimeout(2500);const tq=await p.$('#q');
+  if(tq){await p.fill('#q','calabera');await p.waitForTimeout(900)}const tt=await p.evaluate(()=>document.body.innerText);
+  log('tienda-buscador',!!tq&&/Calavera derecha/i.test(tt),tq?(/Calavera derecha/i.test(tt)?'"calabera" encuentra la calavera en la tienda':'no encontró la calavera'):'no hallé el buscador de la tienda');
   await p.context().close();
 
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});

@@ -87,6 +87,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
+__BUSQUEDA__
+const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
 const VERSION='__VERSION__';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
@@ -101,8 +103,11 @@ function verOf(c){if(!c)return null;if(c._v!==undefined)return c._v;let r=null;
     if(!r){const y=String(c.year||'');r=y==='2018'?'18':y==='2019'?'19':/^20(2\d)$/.test(y)?'20':null}}
   try{Object.defineProperty(c,'_v',{value:r,enumerable:false})}catch(e){}return r}
 function yNum(p,ver){if(ver==='20'&&p.y&&p.y['20']==='')return null;if(!ver||ver==='20'||!p.y||!(ver in p.y))return p.pn;const y=p.y[ver];return y===''?null:[].concat(y).join(' / ')}
+// Accord 2021–2022 (facelift): estas secciones cambiaron (rines, faro de niebla, faro, facia delantera, parrilla); sin dato del usuario quedan "Por revisar"
+const FACE21=new Set([35,51,57,109,111]);
+const es21=c=>{const v=(c.vin||'').toUpperCase().trim();return (v.length===17&&/[MN]/.test(v[9]))||+c.year>=2021};
 function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
-const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
+const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['apartada','Apartada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
 const AVAIL=s=>s==='esta'||s==='quitada';
 const EMP_MAX_DISC=10;
@@ -139,6 +144,8 @@ const units=p=>p&&p.cr?p.cr:1;
 function stOf(car,pn,mm){const p=BYPN[pn];if(p&&p.ext&&car.color&&p.ext!==car.color)return {s:'na',n:0};
   if(p&&p.y){const vr=verOf(car);if(vr&&p.y[vr]==='')return {s:'na',n:0}}
   const e=((mm||EST[car.id])||{})[pn];const def=car.def||'esta';
+  if(!e&&p&&FACE21.has(p.s)&&es21(car))return {s:'revisar',n:0};
+  if(e&&e.s==='apartada'&&e.ap&&Date.parse(e.ap.v)<Date.now())return {s:AVAIL(e.prev)?e.prev:'quitada',n:e.n||units(p)};
   if(!e)return {s:def,n:AVAIL(def)?units(p):0};
   return {s:e.s,n:e.n!=null?e.n:(AVAIL(e.s)?units(p):0)}}
 const availCars=pn=>carsSorted().map(c=>({c,x:stOf(c,pn)})).filter(o=>AVAIL(o.x.s)&&o.x.n>0);
@@ -160,13 +167,13 @@ const imgTag=p=>`<img data-s="${p.s}" data-k="${esc(p.pn+'|'+p.ref)}" alt="">`;
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?`<img src="${f[0].thumb}" alt="Foto real">`:imgTag(p)};
 
 // ---- búsqueda ----
-function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];
+function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
   const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.toLowerCase().includes(compact))altHits.add(v.pn)}
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
     else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
     else if(altHits.has(p.pn))sc=90;
-    else if(words.every(w=>p.key.includes(w))){sc=10;if(norm(p.es).startsWith(words[0]))sc+=6;if(norm(p.es).includes(nq))sc+=4;if(norm(p.en).includes(nq))sc+=3}
+    else if(BUS.cumple(p.key,EX.grupos)){sc=10;const es=norm(p.es);if(es.startsWith(cw[0]))sc+=6;if(es.includes(cq))sc+=4;else if(cw.every(w=>es.includes(w)))sc+=2;if(norm(p.en).includes(cq))sc+=3}
     if(sc)out.push([sc,p])}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
@@ -191,13 +198,15 @@ function vBuscar(){let arr=search(st.q);
   if(!arr){if(st.onlyStock||st.cat)arr=PARTS;else{
     const tips=['faro','headlight','espejo','sensor','bomba','defensa','33100','módulo','rin','asiento'];
     view.innerHTML=`<button class="btn alt" data-intake style="width:100%;margin-bottom:10px;font-size:17px;padding:14px">📷 Agregar pieza con foto</button>`+chips+(EXTRAS.filter(xAvail).length?`<p class="sec-h">Piezas que agregaste con foto (${EXTRAS.filter(xAvail).length})</p><div class="list">${EXTRAS.filter(xAvail).slice(0,6).map(xItemHTML).join('')}</div>`:'')+`<div class="card"><b>Escribe arriba lo que buscas.</b><p class="hint" style="margin:.4em 0 0">Número completo o un pedazo (con o sin guiones), nombre en español o en inglés, o el número que trae la pieza si lo guardaron como alterno.</p><div class="row" style="margin-top:8px">${tips.map(t=>`<button class="chip" data-try="${t}">${t}</button>`).join('')}</div></div>
-    <div id="offline-card"></div>
+    <div id="offline-card"></div>${OWN&&LS.get('sinRes',[]).length?`<details class="card"><summary><b>Búsquedas sin resultado</b> <span class="hint">(en este teléfono)</span></summary><p class="hint" style="margin:.4em 0">Si alguna es otra forma de llamar a una pieza, agrégala a <code>fuente/sinonimos.json</code>.</p><div class="row">${LS.get('sinRes',[]).map(q=>`<button class="chip" data-try="${esc(q)}">${esc(q)}</button>`).join('')}</div></details>`:''}
     <p class="sec-h">O explora por categoría</p>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${PARTS.filter(p=>SECS[p.s].cat===c).length} piezas ›</span></button>`).join('')}`;renderOffline();return}}
   if(st.cat)arr=arr.filter(p=>SECS[p.s].cat===st.cat);
   if(st.onlyStock)arr=arr.filter(p=>availCars(p.pn).length);
   const seen=new Set();arr=arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn));
   const xs=st.q?searchExtras(st.q).filter(x=>!st.onlyStock||xAvail(x)):[];
-  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}</p>`+renderList(arr)}
+  // búsquedas sin resultado (en este teléfono): sirven para saber qué sinónimo falta agregar
+  if(st.q&&!arr.length&&!xs.length&&!st.cat&&!st.onlyStock){clearTimeout(window._sr);window._sr=setTimeout(()=>{const q=norm(st.q).trim();if(q.length<3)return;const L=LS.get('sinRes',[]).filter(x=>x!==q);L.unshift(q);LS.set('sinRes',L.slice(0,30))},1500)}
+  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}${Object.keys(CORR).length?' · buscando también: <b>'+Object.entries(CORR).map(([a,b])=>esc(b)).join(', ')+'</b>':''}</p>`+renderList(arr)}
 function vCatalogo(){
   if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
     view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}
@@ -207,7 +216,7 @@ function vCatalogo(){
   if(st.catView){const ss=SECS.filter(s=>s.cat===st.catView);
     view.innerHTML=`<button class="back" data-back="cat">‹ Categorías</button><h2 class="title">${esc(st.catView)}</h2>${ss.map(s=>`<button class="cat" data-sec="${s.i}"><b>${esc(s.es)}</b><span>${s.n} ›</span></button>`).join('')}`;return}
   view.innerHTML=`<h2 class="title">Catálogo por diagrama</h2>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${SECS.filter(s=>s.cat===c).length} secciones ›</span></button>`).join('')}`}
-function carCounts(c){const k={esta:0,quitada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
+function carCounts(c){const k={esta:0,quitada:0,apartada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
 const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}catch(e){return s}};
 function vCarros(){
   if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
@@ -356,7 +365,7 @@ function render(){if(PIN4&&ME&&!OWN){view.innerHTML=`<div class="card form" styl
 // ---- ficha ----
 let openIdx=null, SHEET='';
 function yHTML(p){const rows=YK.map(k=>{const n=k==='20'?(p.y&&p.y['20']===''?null:p.pn):(p.y&&k in p.y?(p.y[k]===''?null:[].concat(p.y[k]).join(' / ')):p.pn);return [k,n]});
-  if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">Mismo número en 2018, 2019 y 2020 (1.5T y 2.0T).</p>`;
+  if(rows.every(r=>r[1]===p.pn))return `<p class="hint" style="margin:0">El catálogo (2020 Sport) no marca otro número para 2018, 2019 ni 2.0T. Si la pieza física trae otro número, guárdalo abajo.</p>`;
   return `<div class="card"><b>Número según el año</b><dl class="meta" style="margin-top:6px">${rows.map(([k,n])=>`<dt>${YL[k]}</dt><dd>${n?`<span class="pn">${esc(n)}</span>${n===p.pn&&k!=='20'?' <span class="hint">igual</span>':''}`:'<span class="hint">No viene en esta versión</span>'}</dd>`).join('')}</dl></div>`}
 function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];const others=PARTS.filter(x=>x.pn===p.pn&&x.i!==p.i);const pr=PRICE[p.pn]||'';
   const cs=carsSorted();const av=availCars(p.pn);const alts=altsOf(p.pn);
@@ -378,7 +387,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
      <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(sugOf(p.pn)||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
      :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda: ${money(newOf(p))}</span>`:''}</div>`}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
-    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':STL[x.s]}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
+    ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':x.s==='revisar'&&FACE21.has(p.s)&&es21(c)&&!(EST[c.id]||{})[p.pn]?'Por revisar (2021–22 cambió)':STL[x.s]}${x.s==='apartada'?(()=>{const a=((EST[c.id]||{})[p.pn]||{}).ap||{};return ' · '+esc(a.q||'')+' hasta '+(a.v?new Date(a.v).toLocaleString('es-MX',{weekday:'short',hour:'numeric',minute:'2-digit'}):'')})():''}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${AVAIL(x.s)?`<div class="hint" style="margin-top:4px">📍 ${ubiOf(c.id,p.pn)?`<b>${esc(ubiOf(c.id,p.pn))}</b>`:(x.s==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado o lugar</summary>${segHTML(c,p.pn,x.s)}
        <div class="drow" style="margin-top:8px"><input id="ubi-${c.id}" list="ubis" placeholder="Lugar: T-3, G-1…" value="${esc(ubiOf(c.id,p.pn))}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0"><button class="btn ghost" data-saveubi="${c.id}">Guardar lugar</button></div></details>`}</div>
@@ -386,7 +395,10 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
   </div>`;
   sheet.insertAdjacentHTML('beforeend',ubiList());
   {const box=sheet.querySelector('.pcar');if(box&&box.querySelector('.parr')){let x0=null;box.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});box.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)pcarGo(box,dx<0?1:-1)},{passive:true})}}
+  if(OWN){sheet.querySelector('.wrap.body').insertAdjacentHTML('beforeend',`<details class="card" data-hist="${esc(p.pn)}"><summary><b>Historial de esta pieza</b></summary><div class="hint" id="hist-b">Cargando…</div></details>`);loadHist(p.pn)}
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+async function loadHist(pn){try{const sn=await getDocs(query(collection(fs,'movimientos'),where('pn','==',pn),limit(40)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const el=$('#hist-b');if(!el)return;
+  el.innerHTML=L.length?L.map(m=>`${new Date(m.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})} · ${esc(m.car?carCode(m.car):'')} · ${esc(m.tipo)}: ${esc(STL[m.de]||m.de||'')} → ${esc(STL[m.a]||m.a||'')}${m.qty?' ('+m.qty+')':''} · ${esc(m.byName||'')}`).join('<br>'):'Sin movimientos registrados todavía.'}catch(e){const el=$('#hist-b');if(el)el.textContent='No se pudo cargar.'}}
 // capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
 let LAYERS=0;
 function showSheet(){if(sheet.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}sheet.hidden=false}
@@ -473,7 +485,13 @@ const toast=m=>{const el=document.createElement('div');el.className='card';el.st
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
 function setUbi(carId,pn,u){u=String(u||'').trim().toUpperCase();const cur=Object.assign({},(EST[carId]||{})[pn]||stOf(CARS.find(c=>c.id===carId),pn));cur.u=u;EST[carId]=Object.assign({},EST[carId]||{},{[pn]:cur});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:{s:cur.s,n:cur.n!=null?cur.n:0,u}}},{merge:true}).catch(e=>toast(errMsg(e)))}
-function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const val={s,n:AVAIL(s)?units(p):0,u:AVAIL(s)?(old.u||''):''};EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});
+function setStatus(carId,pn,s){const p=BYPN[pn];const old=(EST[carId]||{})[pn]||{};const c=CARS.find(x=>x.id===carId);const cur=c?stOf(c,pn):{s:old.s,n:old.n};
+  // la cantidad se respeta si la pieza sigue disponible (antes se reiniciaba a 1)
+  const keepN=(AVAIL(cur.s)||cur.s==='apartada')&&cur.n>0?cur.n:units(p);
+  let val={s,n:AVAIL(s)?keepN:0,u:AVAIL(s)?(old.u||''):''};
+  if(s==='apartada'){const q=(prompt('¿Para quién se aparta? (nombre o teléfono)')||'').trim();if(!q)return;const h=Math.max(1,Math.min(240,parseInt(prompt('¿Cuántas horas la apartas?','48'))||48));
+    val={s:'apartada',n:AVAIL(cur.s)?keepN:units(p),u:old.u||'',prev:AVAIL(cur.s)?cur.s:'quitada',ap:{q,v:new Date(Date.now()+h*36e5).toISOString(),by:PROFILE?.name||ME.email}}}
+  EST[carId]=Object.assign({},EST[carId]||{},{[pn]:val});mov1({tipo:'estado',pn,car:carId,de:cur.s,a:s,qty:val.n});
   setDoc(doc(fs,'estado',carId),{m:{[pn]:val}},{merge:true}).catch(e=>toast(errMsg(e)))}
 async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c-status');
   const body={code:v('code').trim().toUpperCase()||'A?',year:v('year').trim(),vin:v('vin').trim().toUpperCase(),color:v('color'),km:v('km').trim(),llegada:v('llegada'),notas:v('notas'),trim:(CARS.find(c=>c.id===id)||{}).trim||'Sport',ver:v('ver'),link360:v('link360').trim(),n360:(CARS.find(c=>c.id===id)||{}).n360||0};
