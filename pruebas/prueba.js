@@ -6,7 +6,7 @@ const {chromium}=require('playwright');const path=require('path'),fs=require('fs
 const RAIZ=path.join(__dirname,'..'),OUT=path.join(__dirname,'capturas');fs.mkdirSync(OUT,{recursive:true});
 const OWNER=JSON.parse(fs.readFileSync(path.join(RAIZ,'fuente','config.json'),'utf8')).ownerEmail;
 const URL='http://localhost:8767/';
-(async()=>{const b=await chromium.launch();const errs=[];
+(async()=>{const b=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});const errs=[];
   const ctx=await b.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
   for(const m of ['app','auth','firestore'])await ctx.route('https://www.gstatic.com/firebasejs/10.12.2/firebase-'+m+'.js',r=>r.fulfill({path:path.join(__dirname,'mock',(m==='firestore'?'fs':m)+'.js'),contentType:'text/javascript'}));
   // 1) la app como dueño

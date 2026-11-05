@@ -21,18 +21,20 @@ Las cuentas son de Firebase Authentication. El usuario se convierte en `u<sha256
 | `users/{uid}` | `name`, `user`, `email`, `role` (`dueño`/`empleado`), `active`, `pending`, `created` | creador, o uno mismo | creador; uno mismo solo para registrarse inactivo |
 | `carros/{id}` | `code` (A1…), `year`, `vin`, `color` (código de pintura Honda), `km`, `llegada`, `notas`, `trim`, `ver` (versión), `def` (estado por defecto de sus piezas), `foto`, `link360`, `n360` | miembros | creador |
 | `privado/{carId}` | `costo` (lo que costó el carro) | creador | creador |
-| `estado/{carId}` | `m: { <númeroDeParte>: { s, n, u?, prev? } }`. `s` = `esta` (está en el carro), `quitada` (desmontada, a la venta), `vendida`, `mala`, `revisar`, `falta`/`na`; `n` = cantidad; `u` = lugar (T-1…, G-1…) | miembros | miembros (borrar: creador) |
+| `estado/{carId}` | `m: { <númeroDeParte>: { s, n, u?, prev?, ap? } }`. `s` = `esta` (está en el carro), `quitada` (desmontada, a la venta), `apartada` (`ap: {q: para quién, v: vence ISO, by}`; al vencer vuelve a `prev`), `vendida`, `mala`, `revisar`, `falta`/`na`; `n` = cantidad; `u` = lugar (T-1…, G-1…) | miembros | miembros (borrar: creador) |
 | `precios/{pn}` | `price`, `es` | miembros | creador |
 | `alternos/{númeroAlterno}` | `pn` (número de catálogo), `es`, `by`, `date` | miembros | miembros |
 | `fotos/{id}` | `pn` (o `X:<idExtra>`), `thumb` (JPEG base64 de 200 px), `cond`, `nota`, `car`, `date`, `by` | cualquiera por id; miembros para listar | miembros (editar/borrar: quien la subió o creador) |
 | `fotosfull/{id}` | `pn`, `img` (JPEG base64 de 1100 px) | igual que `fotos` | igual que `fotos` |
 | `extras/{id}` | Piezas agregadas fuera del catálogo: `name`, `num`, `cond`, `nota`, `car`, `qty`, `status` (`disponible`/`vendida`), `price`, `sug`, `ubi`, `date`, `by` | miembros | miembros (borrar: creador) |
-| `ventas/{id}` | `folio`, `items[] {pn, xid?, es, car, qty, price}`, `sub`, `desc`, `total`, `cliente`, `cliId?`, `puntos?`, `date`, `by`, `byName` | creador; vendedor solo las suyas | crear: miembros (vendedor máx. 10 % de descuento); editar/borrar: creador |
+| `ventas/{id}` | `folio`, `items[] {pn, xid?, es, car, qty, price, lista?, prev?}`, `sub`, `desc`, `total`, `cliente`, `cliId?`, `puntos?`, `date`, `by`, `byName`, `sinSenal?`, `cancelada?`, `canceladaPor?`, `canceladaFecha?`. `prev` = cómo estaba la pieza al venderla; cancelar marca `cancelada` y no borra | creador; vendedor solo las suyas | crear: miembros (vendedor máx. 10 % de descuento); editar/borrar: creador |
+| `movimientos/{id}` | `tipo` (venta, cancelación, estado), `pn`, `car`, `de`, `a`, `qty`, `ref?`, `date`, `by`, `byName` | creador | crear: cada miembro con su propio `by`; nadie edita |
 | `clientes/{uid}` | `user`, `name`, `tel`, `email`, `created`, `puntos`, `compras`, `ultimaCompra` | miembros o el propio cliente | el propio cliente; miembros suman puntos |
 | `solicitudes/{id}` | `uid`, `user`, `name`, `tel`, `pay`, `coment`, `total`, `date`, `items[] {k, pn, es, qty, price}` | creador o el cliente que la hizo | crear: el cliente (con su propio `uid`) |
 | `config/negocio` | `nombre`, `tel`, `wa`, `dir`, `pie`, `maxDuenos` (1–4) | miembros | creador |
 | `vista360/{carId}_{i}` | `car`, `i`, `img`: cuadros de la vista 360° | miembros | creador |
-| `publico/inventario` | Resumen público para la tienda (ver abajo) | **cualquiera** | miembros. Debe traer la lista de `cars` |
+| `config/lotes` | `hechos: { <idLote>: {date, by} }`: lotes ya subidos (para no subirlos dos veces) | miembros | creador |
+| `publico/inventario` | Resumen público para la tienda (ver abajo) | **cualquiera** | creador; el vendedor solo si no cambia `wa`, `nombre`, `dir`, `pie`. Debe traer la lista de `cars` |
 
 ### `publico/inventario` (lo que lee la tienda)
 
@@ -44,8 +46,8 @@ La app de cualquier miembro lo arma y lo guarda solo, unos segundos después de 
   t: "2026-10-28T07:50:01Z",           // cuándo se armó
   nombre, dir, pie, wa,                // datos del negocio
   cars:  [{code, year, ver, color, foto, n}],   // carros donadores (sin la Bodega)
-  items: ['["33100-TVA-A01",6800,1,"A1,A4","fotoId1,fotoId2","Usado",1]'],
-         //  [número, precio, cantidad, carros, fotos, condición, ¿precio sugerido?]
+  items: ['["33100-TVA-A01",6800,1,"A1,A4","fotoId1,fotoId2","Usado",1,0]'],
+         //  [número, precio, cantidad, carros, fotos, condición, ¿precio sugerido?, ¿solo montada en el carro?]
   xs:    ['["x-id","Nombre","num",precio,cant,"A2","fotoIds","Usado"]'],  // piezas agregadas
   rev:   ["número", …]                 // piezas "por confirmar"
 }

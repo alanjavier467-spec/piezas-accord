@@ -41,7 +41,9 @@ fuente/                  ← AQUÍ se hacen los cambios
   firestore.rules        reglas de seguridad (plantilla con __OWNER_EMAIL__)
   build_repo.py          arma las páginas finales
   config.example.json    configuración de ejemplo (sin claves)
-  config.json            tu configuración real (no se comparte)
+  config.json            tu configuración real (está en el repositorio; sus datos son públicos por diseño)
+  busqueda.js            buscador tolerante que comparten app y tienda
+  sinonimos.json         palabras que significan lo mismo (calavera = luz trasera = stop…); agrégale las tuyas
   manifest.webmanifest   datos de la app instalable
   build.py               script viejo, ya no se usa
 data.json                catálogo: 144 secciones y miles de piezas (número de parte, nombre en español e inglés, años)
