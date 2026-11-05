@@ -289,7 +289,7 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updatePassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocs,query,where,orderBy,limit,writeBatch,runTransaction,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocFromCache,getDocs,deleteField,query,where,orderBy,limit,writeBatch,runTransaction,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG={"apiKey": "AIzaSyDzuZ87H9TLq6RHyDx0Vd_K_ancv7EguhI", "authDomain": "piezas-accord.firebaseapp.com", "projectId": "piezas-accord", "storageBucket": "piezas-accord.firebasestorage.app", "messagingSenderId": "543559376331", "appId": "1:543559376331:web:bb32ea7e32bf5078b12a4e"};
 const OWNER='alanjavier467@gmail.com';
@@ -347,7 +347,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261105-0235';
+const VERSION='20261105-1114';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -422,7 +422,29 @@ const dcache={};const diagrams=i=>dcache[i]||(dcache[i]=fetch('d/'+i+'.json').th
 const io=new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting)return;const img=e.target;io.unobserve(img);bundle(+img.dataset.s).then(b=>{const u=b[img.dataset.k];if(u)img.src=u;else img.alt='Sin foto'})})},{rootMargin:'300px'});
 const hookImgs=root=>root.querySelectorAll('img[data-k]').forEach(i=>io.observe(i));
 const imgTag=p=>`<img data-s="${p.s}" data-k="${esc(p.pn+'|'+p.ref)}" alt="">`;
-const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?`<img src="${f[0].thumb}" alt="Foto real">`:imgTag(p)};
+// ---- fotos reales "por pantalla" (como los chunks de Minecraft) ----
+// La lista de fotos (sin imagen) viene de un solo documento: indice/fotos. Cada miniatura se baja de fotos/{id}
+// solo cuando aparece en pantalla, y se guarda en el teléfono para no volver a pedirla.
+const THUMB={},TQ={};let IDXM={};
+const fmeta=v=>({pn:v.pn||'',cond:v.cond||'',nota:v.nota||'',car:v.car||'',date:v.date||'',by:v.by||'',byName:v.byName||''});
+const idxSet=(id,v)=>setDoc(doc(fs,'indice','fotos'),{m:{[id]:v}},{merge:true}).catch(e=>console.warn('indice',e));
+function thumbOf(id){if(THUMB[id]!=null)return Promise.resolve(THUMB[id]);if(TQ[id])return TQ[id];
+  return TQ[id]=(async()=>{let d=null;try{d=await getDocFromCache(doc(fs,'fotos',id))}catch(e){}
+    if(!d||!d.exists()){try{d=await getDoc(doc(fs,'fotos',id))}catch(e){d=null}}
+    if(d&&!d.exists()&&IDXM[id]&&navigator.onLine)idxSet(id,deleteField()); // la foto ya no existe: se quita de la lista
+    const u=d&&d.exists()?((d.data()||{}).thumb||''):'';if(d)THUMB[id]=u;delete TQ[id];return u})()}
+const thumbImg=(id,alt,extra)=>`<img data-tf="${esc(id)}"${THUMB[id]?` src="${THUMB[id]}"`:''} alt="${alt||''}"${extra||''}>`;
+const tio=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const im=e.target;tio.unobserve(im);thumbOf(im.dataset.tf).then(u=>{if(u&&!im.dataset.full&&!im.getAttribute('src'))im.src=u})}),{rootMargin:'300px'});
+const watchThumbs=root=>{if(root&&root.querySelectorAll)root.querySelectorAll('img[data-tf]:not([src])').forEach(i=>tio.observe(i))};
+new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType!==1)return;if(n.matches('img[data-tf]:not([src])'))tio.observe(n);else watchThumbs(n)}))).observe(document.body,{childList:true,subtree:true});
+// arma o completa el índice: la primera vez lo arma el dueño leyendo todas las fotos (una sola vez);
+// después cualquier miembro agrega solo las fotos nuevas que suban teléfonos con la app vieja o lotes
+let IDXSYNC=false;
+async function syncIdx(d){if(IDXSYNC||!navigator.onLine)return;const x=d.exists()?d.data():null;if(!x&&!OWN)return;IDXSYNC=true;
+  try{const q=x&&x.v===1&&x.ult?query(collection(fs,'fotos'),where('date','>',x.ult)):collection(fs,'fotos');const sn=await getDocs(q);
+    const m={};let ult=(x&&x.ult)||'';sn.docs.forEach(f=>{const v=f.data()||{};if(v.thumb)THUMB[f.id]=v.thumb;if(!x||!(x.m||{})[f.id])m[f.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});
+    if(!x||Object.keys(m).length||ult!==x.ult)await setDoc(doc(fs,'indice','fotos'),{v:1,ult,m},{merge:true})}catch(e){console.warn('indice',e);IDXSYNC=false}}
+const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto real'):imgTag(p)};
 
 // ---- búsqueda ----
 function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
@@ -442,7 +464,7 @@ function itemHTML(p,pre){const nf=(FOTOS[p.pn]||[]).length;
    <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.pn)}</span><span class="es">${esc(p.es)}</span>${p.en?`<span class="en">${esc(p.en)}</span>`:''}</span>
    <span class="r">${priceHTML(p.pn)}${availHTML(p.pn)}</span></button>`}
 function xItemHTML(x){const f=FOTOS['X:'+x.id]||[];
-  return `<button class="item" data-openx="${esc(x.id)}"><span class="ph">${f.length?`<img src="${f[0].thumb}" alt="">`:'📦'}</span>
+  return `<button class="item" data-openx="${esc(x.id)}"><span class="ph">${f.length?thumbImg(f[0].id):'📦'}</span>
    <span class="t"><span class="realtag">Agregada</span>${x.num?`<span class="pn">${esc(x.num)}</span>`:''}<span class="es">${esc(x.name)}</span>${x.cond?`<span class="en">${esc(x.cond)}</span>`:''}</span>
    <span class="r">${x.price?`<span class="price">${money(x.price)}</span>${x.sug?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}${xAvail(x)?`<span class="avail"><span class="cb">${esc(x.car?carCode(x.car):'Bodega')}${x.qty>1?'×'+x.qty:''}</span></span>`:'<span class="stock n">Vendida</span>'}</span></button>`}
 function searchExtras(q){const nq=norm(q).trim();if(!nq)return [];const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
@@ -736,7 +758,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261105-0235</p></div>`;
+   <p class="note">Versión 20261105-1114</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -894,10 +916,12 @@ async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)re
       if(e.alt)for(const a of [].concat(e.alt)){const k=String(a).toUpperCase().replace(/[^A-Z0-9-]/g,'');if(k.length>=4&&k.replace(/-/g,'')!==e.pn.replace(/-/g,''))ops.push([doc(fs,'alternos',k),{pn:e.pn,es:p.es,by:by.byName,date:now}])}}
     for(const x of J.extras||[]){const old=xById(x.id);if(old&&old.status==='vendida'&&!x.forzar){omit.push(x.name);continue}const c=x.car?CARS.find(y=>y.code===x.car||y.id===x.car):null;ops.push([doc(fs,'extras',x.id),{name:x.name,num:x.num||'',cond:x.cond||'',nota:x.nota||'',car:c?c.id:'',qty:x.qty||1,status:'disponible',price:x.price||0,sug:!!x.sug,ubi:x.ubi||'',date:now,...by}])}
     for(const v of J.ventas||[]){const items=(v.items||[]).map(it=>{const c=it.car?CARS.find(y=>y.code===it.car||y.id===it.car):null;if(it.car&&!c)throw new Error('No existe el carro '+it.car);const p=it.pn?BYPN[it.pn]:null;return {pn:it.pn||'',es:it.es||(p?p.es:''),car:c?c.id:'',qty:it.qty||1,price:+it.price||0,xid:it.xid||''}});const sub=items.reduce((a,it)=>a+it.qty*it.price,0);const vid=v.id||('lote-'+J.id);ops.push([doc(fs,'ventas',vid),{items,sub,desc:v.desc||0,total:v.total!=null?+v.total:sub-(v.desc||0),pago:v.pago||'Efectivo',cliente:v.cliente||'',nota:v.nota||'',date:v.date||now,...by,folio:vid.slice(-6).toUpperCase()}])}
-    for(const m of J.mover||[]){ops.push([doc(fs,'fotos',m.id),{pn:m.pn,...(m.nota!=null?{nota:m.nota}:{})},{merge:true}]);ops.push([doc(fs,'fotosfull',m.id),{pn:m.pn},{merge:true}])}
-    for(const id of (J.borrar||{}).fotos||[]){ops.push([doc(fs,'fotosfull',id),null,'del']);ops.push([doc(fs,'fotos',id),null,'del'])}
+    const IM={};
+    for(const m of J.mover||[]){IM[m.id]=Object.assign({pn:m.pn},m.nota!=null?{nota:m.nota}:{});ops.push([doc(fs,'fotos',m.id),{pn:m.pn,...(m.nota!=null?{nota:m.nota}:{})},{merge:true}]);ops.push([doc(fs,'fotosfull',m.id),{pn:m.pn},{merge:true}])}
+    for(const id of (J.borrar||{}).fotos||[]){IM[id]=deleteField();ops.push([doc(fs,'fotosfull',id),null,'del']);ops.push([doc(fs,'fotos',id),null,'del'])}
     for(const id of (J.borrar||{}).extras||[]){ops.push([doc(fs,'extras',id),null,'del'])}
-    {const t0=Date.now();(J.fotos||[]).forEach((f,k)=>{const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;ops.push([doc(fs,'fotos',f.id),{pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:new Date(t0-k*1000).toISOString(),...by}]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])})}
+    {const t0=Date.now();(J.fotos||[]).forEach((f,k)=>{const c=f.car?CARS.find(y=>y.code===f.car||y.id===f.car):null;const fd={pn:f.pn,thumb:f.thumb,cond:f.cond||'',nota:f.nota||'',car:c?c.id:'',date:new Date(t0-k*1000).toISOString(),...by};IM[f.id]=fmeta(fd);THUMB[f.id]=f.thumb;ops.push([doc(fs,'fotos',f.id),fd]);ops.push([doc(fs,'fotosfull',f.id),{pn:f.pn,img:f.full}])})}
+    if(Object.keys(IM).length)ops.push([doc(fs,'indice','fotos'),{m:IM},{merge:true}]);
     for(let i=0;i<ops.length;i+=20){const b=writeBatch(fs);ops.slice(i,i+20).forEach(([r,d,o])=>o==='del'?b.delete(r):o?b.set(r,d,o):b.set(r,d));await b.commit();stt.textContent='Subiendo… '+Math.min(100,Math.round((i+20)/ops.length*100))+'%'}
     await setDoc(doc(fs,'config','lotes'),{hechos:{[J.id]:{date:now,by:by.byName}}},{merge:true});LOTES[J.id]={date:now};
     LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.'+(omit.length?' No toqué '+omit.length+' piezas que ya estaban vendidas: '+omit.slice(0,8).join(', ')+(omit.length>8?'…':''):'');btn.remove()}
@@ -914,27 +938,27 @@ async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=
 // ---- fotos reales ----
 function galHTML(key,canAdd=true){const f=FOTOS[key]||[];
   return `<div class="card form"><b>Fotos reales${f.length?' ('+f.length+')':''}</b>
-   ${f.length?`<div class="gal">${f.map(x=>`<button data-foto="${esc(x.id)}" aria-label="Ver foto"><img src="${x.thumb}" alt=""><em>${esc([x.car?carCode(x.car):'',x.cond].filter(Boolean).join(' · ')||fmtDate((x.date||'').slice(0,10)))}</em></button>`).join('')}</div>`:'<span class="hint">Todavía no hay fotos de esta pieza.</span>'}
+   ${f.length?`<div class="gal">${f.map(x=>`<button data-foto="${esc(x.id)}" aria-label="Ver foto">${thumbImg(x.id)}<em>${esc([x.car?carCode(x.car):'',x.cond].filter(Boolean).join(' · ')||fmtDate((x.date||'').slice(0,10)))}</em></button>`).join('')}</div>`:'<span class="hint">Todavía no hay fotos de esta pieza.</span>'}
    ${canAdd?`<button class="btn ghost" data-intakefor="${esc(key)}">📷 Agregar foto de esta pieza</button>`:''}</div>`}
 const fullCache={};
 function pcarHTML(p){const f=FOTOS[p.pn]||[];const n=1+f.length;
-  return `<div class="photo pcar" data-pi="0" data-pn="${esc(p.pn)}">${imgTag(p)}${f.map(x=>`<img class="pslide" hidden data-fid="${esc(x.id)}" src="${x.thumb}" alt="Foto real">`).join('')}
+  return `<div class="photo pcar" data-pi="0" data-pn="${esc(p.pn)}">${imgTag(p)}${f.map(x=>thumbImg(x.id,'Foto real',` class="pslide" hidden data-fid="${esc(x.id)}"`)).join('')}
    ${n>1?`<button class="parr l" data-pcar="-1" aria-label="Foto anterior" hidden>‹</button><button class="parr r" data-pcar="1" aria-label="Foto siguiente">›</button><span class="pcount">1 / ${n}</span>`:''}</div>`}
 function pcarGo(box,dir){const ims=[...box.querySelectorAll(':scope > img')];const n=ims.length;let i=(+box.dataset.pi||0)+dir;i=Math.max(0,Math.min(n-1,i));box.dataset.pi=i;
   ims.forEach((im,k)=>im.hidden=k!==i);const l=box.querySelector('.parr.l'),r=box.querySelector('.parr.r');if(l)l.hidden=i===0;if(r)r.hidden=i===n-1;
   const c=box.querySelector('.pcount');if(c)c.textContent=(i+1)+' / '+n;
   const im=ims[i];if(im&&im.dataset.fid&&!im.dataset.full){im.dataset.full='1';const id=im.dataset.fid;(fullCache[id]?Promise.resolve(fullCache[id]):getDoc(doc(fs,'fotosfull',id)).then(d=>fullCache[id]=d.data()?.img)).then(u=>{if(u)im.src=u}).catch(()=>{})}}
 async function showFoto(id){const meta=FOTOLIST.find(x=>x.id===id)||{};
-  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>✕ Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${meta.thumb||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}<button class="zx" data-zclose>✕ Cerrar foto</button>`;
+  zoom.innerHTML=`<div class="zbar"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([meta.car?'Carro '+carCode(meta.car):'',meta.cond,meta.byName].filter(Boolean).join(' · '))}</span><span class="row" style="flex-wrap:nowrap">${OWN||meta.by===ME.uid?`<button data-delfoto="${esc(id)}">Borrar</button>`:''}<button data-zclose>✕ Cerrar</button></span></div><div class="zarea"><img alt="Foto real" src="${THUMB[id]||''}" style="width:100%"></div>${meta.nota?`<div class="zbar"><span>${esc(meta.nota)}</span></div>`:''}<button class="zx" data-zclose>✕ Cerrar foto</button>`;
   showZoom();let pend=false;{let z=1;const area=zoom.querySelector('.zarea'),im=zoom.querySelector('.zarea img');pinch(area,()=>z,v=>{z=Math.min(5,Math.max(1,v));im.style.width=(z*100)+'%'})}
   zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.hasAttribute('data-zclose'))closeTop();
-    if(t.dataset.delfoto){if(!pend){pend=true;t.textContent='¿Seguro? Toca otra vez';return}deleteDoc(doc(fs,'fotosfull',id)).catch(()=>{}).then(()=>deleteDoc(doc(fs,'fotos',id))).catch(e=>toast(errMsg(e)));closeTop();toast('Foto borrada')}};
+    if(t.dataset.delfoto){if(!pend){pend=true;t.textContent='¿Seguro? Toca otra vez';return}deleteDoc(doc(fs,'fotosfull',id)).catch(()=>{}).then(()=>deleteDoc(doc(fs,'fotos',id))).then(()=>idxSet(id,deleteField())).catch(e=>toast(errMsg(e)));closeTop();toast('Foto borrada')}};
   try{const u=fullCache[id]||(fullCache[id]=(await getDoc(doc(fs,'fotosfull',id))).data()?.img);const im=zoom.querySelector('img');if(u&&im)im.src=u}catch(e){}}
 async function shrink(file,max,q){let src,w,h;
   try{src=await createImageBitmap(file);w=src.width;h=src.height}catch(e){src=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file)});w=src.naturalWidth;h=src.naturalHeight}
   const k=Math.min(1,max/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)}
-function savePhotos(key,imgs,meta){imgs.forEach(im=>{const r=doc(collection(fs,'fotos'));
-  setDoc(r,Object.assign({pn:key,thumb:im.thumb,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email},meta)).catch(e=>toast(errMsg(e)));
+function savePhotos(key,imgs,meta){imgs.forEach(im=>{const r=doc(collection(fs,'fotos'));const data=Object.assign({pn:key,thumb:im.thumb,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email},meta);
+  setDoc(r,data).catch(e=>toast(errMsg(e)));THUMB[r.id]=im.thumb;idxSet(r.id,fmeta(data));
   setDoc(doc(fs,'fotosfull',r.id),{pn:key,img:im.full}).catch(()=>{})})}
 // ---- piezas agregadas (fuera del catálogo) ----
 let openX=null;
@@ -1011,7 +1035,7 @@ function intakeSearch(){const v=intakeVals();const stt=$('#i-status');
   stt.className='status';stt.textContent='';const r=candidates(v.num,v.name);INT.cands=r;const box=$('#i-cands');
   const carN=v.car?carCode(v.car):'';
   box.innerHTML=`<p class="sec-h">${r.parts.length||r.xs.length?(r.parts[0]&&r.parts[0].sc>=95?'Esta pieza ya está en el catálogo: únela para no duplicarla':'Encontré piezas parecidas. ¿Es alguna?'):'No encontré nada parecido'}</p>
-   <div class="list">${r.xs.map(x=>`<div class="cand"><span class="ph">${(FOTOS['X:'+x.id]||[])[0]?`<img src="${FOTOS['X:'+x.id][0].thumb}" alt="">`:'📦'}</span><div><span class="realtag">Parecida a una que ya agregaste</span><b>${esc(x.name)}</b><br><span class="pn">${esc(x.num)}</span> · ${money(x.price)}</div>
+   <div class="list">${r.xs.map(x=>`<div class="cand"><span class="ph">${(FOTOS['X:'+x.id]||[])[0]?thumbImg(FOTOS['X:'+x.id][0].id):'📦'}</span><div><span class="realtag">Parecida a una que ya agregaste</span><b>${esc(x.name)}</b><br><span class="pn">${esc(x.num)}</span> · ${money(x.price)}</div>
      <div class="acts"><button class="btn ghost" data-intx="${esc(x.id)}" data-plus="0">Es la misma (solo foto)</button><button class="btn alt" data-intx="${esc(x.id)}" data-plus="1">Es otra igual (+1)</button></div></div>`).join('')}
    ${r.parts.map(({p,sc})=>`<div class="cand"><span class="ph">${phTag(p)}</span><div>${sc>=98&&sc<100?'<span class="realtag">Mismo número (otro año)</span>':sc>=95?'<span class="realtag">Mismo número</span>':'<span class="realtag" style="background:var(--sunk);color:var(--muted)">Parecida</span>'}<span class="pn">${esc(p.pn)}</span><br><b>${esc(p.es)}</b><br><span class="hint">${esc(SECS[p.s].es)} · ${money(priceOf(p.pn))}</span></div>
      <div class="acts"><button class="btn alt" data-intpart="${esc(p.pn)}">Unir con esta</button><button class="btn ghost" data-open="${p.i}">Ver ficha</button></div></div>`).join('')}</div>
@@ -1048,7 +1072,8 @@ function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio|
 // ---- respaldo ----
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
 async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
-  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,fotos:FOTOLIST,clientes:CLIENTES,cortes:CORTES,resenas:RESENAS};
+  try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,clientes:CLIENTES,cortes:CORTES,resenas:RESENAS};
+    {const fq=await getDocs(collection(fs,'fotos'));out.fotos=fq.docs.map(d=>Object.assign({id:d.id},d.data()))}
     // ventas, cortes e historial completos (la pantalla solo carga los últimos)
     {const vq=await getDocs(collection(fs,'ventas'));out.ventas=vq.docs.map(d=>Object.assign({id:d.id},d.data()))}
     {const cq=await getDocs(collection(fs,'cortes'));out.cortes=cq.docs.map(d=>Object.assign({id:d.id},d.data()))}
@@ -1069,6 +1094,7 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
   (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
   (J.movimientos||[]).forEach(v=>ops.push(['movimientos',v.id,strip(v)]));
+  {const m={};let ult='';(J.fotos||[]).forEach(v=>{m[v.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});if((J.fotos||[]).length)ops.push(['indice','fotos',{v:1,ult,m}])}
   // envíos de máximo 6 MB y 400 documentos (Firestore acepta hasta 10 MB y 500)
   let i=0;while(i<ops.length){const b=writeBatch(fs);let bytes=0,k=0;while(i<ops.length&&k<400){const sz=JSON.stringify(ops[i][2]||{}).length;if(k&&bytes+sz>6e6)break;const [c,id,d]=ops[i];b.set(doc(fs,c,id),d);bytes+=sz;k++;i++}
     await b.commit();stt.textContent='Restaurando… '+Math.round(i/ops.length*100)+'%'}
@@ -1129,13 +1155,13 @@ function fbText(key){const isX=key.startsWith('X:');const x=isX?xById(key.slice(
   const pv=precioV(key,price);const pm=enPromo(key)&&price;
   return `${pm?'🔥 '+NEG.promo.n.toUpperCase()+' −'+NEG.promo.pct+'% (hasta el '+promoFin()+')\n':''}${name} — Honda Accord 2018-2020 Sport (original)\n\n💲 ${pv?money(pv)+' MXN':'Precio a tratar'}${pm?' (antes '+money(price)+')':''}\n🔢 Número de parte: ${num}\n${cond?'✅ Estado: '+cond+'\n':''}🚗 Pieza original usada${yrs?' de Accord '+yrs:''}\n📍 Chihuahua, Chih.\n\n📲 WhatsApp: ${wa.replace(/(\d{3})(\d{3})(\d{4})/,'$1 $2 $3')}\n🛒 Ver fotos y más piezas: ${pubURL()}#p=${encodeURIComponent(key)}\n\n#HondaAccord #Accord2018 #Accord2019 #Accord2020 #RefaccionesChihuahua #Yonke`}
 async function fbFiles(key){const out=[];const fl=(FOTOS[key]||[]).slice(0,6);
-  for(const f of fl){try{const u=(await getDoc(doc(fs,'fotosfull',f.id))).data()?.img||f.thumb;if(u)out.push(u)}catch(e){if(f.thumb)out.push(f.thumb)}}
+  for(const f of fl){try{const u=(await getDoc(doc(fs,'fotosfull',f.id))).data()?.img||await thumbOf(f.id);if(u)out.push(u)}catch(e){const t=await thumbOf(f.id);if(t)out.push(t)}}
   if(!out.length&&!key.startsWith('X:')){const p=BYPN[key];try{const b=await bundle(p.s);const u=b[p.pn+'|'+p.ref];if(u)out.push(u)}catch(e){}}
   return Promise.all(out.map(async(u,i)=>{const bl=await (await fetch(u)).blob();return new File([bl],'pieza-'+(i+1)+'.jpg',{type:bl.type||'image/jpeg'})}))}
 async function publishFB(key,btn,lang){const old=btn.innerHTML;btn.textContent='Preparando…';
   try{const text=lang==='en'?fbTextEn(key):fbText(key);let copied=false;try{await navigator.clipboard.writeText(text);copied=true}catch(e){}
     const files=await fbFiles(key);
-    try{const src=(FOTOS[key]||[])[0];let u=null;if(src){try{u=(await getDoc(doc(fs,'fotosfull',src.id))).data()?.img||src.thumb}catch(e){u=src.thumb}}
+    try{const src=(FOTOS[key]||[])[0];let u=null;if(src){try{u=(await getDoc(doc(fs,'fotosfull',src.id))).data()?.img||await thumbOf(src.id)}catch(e){u=await thumbOf(src.id)}}
       else if(!key.startsWith('X:')){const p=BYPN[key];try{u=(await bundle(p.s))[p.pn+'|'+p.ref]}catch(e){}}
       files.unshift(await adImage(key,u,lang))}catch(e){console.warn('ad',e)}
     if(navigator.canShare&&files.length&&navigator.canShare({files})){toast(copied?'Texto copiado. Elige Facebook, pega el texto (mantén presionado → Pegar) y publica.':'Elige Facebook y publica.');
@@ -1196,7 +1222,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('savex' in d){const x=xById(openX);const pr=$('#x-price').value,q=Math.max(0,parseInt($('#x-qty').value)||0),nm=$('#x-name').value.trim()||x.name;const up={name:nm,qty:q,status:q?'disponible':'vendida',ubi:(($('#x-ubi')||{}).value||'').trim().toUpperCase()};if(pr!==''){up.price=+pr;up.sug=false}
     Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)));toast('Guardado');openExtra(x.id);return}
   if(d.delx){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Seguro? Toca otra vez';return}
-    deleteDoc(doc(fs,'extras',d.delx)).catch(e=>toast(errMsg(e)));FOTOLIST.filter(f=>f.pn==='X:'+d.delx).forEach(f=>{deleteDoc(doc(fs,'fotos',f.id)).catch(()=>{});deleteDoc(doc(fs,'fotosfull',f.id)).catch(()=>{})});
+    deleteDoc(doc(fs,'extras',d.delx)).catch(e=>toast(errMsg(e)));FOTOLIST.filter(f=>f.pn==='X:'+d.delx).forEach(f=>{deleteDoc(doc(fs,'fotos',f.id)).catch(()=>{});deleteDoc(doc(fs,'fotosfull',f.id)).catch(()=>{});idxSet(f.id,deleteField())});
     EXTRAS=EXTRAS.filter(x=>x.id!==d.delx);closeSheet();return}
   if(d.ticket){const s2=SALES.find(x=>x.id===d.ticket);if(s2)openTicket(s2);return}
   if(d.tkcopy){navigator.clipboard&&navigator.clipboard.writeText(ticketText(sheet._sale)).then(()=>{t.textContent='Copiado'},()=>{});return}
@@ -1334,7 +1360,9 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   subM(collection(fs,'estado'),s=>{srv('estado',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
   subM(collection(fs,'precios'),s=>{srv('precios',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
   sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;rr()});
-  subM(collection(fs,'fotos'),s=>{srv('fotos',s);pubSync();FOTOLIST=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr()});
+  subM(doc(fs,'indice','fotos'),d=>{if(d.exists())srv('fotos',d);IDXM=(d.exists()&&(d.data()||{}).m)||{};pubSync();
+    FOTOLIST=Object.entries(IDXM).map(([id,v])=>Object.assign({id},v)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr();
+    if(!(d.metadata&&d.metadata.fromCache))syncIdx(d)});
   subM(collection(fs,'extras'),s=>{srv('extras',s);pubSync();EXTRAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));rr()});
   subM(collection(fs,'config'),s=>{srv('config',s);const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{};const lt=s.docs.find(x=>x.id==='lotes');LOTES=lt?((lt.data()||{}).hechos||{}):{};pubSync()});
   unsubs.push(onSnapshot(doc(fs,'publico','inventario'),{includeMetadataChanges:true},d=>{srv('publico',d);if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));

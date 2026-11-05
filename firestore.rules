@@ -113,6 +113,11 @@ service cloud.firestore {
         && request.resource.data.oculta == false;
       allow update, delete: if isOwner();
     }
+    // lista ligera de fotos (sin imagen): la app la lee en una sola lectura y baja cada miniatura al verla
+    match /indice/{id} {
+      allow read, create, update: if member();
+      allow delete: if isOwner();
+    }
     // historial: cada miembro anota sus propios movimientos; solo el creador los lee; nadie los cambia
     match /movimientos/{id} {
       allow read: if isOwner();
