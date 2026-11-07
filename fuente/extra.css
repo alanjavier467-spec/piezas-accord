@@ -66,3 +66,5 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 
 .fbbtn{background:#1877f2;border-color:#1877f2;color:#fff}.fbbtn small{opacity:.8;font-weight:400}
 .st-apartada{background:var(--warn-bg);color:var(--warn);font-weight:700}
+
+.lwarn{color:#b3261e;font-size:13px;font-weight:600}

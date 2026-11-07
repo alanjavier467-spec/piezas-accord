@@ -79,8 +79,13 @@ service cloud.firestore {
       allow get: if member() || (signed() && request.auth.uid == uid);
       allow list: if isOwner() || (isStaff() && request.query.limit != null && request.query.limit <= 5);
       // el cliente se registra sin puntos ni compras, y después solo cambia su nombre y teléfono
-      allow create: if signed() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['user','name','tel','email','created']);
+      allow create: if (signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['user','name','tel','email','created']))
+        // el creador o un vendedor registra a un cliente en el mostrador, siempre con 0 puntos
+        || (member() && request.resource.data.by == request.auth.uid
+            && request.resource.data.keys().hasOnly(['name','tel','color','ver','desc','created','by','byName','puntos','compras'])
+            && request.resource.data.puntos == 0 && request.resource.data.compras == 0
+            && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80);
       allow update: if isOwner()
         || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['puntos','compras','ultimaCompra']))
         || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','tel']));

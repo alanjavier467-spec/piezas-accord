@@ -3,7 +3,9 @@ export const deleteField=()=>DEL;
 // cuenta lecturas de documentos sueltos (para comprobar que las fotos se bajan solo al verse)
 window.__reads=window.__reads||{};const cnt=p=>{const c=p.split('/')[0];window.__reads[c]=(window.__reads[c]||0)+1};
 const notify=()=>subs.forEach(f=>f());
-export const initializeFirestore=()=>({});export const persistentLocalCache=()=>({});export const persistentMultipleTabManager=()=>({});
+// como el Firebase real: un campo undefined hace fallar la escritura (salvo con ignoreUndefinedProperties)
+let IGN=false;const chkU=(d,ruta)=>{if(IGN)return;for(const k in d){const v=d[k];if(v===undefined){const e=new Error('Unsupported field value: undefined (found in field '+ruta+k+')');e.code='invalid-argument';throw e}if(v&&typeof v==='object')chkU(v,ruta+k+'.')}};
+export const initializeFirestore=(a,o)=>{IGN=!!(o&&o.ignoreUndefinedProperties);return {}};export const persistentLocalCache=()=>({});export const persistentMultipleTabManager=()=>({});
 export const collection=(fs,p)=>({kind:'col',path:p});
 export const doc=(a,b,c)=>{const p=a.kind==='col'?a.path+'/'+(b||Math.random().toString(36).slice(2)):b+'/'+c;return {kind:'doc',path:p,id:p.split('/')[1]}};
 export const getDocs=async q=>{window.__queries=(window.__queries||[]).concat(q.path);let docs=Object.entries(S).filter(([k])=>k.startsWith(q.path+'/')&&k.split('/').length===2).map(([k,v])=>({id:k.split('/')[1],data:()=>v}));(q.cs||[]).forEach(c=>{if(c.w)docs=docs.filter(d=>pasa(d.data(),c.w))});return {docs}};
@@ -13,15 +15,16 @@ export const query=(c,...cs)=>({kind:'col',path:c.path,cs});
 // metadata: window.__fromCache=true simula datos viejos de la caché del teléfono
 const meta=()=>({fromCache:!!window.__fromCache,hasPendingWrites:false});
 export const onSnapshot=(q,f,g)=>{if(f&&typeof f==='object')f=g;if(q.kind==='doc'){const run=()=>f({exists:()=>!!S[q.path],data:()=>S[q.path],id:q.id,metadata:meta()});subs.push(run);setTimeout(run,10);return ()=>{}}const run=()=>{let docs=Object.entries(S).filter(([k])=>k.startsWith(q.path+'/')&&k.split('/').length===2).map(([k,v])=>({id:k.split('/')[1],data:()=>v}));(q.cs||[]).forEach(c=>{if(c.w)docs=docs.filter(d=>pasa(d.data(),c.w))});f({docs,metadata:meta()})};subs.push(run);setTimeout(run,10);return ()=>{}};
-export const setDoc=async(r,d,o)=>{S[r.path]=o&&o.merge?deepMerge(JSON.parse(JSON.stringify(S[r.path]||{})),JSON.parse(JSON.stringify(d))):JSON.parse(JSON.stringify(d));notify()};
+export const setDoc=async(r,d,o)=>{chkU(d,'');S[r.path]=o&&o.merge?deepMerge(JSON.parse(JSON.stringify(S[r.path]||{})),JSON.parse(JSON.stringify(d))):JSON.parse(JSON.stringify(d));notify()};
 export const addDoc=async(c,d)=>{const r=doc(c);await setDoc(r,d);return r};
 export const deleteDoc=async r=>{delete S[r.path];notify()};
 export const getDoc=async r=>{cnt(r.path);return {exists:()=>!!S[r.path],data:()=>S[r.path],id:r.id}};
 export const getDocFromCache=async r=>{throw new Error('no está en la caché')};
-export const writeBatch=()=>{const ops=[];return {set:(r,d,o)=>ops.push(()=>setDoc(r,d,o)),delete:r=>ops.push(()=>deleteDoc(r)),commit:async()=>{for(const o of ops)await o()}}};
+export const writeBatch=()=>{const ops=[];return {set:(r,d,o)=>{chkU(d,'');ops.push(()=>setDoc(r,d,o))},delete:r=>ops.push(()=>deleteDoc(r)),commit:async()=>{for(const o of ops)await o()}}};
 export const serverTimestamp=()=>null;
 // transacción: lee del "servidor" (window.__SRV si existe, si no lo mismo que el teléfono)
-export const runTransaction=async(fs,fn)=>{if(window.__txError){const e=new Error('sin red');e.code=window.__txError;throw e}const ops=[];const tx={get:async r=>{const v=(window.__SRV&&r.path in window.__SRV)?window.__SRV[r.path]:S[r.path];return {exists:()=>!!v,data:()=>v,id:r.id}},set:(r,d,o)=>{ops.push(()=>setDoc(r,d,o));return tx},update:(r,d)=>{ops.push(()=>setDoc(r,d,{merge:true}));return tx},delete:r=>{ops.push(()=>deleteDoc(r));return tx}};const res=await fn(tx);for(const o of ops)await o();return res};
+export const runTransaction=async(fs,fn)=>{if(window.__txError){const e=new Error('sin red');e.code=window.__txError;throw e}const ops=[];const tx={get:async r=>{const v=(window.__SRV&&r.path in window.__SRV)?window.__SRV[r.path]:S[r.path];return {exists:()=>!!v,data:()=>v,id:r.id}},set:(r,d,o)=>{chkU(d,'');ops.push(()=>setDoc(r,d,o));return tx},update:(r,d)=>{ops.push(()=>setDoc(r,d,{merge:true}));return tx},delete:r=>{ops.push(()=>deleteDoc(r));return tx}};const res=await fn(tx);for(const o of ops)await o();return res};
 
 export const getFirestore=()=>({});
 export const increment=n=>n;
+export const waitForPendingWrites=async()=>{};
