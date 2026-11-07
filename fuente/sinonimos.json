@@ -33,6 +33,8 @@
     ["izq", "izquierd", "left", ">lado piloto"],
     ["der", "derech", "right", ">lado copiloto"],
     ["delantero", "delantera", "frontal", "front"],
-    ["trasero", "trasera", "rear"]
+    ["trasero", "trasera", "rear"],
+    ["ducto", "tubo", "conducto", "duct", "tube"],
+    ["admision de aire", "toma de aire", "entrada de aire", "snorkel"]
   ]
 }

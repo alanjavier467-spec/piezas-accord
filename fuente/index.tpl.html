@@ -88,7 +88,7 @@ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'')
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[...new Set(SECS.map(s=>s.cat))];
 __BUSQUEDA__
-const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
+let CASI=false;const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
 const VERSION='__VERSION__';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
@@ -197,6 +197,7 @@ function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.r
     else if(altHits.has(p.pn))sc=90;
     else if(BUS.cumple(p.key,EX.grupos)){sc=10;const es=norm(p.es);if(es.startsWith(cw[0]))sc+=6;if(es.includes(cq))sc+=4;else if(cw.every(w=>es.includes(w)))sc+=2;if(norm(p.en).includes(cq))sc+=3}
     if(sc)out.push([sc,p])}
+  CASI=false;if(!out.length&&!/\d/.test(compact)){for(const p of PARTS){const c=BUS.casi(p.key,EX.grupos);if(c)out.push([c,p])};CASI=out.length>0}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
   return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}${ubiOf(o.c.id,pn)?' · '+esc(ubiOf(o.c.id,pn)):''}</span>`).join('')}</span>`}
@@ -228,7 +229,7 @@ function vBuscar(){let arr=search(st.q);
   const xs=st.q?searchExtras(st.q).filter(x=>!st.onlyStock||xAvail(x)):[];
   // búsquedas sin resultado (en este teléfono): sirven para saber qué sinónimo falta agregar
   if(st.q&&!arr.length&&!xs.length&&!st.cat&&!st.onlyStock){clearTimeout(window._sr);window._sr=setTimeout(()=>{const q=norm(st.q).trim();if(q.length<3)return;const L=LS.get('sinRes',[]).filter(x=>x!==q);L.unshift(q);LS.set('sinRes',L.slice(0,30))},1500)}
-  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}${Object.keys(CORR).length?' · buscando también: <b>'+Object.entries(CORR).map(([a,b])=>esc(b)).join(', ')+'</b>':''}</p>`+renderList(arr)}
+  view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${CASI?'No hay coincidencia exacta. Estas se parecen a lo que buscas: ':''}${arr.length} ${arr.length===1?'resultado':'resultados'}${Object.keys(CORR).length?' · buscando también: <b>'+Object.entries(CORR).map(([a,b])=>esc(b)).join(', ')+'</b>':''}</p>`+renderList(arr)}
 function vCatalogo(){
   if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
     view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}

@@ -345,8 +345,12 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
-  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
+  const base=it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver);
+  const r=ALL.filter(it=>base(it)&&
+    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)));
+  // sin coincidencia exacta: mostrar las que cumplen casi todas las palabras
+  if(!r.length&&w.length&&!/\d/.test(c))return ALL.filter(it=>base(it)&&BUS.casi(it.key,EX.grupos));
+  return r}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>

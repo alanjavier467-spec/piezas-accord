@@ -31,4 +31,11 @@ function mkBuscador(norm,textos){
   // ¿el texto (ya normalizado) cumple todas las unidades?
   const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
-  return {expandir,cumple}}
+  // respaldo cuando no hay coincidencia exacta: piezas a las que les falta solo UNA palabra importante,
+  // y solo si la búsqueda tiene 3 o más ("manguera de admisión de aire" encuentra "Tubo de admisión de aire").
+  // Palabras como "de" o "la" no cuentan. Devuelve un puntaje (0 = no entra) para ordenar las más parecidas primero.
+  const RELLENO=new Set(['de','del','la','el','los','las','para','con','y','a','en','al','the','of','for','and']);
+  const peso=alts=>{const w=alts.find(a=>!a.startsWith(' '))||alts[0];return w.trim().split(/\s+/).filter(x=>!RELLENO.has(x)).length};
+  const casi=(key,grupos)=>{const g=grupos.map(alts=>[alts,peso(alts)]).filter(x=>x[1]>0);const tot=g.reduce((n,x)=>n+x[1],0);if(tot<3)return 0;
+    const k=pad(key);let ok=0;for(const [alts,w] of g)if(alts.some(a=>k.includes(a)))ok+=w;return ok>=tot-1?ok:0};
+  return {expandir,cumple,casi}}

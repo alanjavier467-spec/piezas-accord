@@ -258,7 +258,7 @@ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'')
 // Sinónimos (fuente/sinonimos.json) + plural/singular + una letra de diferencia. Todo en el teléfono, sin internet.
 // En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
 // ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
-const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"]]};
+const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"], ["ducto", "tubo", "conducto", "duct", "tube"], ["admision de aire", "toma de aire", "entrada de aire", "snorkel"]]};
 function mkBuscador(norm,textos){
   const G=new Map();const FRASES=[];
   (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
@@ -287,7 +287,14 @@ function mkBuscador(norm,textos){
   // ¿el texto (ya normalizado) cumple todas las unidades?
   const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
-  return {expandir,cumple}}
+  // respaldo cuando no hay coincidencia exacta: piezas a las que les falta solo UNA palabra importante,
+  // y solo si la búsqueda tiene 3 o más ("manguera de admisión de aire" encuentra "Tubo de admisión de aire").
+  // Palabras como "de" o "la" no cuentan. Devuelve un puntaje (0 = no entra) para ordenar las más parecidas primero.
+  const RELLENO=new Set(['de','del','la','el','los','las','para','con','y','a','en','al','the','of','for','and']);
+  const peso=alts=>{const w=alts.find(a=>!a.startsWith(' '))||alts[0];return w.trim().split(/\s+/).filter(x=>!RELLENO.has(x)).length};
+  const casi=(key,grupos)=>{const g=grupos.map(alts=>[alts,peso(alts)]).filter(x=>x[1]>0);const tot=g.reduce((n,x)=>n+x[1],0);if(tot<3)return 0;
+    const k=pad(key);let ok=0;for(const [alts,w] of g)if(alts.some(a=>k.includes(a)))ok+=w;return ok>=tot-1?ok:0};
+  return {expandir,cumple,casi}}
 
 let BUS=null;
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
@@ -379,8 +386,12 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
-  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
+  const base=it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver);
+  const r=ALL.filter(it=>base(it)&&
+    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)));
+  // sin coincidencia exacta: mostrar las que cumplen casi todas las palabras
+  if(!r.length&&w.length&&!/\d/.test(c))return ALL.filter(it=>base(it)&&BUS.casi(it.key,EX.grupos));
+  return r}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>
@@ -616,7 +627,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261105-1114';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261107-0112';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
