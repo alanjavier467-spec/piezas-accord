@@ -17,6 +17,7 @@ export const setDoc=async(r,d,o)=>{S[r.path]=o&&o.merge?deepMerge(JSON.parse(JSO
 export const addDoc=async(c,d)=>{const r=doc(c);await setDoc(r,d);return r};
 export const deleteDoc=async r=>{delete S[r.path];notify()};
 export const getDoc=async r=>{cnt(r.path);return {exists:()=>!!S[r.path],data:()=>S[r.path],id:r.id}};
+export const getDocFromServer=async r=>{cnt(r.path);return {exists:()=>!!S[r.path],data:()=>S[r.path],id:r.id}};
 export const getDocFromCache=async r=>{throw new Error('no está en la caché')};
 export const writeBatch=()=>{const ops=[];return {set:(r,d,o)=>ops.push(()=>setDoc(r,d,o)),delete:r=>ops.push(()=>deleteDoc(r)),commit:async()=>{for(const o of ops)await o()}}};
 export const serverTimestamp=()=>null;

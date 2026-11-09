@@ -146,4 +146,18 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   log('fotos-nuevas',!!S['indice/fotos'].m.nueva&&ra===0&&im2===true&&rb-ra===1,`foto de app vieja agregada a la lista: ${!!S['indice/fotos'].m.nueva}; miniaturas al abrir: ${ra}; al buscar 1 pieza se bajó ${rb-ra} y se ve: ${im2}`);
   await p.context().close();
 
+  // 18) La lista de fotos quedó vacía (le pasó a Alan el 9-nov): al abrir el dueño se rehace sola y la tienda vuelve a tener fotos
+  const sv=JSON.parse(JSON.stringify(sf));sv['indice/fotos']={v:1,ult:'2026-11-08T00:00:00Z',m:{}};
+  p=await page(b,{state:sv});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(3500);
+  S=await p.evaluate(()=>window.__S);const nv=Object.keys((S['indice/fotos']||{}).m||{}).length;const pubV=(S['publico/inventario'].items||[]).map(x=>JSON.parse(x)).filter(x=>x[4]).length;
+  await p.fill('#q',pns[0]);await p.waitForTimeout(900);const imV=await p.evaluate(()=>{const i=document.querySelector('#view .item img[data-tf]');return i?!!i.getAttribute('src'):null});
+  await p.waitForTimeout(4500);S=await p.evaluate(()=>window.__S);const pubV2=(S['publico/inventario'].items||[]).map(x=>JSON.parse(x)).filter(x=>x[4]).length;
+  log('fotos-lista-vacia',nv===60&&pubV2>0&&imV===true,`lista rehecha con ${nv} fotos; piezas con foto en la tienda: ${pubV2}; miniatura visible: ${imV}`);
+  await p.context().close();
+  // 19) Una foto que no se pudo leer ya NO se quita de la lista
+  const sw2=JSON.parse(JSON.stringify(sf));sw2['indice/fotos']=JSON.parse(JSON.stringify(idx));sw2['indice/fotos'].rev=new Date().toISOString();const quita=Object.keys(idx.m)[0];const pnQ=idx.m[quita].pn;delete sw2['fotos/'+quita];
+  p=await page(b,{state:sw2});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(2500);await p.fill('#q',pnQ);await p.waitForTimeout(1200);
+  S=await p.evaluate(()=>window.__S);log('fotos-no-borra',!!S['indice/fotos'].m[quita],S['indice/fotos'].m[quita]?'la lista se conserva aunque una lectura falle':'se borró de la lista');
+  await p.context().close();
+
   fs.writeFileSync(path.join(OUT,'resultados.json'),JSON.stringify(R,null,1));await b.close()})().catch(e=>{console.error(e);process.exit(1)});

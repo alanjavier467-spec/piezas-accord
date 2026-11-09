@@ -36,3 +36,6 @@ print('renglones',len(P),'números',len(c),'repetidos',sum(1 for v in c.values()
 print('sin inglés',sum(1 for p in P if not p['en']))
 E
 ```
+
+## 2026-11-09 — Fotos desaparecidas
+La lista ligera `indice/fotos` quedó vacía: la app y la tienda mostraban 0 fotos aunque todas seguían en `fotos/`. Causa: la lista solo se completaba "de la última fecha en adelante" y no se rehacía nunca; además la app quitaba fotos de la lista cuando una lectura fallaba. Arreglo (rama `arregla-fotos-2026-11-09`): el dueño revisa la lista completa al abrir si está vacía y cada 24 h; ya no se borran fotos de la lista por una lectura fallida. Pruebas: `fotos-lista-vacia`, `fotos-no-borra`. No cambian las reglas.

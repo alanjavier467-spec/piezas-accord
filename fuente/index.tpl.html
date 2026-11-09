@@ -65,7 +65,7 @@ __CSS__
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updatePassword,sendPasswordResetEmail,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocFromCache,getDocs,deleteField,query,where,orderBy,limit,writeBatch,runTransaction,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,onSnapshot,setDoc,addDoc,deleteDoc,getDoc,getDocFromCache,getDocFromServer,getDocs,deleteField,query,where,orderBy,limit,writeBatch,runTransaction,serverTimestamp,increment} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const CFG=__FBCONFIG__;
 const OWNER='__OWNER_EMAIL__';
@@ -172,8 +172,9 @@ const fmeta=v=>({pn:v.pn||'',cond:v.cond||'',nota:v.nota||'',car:v.car||'',date:
 const idxSet=(id,v)=>setDoc(doc(fs,'indice','fotos'),{m:{[id]:v}},{merge:true}).catch(e=>console.warn('indice',e));
 function thumbOf(id){if(THUMB[id]!=null)return Promise.resolve(THUMB[id]);if(TQ[id])return TQ[id];
   return TQ[id]=(async()=>{let d=null;try{d=await getDocFromCache(doc(fs,'fotos',id))}catch(e){}
-    if(!d||!d.exists()){try{d=await getDoc(doc(fs,'fotos',id))}catch(e){d=null}}
-    if(d&&!d.exists()&&IDXM[id]&&navigator.onLine)idxSet(id,deleteField()); // la foto ya no existe: se quita de la lista
+    if(!d||!d.exists()){try{d=await getDocFromServer(doc(fs,'fotos',id))}catch(e){try{d=await getDoc(doc(fs,'fotos',id))}catch(e2){d=null}}}
+    // ya no se borra nada de la lista desde aquí: una lectura fallida o de caché llegó a vaciarla.
+    // Las fotos que de verdad ya no existen las limpia el dueño en la revisión completa (syncIdx).
     const u=d&&d.exists()?((d.data()||{}).thumb||''):'';if(d)THUMB[id]=u;delete TQ[id];return u})()}
 const thumbImg=(id,alt,extra)=>`<img data-tf="${esc(id)}"${THUMB[id]?` src="${THUMB[id]}"`:''} alt="${alt||''}"${extra||''}>`;
 const tio=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const im=e.target;tio.unobserve(im);thumbOf(im.dataset.tf).then(u=>{if(u&&!im.dataset.full&&!im.getAttribute('src'))im.src=u})}),{rootMargin:'300px'});
@@ -182,10 +183,15 @@ new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType!==
 // arma o completa el índice: la primera vez lo arma el dueño leyendo todas las fotos (una sola vez);
 // después cualquier miembro agrega solo las fotos nuevas que suban teléfonos con la app vieja o lotes
 let IDXSYNC=false;
+// El dueño hace una revisión completa si la lista está vacía o cada 24 h: agrega las fotos que falten y quita las que ya no existen.
 async function syncIdx(d){if(IDXSYNC||!navigator.onLine)return;const x=d.exists()?d.data():null;if(!x&&!OWN)return;IDXSYNC=true;
-  try{const q=x&&x.v===1&&x.ult?query(collection(fs,'fotos'),where('date','>',x.ult)):collection(fs,'fotos');const sn=await getDocs(q);
-    const m={};let ult=(x&&x.ult)||'';sn.docs.forEach(f=>{const v=f.data()||{};if(v.thumb)THUMB[f.id]=v.thumb;if(!x||!(x.m||{})[f.id])m[f.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});
-    if(!x||Object.keys(m).length||ult!==x.ult)await setDoc(doc(fs,'indice','fotos'),{v:1,ult,m},{merge:true})}catch(e){console.warn('indice',e);IDXSYNC=false}}
+  const xm=(x&&x.m)||{};const full=OWN&&(!x||x.v!==1||!x.ult||!Object.keys(xm).length||!x.rev||Date.now()-Date.parse(x.rev)>864e5);
+  if(!full&&!(x&&x.v===1&&x.ult))return; // un vendedor no puede rehacer la lista: lo hace el dueño al abrir
+  try{const q=full?collection(fs,'fotos'):query(collection(fs,'fotos'),where('date','>',x.ult));const sn=await getDocs(q);
+    const m={};let ult=(x&&x.ult)||'';const vistos=new Set();sn.docs.forEach(f=>{vistos.add(f.id);const v=f.data()||{};if(v.thumb)THUMB[f.id]=v.thumb;const ya=xm[f.id];if(!ya||ya.pn!==(v.pn||''))m[f.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});
+    if(full&&sn.docs.length)Object.keys(xm).forEach(id=>{if(!vistos.has(id))m[id]=deleteField()});
+    const o={v:1,ult,m};if(full)o.rev=new Date().toISOString();
+    if(full||Object.keys(m).length||ult!==(x&&x.ult))await setDoc(doc(fs,'indice','fotos'),o,{merge:true})}catch(e){console.warn('indice',e);IDXSYNC=false}}
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto real'):imgTag(p)};
 
 // ---- búsqueda ----
