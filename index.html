@@ -95,7 +95,7 @@ nav.tabs button{border:0;background:none;padding:10px 0 9px;display:grid;justify
 nav.tabs button[aria-current="page"]{color:var(--ink);font-weight:700}
 nav.tabs button[aria-current="page"] svg{color:var(--warn)}
 /* hoja de detalle */
-.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.sheet{position:fixed;inset:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;z-index:40;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 .sheet .bar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line)}
 .sheet .bar .wrap{display:flex;justify-content:space-between;align-items:center;padding-block:10px}
 .sheet .bar button{border:0;background:none;font-size:15px;color:var(--muted);padding:6px 0}
@@ -355,7 +355,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261116-1926';
+const VERSION='20261116-1948';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -698,14 +698,19 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
      <p style="margin:0">Si presionas que sí, esto será para siempre, y siempre es mucho tiempo.</p>
      <p class="hint" style="margin:0">${others.length?'Esta pieza también está en otra sección; solo se quita de aquí y lo demás se queda.':'También se borran sus fotos reales, su precio, sus números alternos y en qué carro estaba. Las ventas que ya hiciste se quedan en tu historial.'}</p>
      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn delcat" data-delcatsi="${p.i}">Sí</button><button class="btn ghost" data-delcatno>No</button></div></div>`);loadHist(p.pn)}
-  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+  showSheet();sheet.scrollTop=0;hookImgs(sheet)}
 async function loadHist(pn){try{const sn=await getDocs(query(collection(fs,'movimientos'),where('pn','==',pn),limit(40)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const el=$('#hist-b');if(!el)return;
   el.innerHTML=L.length?L.map(m=>`${new Date(m.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})} · ${esc(m.car?carCode(m.car):'')} · ${esc(m.tipo)}: ${esc(STL[m.de]||m.de||'')} → ${esc(STL[m.a]||m.a||'')}${m.qty?' ('+m.qty+')':''} · ${esc(m.byName||'')}`).join('<br>'):'Sin movimientos registrados todavía.'}catch(e){const el=$('#hist-b');if(el)el.textContent='No se pudo cargar.'}}
 // capas (ficha, diagrama): el botón "atrás" del teléfono las cierra
 let LAYERS=0;
-function showSheet(){if(sheet.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}sheet.hidden=false}
+function showSheet(){if(sheet.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}lockBody();sheet.hidden=false}
 function showZoom(){if(zoom.hidden){LAYERS++;history.pushState({layer:LAYERS},'')}zoom.hidden=false}
-function doCloseSheet(){sheet.hidden=true;SHEET='';openIdx=null;openX=null;document.body.style.overflow='';render()}
+function doCloseSheet(){sheet.hidden=true;SHEET='';openIdx=null;openX=null;const y=unlockBody();render();window.scrollTo(0,y)}
+// en iPhone, esconder el scroll de la página mientras ya bajaste mucho hacía que la ficha se viera recorrida
+// (mitad ficha, mitad la lista de atrás). Ahora la página se "congela" en su lugar y al cerrar regresa al mismo punto.
+let LOCKY=null;
+function lockBody(){if(LOCKY!==null)return;LOCKY=window.scrollY;const b=document.body.style;b.position='fixed';b.top=(-LOCKY)+'px';b.left='0';b.right='0';b.width='100%';b.overflow='hidden'}
+function unlockBody(){const y=LOCKY||0;LOCKY=null;const b=document.body.style;b.position='';b.top='';b.left='';b.right='';b.width='';b.overflow='';return y}
 function closeTop(){if(LAYERS>0){history.back();return}if(!zoom.hidden)zoom.hidden=true;else if(!sheet.hidden)doCloseSheet()}
 function closeSheet(){if(sheet.hidden&&zoom.hidden)return;if(LAYERS>0){history.go(-LAYERS);return}zoom.hidden=true;if(!sheet.hidden)doCloseSheet()}
 window.addEventListener('popstate',e=>{const target=(e.state&&e.state.layer)||0;const was=LAYERS;LAYERS=Math.min(LAYERS,target);if(was-LAYERS>=2){zoom.hidden=true;if(!sheet.hidden)doCloseSheet();return}if(!zoom.hidden){zoom.hidden=true;return}if(!sheet.hidden)doCloseSheet()});
@@ -780,8 +785,8 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261116-1926</p></div>`;
-  showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
+   <p class="note">Versión 20261116-1948</p></div>`;
+  showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
 const errMsg=e=>(e&&e.code==='permission-denied')?'Tu usuario no tiene permiso para esto.':'No se pudo guardar. Revisa la señal e inténtalo otra vez.';
@@ -896,7 +901,7 @@ function openCorte(dia){SHEET='corte';CORTE_DIA=dia||CORTE_DIA||dLocal();const {
     <label class="f" for="corte-nota">Nota (opcional)<input id="corte-nota" placeholder="Ej. Se pagó la luz con $300 de la caja"></label>
     <button class="btn alt" data-savecorte>Guardar corte</button><div class="status" id="corte-st"></div></div>
    <div class="card"><b>Cortes anteriores</b>${hist.length?hist.map(c=>`<div class="sale"><div><b>${fmtDate(c.dia)}</b> · ${esc(c.byName||'')}<br><small>${c.n} ventas · ${money(c.total)} · efectivo esperado ${money(c.esperado)}${c.nota?' · '+esc(c.nota):''}</small></div><div style="text-align:right"><b style="color:${Math.abs(c.diff)<1?'inherit':'#b3261e'}">${Math.abs(c.diff)<1?'✓ Cuadró':c.diff>0?'+'+money(c.diff):'−'+money(-c.diff)}</b></div></div>`).join(''):'<p class="hint" style="margin:.4em 0 0">Aún no hay cortes guardados.</p>'}</div></div>`;
-  showSheet();document.body.style.overflow='hidden';corteRes()}
+  showSheet();corteRes()}
 function saveCorte(){const st2=$('#corte-st');const c=$('#corte-contado').value;if(c===''){st2.className='status err';st2.textContent='Escribe cuánto efectivo contaste.';return}
   const {ss,tot}=corteCalc(CORTE_DIA);const fondo=+($('#corte-fondo').value||0);LS.set('fondo',$('#corte-fondo').value);const esperado=fondo+tot.Efectivo;
   const r={dia:CORTE_DIA,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email,n:ss.length,total:ss.reduce((a,s)=>a+(s.total||0),0),tot,fondo,contado:+c,esperado,diff:Math.round((+c-esperado)*100)/100,nota:$('#corte-nota').value.trim()};
@@ -1027,7 +1032,7 @@ function openNuevo(days){SHEET='nuevo';openIdx=null;openX=null;
    <div class="card"><b>${total} pieza${total===1?'':'s'} nueva${total===1?'':'s'}</b><br><span class="hint">${order.map(c=>`${esc(c?carCode(c):'Sin carro')}: ${G.get(c).size}`).join(' · ')||'Nada todavía en este periodo.'}</span></div>
    ${order.map(c=>`<p class="sec-h">${esc(name(c))} (${G.get(c).size})</p><div class="list">${[...G.get(c).values()].map(v=>v.kind==='p'?itemHTML(v.obj,v.fotos?`<span class="realtag">+${v.fotos} foto${v.fotos>1?'s':''}</span>`:''):xItemHTML(v.obj)).join('')}</div>`).join('')}
    <p class="hint">Cuenta piezas con foto subida o piezas agregadas en el periodo. Los cambios de estado sin foto no salen aquí.</p></div>`;
-  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
+  showSheet();sheet.scrollTop=0;hookImgs(sheet)}
 // ---- agregar pieza con foto ----
 let INT=null;const CONDS=['Sanita','Buen estado','Detalles leves','Raspada','Para reparar'];
 function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
@@ -1049,7 +1054,7 @@ function openIntake(forKey){openIdx=null;openX=null;SHEET='intake';
     ${fp||fx?`<button class="btn alt" data-intsave>Guardar foto</button>`:`<button class="btn alt" data-intsearch>Buscar en el catálogo</button>`}
     <div class="status" id="i-status"></div></div>
    <div id="i-cands"></div></div>`;
-  showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';
+  showSheet();sheet.scrollTop=0;
   document.querySelectorAll('.i-pick').forEach(inp=>inp.addEventListener('change',async e=>{const fsel=[...e.target.files];const pv=$('#i-prev');const stt=$('#i-status');stt.className='status';stt.textContent='Preparando fotos…';
     for(const f of fsel){try{const full=await shrink(f,1100,.72),thumb=await shrink(f,200,.6);INT.imgs.push({full,thumb})}catch(err){}}
     pv.innerHTML=INT.imgs.map((im,k)=>`<button data-rmimg="${k}" aria-label="Quitar foto"><img src="${im.thumb}" alt=""><em>Tocar para quitar</em></button>`).join('');stt.textContent=INT.imgs.length?INT.imgs.length+' foto(s) lista(s)':'No se pudo leer la foto';e.target.value=''}))}
