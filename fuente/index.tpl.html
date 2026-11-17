@@ -109,6 +109,7 @@ const es21=c=>{const v=(c.vin||'').toUpperCase().trim();return (v.length===17&&/
 function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
 const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['apartada','Apartada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
+const OTROS=['vendida','apartada','mala','falta'];
 const AVAIL=s=>s==='esta'||s==='quitada';
 const EMP_MAX_DISC=10;
 
@@ -279,7 +280,7 @@ function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const p
   ${v360HTML(c)}
   <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
   ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
-  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas'],['revisar','por revisar']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
+  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas, apartadas, dañadas o no están'],['revisar','por revisar']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${s==='vendida'?OTROS.reduce((a,o)=>a+k[o],0):k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
   <p class="sec-h">Recorrido por sección</p><p class="hint" style="margin:0">Entra a una sección y marca qué piezas siguen en el carro.</p>
   <div class="list">${secs.map(x=>`<button class="cat" data-walk="${x.s.i}"><b>${esc(x.s.es)}</b><span>${x.r?`<span class="st st-revisar">${x.r} por revisar</span> `:''}${x.a}/${x.n} ›</span></button>`).join('')}</div>
   ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
@@ -321,6 +322,7 @@ function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const
   const xs=s==='quitada'?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
   view.innerHTML=`<button class="back" data-back="carlist">‹ ${esc(c.code)}</button>
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
+  ${OTROS.includes(s)?(()=>{const k=carCounts(c);return `<div class="chips" style="margin:10px 0;display:flex;flex-wrap:wrap;gap:6px">${OTROS.map(o=>`<button class="chip" data-carlist="${o}" aria-pressed="${s===o}">${esc(STL[o])} (${k[o]})</button>`).join('')}</div>`})():''}
   <p class="hint" style="margin:0">${pns.length+xs.length} pieza${pns.length+xs.length===1?'':'s'} de ${esc(c.code)} en "${esc(STL[s])}". Toca una para verla o cambiarla.</p>
   ${pns.length||xs.length?`<div class="list">${xs.map(x=>xItemHTML(x)).join('')}${pns.slice(0,st.limit).map(pn=>itemHTML(BYPN[pn])).join('')}</div>${pns.length>st.limit?`<button class="more" data-more>Mostrar más (${pns.length-st.limit} restantes)</button>`:''}`:'<div class="empty">No hay piezas en este estado.</div>'}`;hookImgs(view)}
 // ---- todas las piezas de todos los carros ----

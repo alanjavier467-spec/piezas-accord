@@ -347,7 +347,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261109-1138';
+const VERSION='20261116-1859';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -367,6 +367,7 @@ const es21=c=>{const v=(c.vin||'').toUpperCase().trim();return (v.length===17&&/
 function naWhy(c,p){return p&&p.ext&&c.color&&p.ext!==c.color?'otro color':'no viene en esta versión'}
 const STS=[['esta','En el carro'],['quitada','Quitada y guardada'],['apartada','Apartada'],['vendida','Vendida'],['mala','Dañada'],['revisar','Por revisar'],['falta','No está']];
 const STL=Object.fromEntries(STS.concat([['na','No aplica']]));
+const OTROS=['vendida','apartada','mala','falta'];
 const AVAIL=s=>s==='esta'||s==='quitada';
 const EMP_MAX_DISC=10;
 
@@ -537,7 +538,7 @@ function vCar(){const c=CARS.find(x=>x.id===st.car);const k=carCounts(c);const p
   ${v360HTML(c)}
   <dl class="meta">${c.vin?`<dt>VIN</dt><dd class="pn">${esc(c.vin)}</dd>`:''}${c.color?`<dt>Color</dt><dd>${esc(EXT[c.color]||c.color)}</dd>`:''}${c.km?`<dt>Kilometraje</dt><dd>${esc(c.km)}</dd>`:''}${c.llegada?`<dt>Llegó</dt><dd>${fmtDate(c.llegada)}</dd>`:''}${OWN&&pv.costo?`<dt>Costo</dt><dd>${money(pv.costo)}</dd>`:''}</dl>
   ${c.notas?`<div class="card" style="white-space:pre-wrap;font-size:14px">${esc(c.notas)}</div>`:''}
-  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas'],['revisar','por revisar']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
+  <div class="kpis">${[['esta','en el carro'],['quitada','quitadas y guardadas'],['vendida','vendidas, apartadas, dañadas o no están'],['revisar','por revisar']].map(([s,l])=>`<button class="kpi kpib" data-carlist="${s}"><b>${s==='vendida'?OTROS.reduce((a,o)=>a+k[o],0):k[s]}</b><span>${l} ›</span></button>`).join('')}</div>
   <p class="sec-h">Recorrido por sección</p><p class="hint" style="margin:0">Entra a una sección y marca qué piezas siguen en el carro.</p>
   <div class="list">${secs.map(x=>`<button class="cat" data-walk="${x.s.i}"><b>${esc(x.s.es)}</b><span>${x.r?`<span class="st st-revisar">${x.r} por revisar</span> `:''}${x.a}/${x.n} ›</span></button>`).join('')}</div>
   ${OWN?`<details class="card"><summary><b>Editar datos del carro</b></summary>${carForm(c)}<button class="btn ghost" style="margin-top:12px;width:100%" data-delcar="${c.id}">Eliminar este carro</button></details>`:''}`}
@@ -579,6 +580,7 @@ function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const
   const xs=s==='quitada'?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
   view.innerHTML=`<button class="back" data-back="carlist">‹ ${esc(c.code)}</button>
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
+  ${OTROS.includes(s)?(()=>{const k=carCounts(c);return `<div class="chips" style="margin:10px 0;display:flex;flex-wrap:wrap;gap:6px">${OTROS.map(o=>`<button class="chip" data-carlist="${o}" aria-pressed="${s===o}">${esc(STL[o])} (${k[o]})</button>`).join('')}</div>`})():''}
   <p class="hint" style="margin:0">${pns.length+xs.length} pieza${pns.length+xs.length===1?'':'s'} de ${esc(c.code)} en "${esc(STL[s])}". Toca una para verla o cambiarla.</p>
   ${pns.length||xs.length?`<div class="list">${xs.map(x=>xItemHTML(x)).join('')}${pns.slice(0,st.limit).map(pn=>itemHTML(BYPN[pn])).join('')}</div>${pns.length>st.limit?`<button class="more" data-more>Mostrar más (${pns.length-st.limit} restantes)</button>`:''}`:'<div class="empty">No hay piezas en este estado.</div>'}`;hookImgs(view)}
 // ---- todas las piezas de todos los carros ----
@@ -764,7 +766,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261109-1138</p></div>`;
+   <p class="note">Versión 20261116-1859</p></div>`;
   showSheet();document.body.style.overflow='hidden';renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
