@@ -35,6 +35,7 @@ Las cuentas son de Firebase Authentication. El usuario se convierte en `u<sha256
 | `config/negocio` | `nombre`, `tel`, `wa`, `dir`, `pie`, `maxDuenos` (1–4) | miembros | creador |
 | `vista360/{carId}_{i}` | `car`, `i`, `img`: cuadros de la vista 360° | miembros | creador |
 | `config/lotes` | `hechos: { <idLote>: {date, by} }`: lotes ya subidos (para no subirlos dos veces) | miembros | creador |
+| `config/catalogo` | `borrados: { "<pn>|<sección>|<ref>": {es, date, by} }`: piezas que el creador eliminó del catálogo. La app las esconde al abrir (copia en el teléfono: `localStorage.borr`). Si ya no queda otra entrada con ese número, también se borran sus fotos, precio, alternos y estado en los carros | miembros | creador |
 | `publico/inventario` | Resumen público para la tienda (ver abajo) | **cualquiera** | creador; el vendedor solo si no cambia `wa`, `nombre`, `dir`, `pie`. Debe traer la lista de `cars` |
 
 ### `publico/inventario` (lo que lee la tienda)
@@ -50,7 +51,8 @@ La app de cualquier miembro lo arma y lo guarda solo, unos segundos después de 
   items: ['["33100-TVA-A01",6800,1,"A1,A4","fotoId1,fotoId2","Usado",1,0]'],
          //  [número, precio, cantidad, carros, fotos, condición, ¿precio sugerido?, ¿solo montada en el carro?]
   xs:    ['["x-id","Nombre","num",precio,cant,"A2","fotoIds","Usado"]'],  // piezas agregadas
-  rev:   ["número", …]                 // piezas "por confirmar"
+  rev:   ["número", …],                // piezas "por confirmar"
+  borr:  ["pn|sección|ref", …]          // piezas eliminadas del catálogo: la tienda no las muestra
 }
 ```
 
@@ -60,6 +62,7 @@ En la tienda, una pieza que está en `items` sale **Disponible**, una que está 
 
 - `data.json`: catálogo con la forma `{secs:[{i,cat,es,en}], parts:[{pn,es,en,s,ref,sp,cr?,y?}]}`. `pn` es el número del 2020 Sport 1.5T, `s` la sección, `ref` el número en el diagrama, `sp` el precio sugerido y `y` los números en otras versiones (`{"18":…,"19":…,"20T":…}`).
 - `p/<sección>.json`: dibujos por pieza, con clave `pn|ref`.
+- Lo eliminado desde la app (`borr`) se puede quitar de verdad de `data.json` y `p/` leyendo `publico/inventario` (es público) y borrando esas entradas.
 - `d/<sección>.json`: diagrama grande de la sección.
 
 ## Exportar e importar

@@ -80,6 +80,9 @@ const auth=getAuth(fb);
 const fs=initializeFirestore(fb,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 
 const D=await fetch('data.json').then(r=>r.json());
+// piezas eliminadas del catálogo por el creador (se guarda en config/catalogo; aquí la copia del teléfono)
+const bKey=p=>p.pn+'|'+p.s+'|'+p.ref;let BORR={};try{BORR=JSON.parse(localStorage.getItem('borr')||'{}')||{}}catch(e){}
+D.parts=D.parts.filter(p=>!BORR[bKey(p)]);
 const SECS=D.secs, PARTS=D.parts;
 const $=s=>document.querySelector(s);
 const view=$('#view'), sheet=$('#sheet'), zoom=$('#zoom'), qIn=$('#q'), qx=$('#qx');
@@ -426,7 +429,12 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
   </div>`;
   sheet.insertAdjacentHTML('beforeend',ubiList());
   {const box=sheet.querySelector('.pcar');if(box&&box.querySelector('.parr')){let x0=null;box.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});box.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)pcarGo(box,dx<0?1:-1)},{passive:true})}}
-  if(OWN){sheet.querySelector('.wrap.body').insertAdjacentHTML('beforeend',`<details class="card" data-hist="${esc(p.pn)}"><summary><b>Historial de esta pieza</b></summary><div class="hint" id="hist-b">Cargando…</div></details>`);loadHist(p.pn)}
+  if(OWN){sheet.querySelector('.wrap.body').insertAdjacentHTML('beforeend',`<details class="card" data-hist="${esc(p.pn)}"><summary><b>Historial de esta pieza</b></summary><div class="hint" id="hist-b">Cargando…</div></details>
+    <button class="btn delcat" data-delcat="${p.i}">🗑 Eliminar del catálogo</button>
+    <div class="card form delcat-ask" id="delcat-ask" hidden><b>¿Estás seguro de que deseas eliminar definitivamente esto del catálogo?</b>
+     <p style="margin:0">Si presionas que sí, esto será para siempre, y siempre es mucho tiempo.</p>
+     <p class="hint" style="margin:0">${others.length?'Esta pieza también está en otra sección; solo se quita de aquí y lo demás se queda.':'También se borran sus fotos reales, su precio, sus números alternos y en qué carro estaba. Las ventas que ya hiciste se quedan en tu historial.'}</p>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn delcat" data-delcatsi="${p.i}">Sí</button><button class="btn ghost" data-delcatno>No</button></div></div>`);loadHist(p.pn)}
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden';hookImgs(sheet)}
 async function loadHist(pn){try{const sn=await getDocs(query(collection(fs,'movimientos'),where('pn','==',pn),limit(40)));const L=sn.docs.map(d=>d.data()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const el=$('#hist-b');if(!el)return;
   el.innerHTML=L.length?L.map(m=>`${new Date(m.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})} · ${esc(m.car?carCode(m.car):'')} · ${esc(m.tipo)}: ${esc(STL[m.de]||m.de||'')} → ${esc(STL[m.a]||m.a||'')}${m.qty?' ('+m.qty+')':''} · ${esc(m.byName||'')}`).join('<br>'):'Sin movimientos registrados todavía.'}catch(e){const el=$('#hist-b');if(el)el.textContent='No se pudo cargar.'}}
@@ -530,6 +538,18 @@ async function saveCar(id){const v=k=>($('#c-'+k)||{}).value||'';const stt=$('#c
   const costo=parseFloat(v('costo'))||0;
   try{let cid=id;if(id){body.def=(CARS.find(c=>c.id===id)||{}).def||'esta';setDoc(doc(fs,'carros',id),body)}else{body.def=v('def')||'esta';cid=body.code.replace(/[^A-Z0-9_-]/g,'')||('C'+Date.now());if(CARS.find(c=>c.id===cid))cid=cid+'-'+Date.now().toString(36);setDoc(doc(fs,'carros',cid),body);st.car=cid;st.carSec=null}
    setDoc(doc(fs,'privado',cid),{costo});stt.className='status ok';stt.textContent='Guardado';if(!id){render();window.scrollTo(0,0)}}catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
+// ---- eliminar una pieza del catálogo (solo creador) ----
+async function delCatalogo(p){if(!OWN||!p)return;const k=bKey(p);const solo=!PARTS.some(x=>x.pn===p.pn&&x.i!==p.i);
+  const b=sheet.querySelector('[data-delcatsi]');if(b){b.disabled=true;b.textContent='Eliminando…'}
+  const ops=[setDoc(doc(fs,'config','catalogo'),{borrados:{[k]:{es:p.es,date:new Date().toISOString(),by:PROFILE?.name||ME.email}}},{merge:true})];
+  if(solo){(FOTOS[p.pn]||[]).forEach(f=>{ops.push(deleteDoc(doc(fs,'fotosfull',f.id)).then(()=>deleteDoc(doc(fs,'fotos',f.id))));idxSet(f.id,deleteField())});
+    if(PRICE[p.pn]!=null)ops.push(deleteDoc(doc(fs,'precios',p.pn)));
+    Object.entries(ALT).forEach(([a,v])=>{if(v&&v.pn===p.pn)ops.push(deleteDoc(doc(fs,'alternos',a)))});
+    Object.entries(EST).forEach(([cid,m])=>{if(m&&m[p.pn])ops.push(setDoc(doc(fs,'estado',cid),{m:{[p.pn]:deleteField()}},{merge:true}))})}
+  BORR=Object.assign({},BORR,{[k]:1});try{localStorage.setItem('borr',JSON.stringify(BORR))}catch(e){}
+  // sin señal se queda pendiente y se manda solo al volver la señal
+  await Promise.race([Promise.all(ops).catch(e=>toast(errMsg(e))),new Promise(r=>setTimeout(r,5000))]);
+  toast('Eliminada del catálogo');setTimeout(()=>location.reload(),600)}
 let pendingDelCar=null;
 function delCar(id,btn){if(pendingDelCar!==id){pendingDelCar=id;btn.textContent='¿Seguro? Se borra el carro y su recorrido. Toca otra vez';return}
   deleteDoc(doc(fs,'carros',id)).catch(e=>toast(errMsg(e)));deleteDoc(doc(fs,'estado',id)).catch(()=>{});deleteDoc(doc(fs,'privado',id)).catch(()=>{});st.car=null;pendingDelCar=null;render()}
@@ -862,7 +882,7 @@ function pubSnapshot(){const items=[],rev=[];
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
   const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
-  return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev}}
+  return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev,borr:Object.keys(BORR).sort()}}
 function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
@@ -1035,6 +1055,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
     setDoc(doc(fs,'precios',p.pn),{price:v,es:p.es}).catch(e=>{stt.className='status err';stt.textContent=errMsg(e)});stt.className='status ok';stt.textContent='Guardado';return}
   if('addalt' in d){const v=$('#alt-in').value.trim().toUpperCase().replace(/\s+/g,'');const p=PARTS[openIdx];if(v.length<4){toast('Escribe el número completo');return}
     const key=v.replace(/[^A-Z0-9-]/g,'');ALT[key]={pn:p.pn};setDoc(doc(fs,'alternos',key),{pn:p.pn,es:p.es,by:PROFILE?.name||ME.email,date:new Date().toISOString()}).catch(e=>toast(errMsg(e)));openPart(openIdx);return}
+  if('delcat' in d){const a=$('#delcat-ask');if(a){a.hidden=false;t.hidden=true;a.scrollIntoView({behavior:'smooth',block:'center'})}return}
+  if('delcatno' in d){const a=$('#delcat-ask');if(a)a.hidden=true;const b=sheet.querySelector('[data-delcat]');if(b)b.hidden=false;return}
+  if(d.delcatsi){delCatalogo(PARTS[+d.delcatsi]);return}
   if(d.delalt){delete ALT[d.delalt];deleteDoc(doc(fs,'alternos',d.delalt)).catch(e=>toast(errMsg(e)));openPart(openIdx);return}
   if(d.add){addToCart(d.add);return}
   if(d.q!=null){const l=CART[+d.q];const max=l.car?(()=>{const c=CARS.find(x=>x.id===l.car);return c?stOf(c,l.pn).n:99})():999;l.qty=Math.max(1,Math.min(max,l.qty+(+d.d)));saveCart();render();return}
@@ -1115,7 +1138,8 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
     FOTOLIST=Object.entries(IDXM).map(([id,v])=>Object.assign({id},v)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr();
     if(!(d.metadata&&d.metadata.fromCache))syncIdx(d)});
   subM(collection(fs,'extras'),s=>{srv('extras',s);pubSync();EXTRAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));rr()});
-  subM(collection(fs,'config'),s=>{srv('config',s);const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{};const lt=s.docs.find(x=>x.id==='lotes');LOTES=lt?((lt.data()||{}).hechos||{}):{};pubSync()});
+  subM(collection(fs,'config'),s=>{srv('config',s);const d=s.docs.find(x=>x.id==='negocio');NEG=d?d.data():{};const lt=s.docs.find(x=>x.id==='lotes');LOTES=lt?((lt.data()||{}).hechos||{}):{};
+    const ct=s.docs.find(x=>x.id==='catalogo');if(!(s.metadata&&s.metadata.fromCache)){BORR=ct?((ct.data()||{}).borrados||{}):{};try{localStorage.setItem('borr',JSON.stringify(BORR))}catch(e){}}pubSync()});
   unsubs.push(onSnapshot(doc(fs,'publico','inventario'),{includeMetadataChanges:true},d=>{srv('publico',d);if(d.exists()){const o=Object.assign({},d.data());delete o.t;PUBLAST=JSON.stringify(o)}pubSync()},e=>{LOADED.add('publico');console.warn(e)}));
   if(!OWN){CLIENTES=[];if(CLIID)getDoc(doc(fs,'clientes',CLIID)).then(d=>{if(d.exists())CLIENTES=[Object.assign({id:CLIID},d.data())];rr()}).catch(()=>{})}
   else sub(collection(fs,'clientes'),s=>{CLIENTES=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.created||'').localeCompare(a.created||''));if(st.tab==='carrito'&&sheet.hidden&&!document.activeElement?.id?.startsWith('cli'))rr()});

@@ -158,3 +158,4 @@ nav.tabs button{position:relative}
 .kpi-big b{font-size:40px}
 .kpi-big span{font-size:16px}
 .kpis+.kpi-big+.sec-h{margin-top:22px}
+.btn.delcat{background:var(--danger);color:#fff;width:100%}
