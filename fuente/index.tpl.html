@@ -1036,7 +1036,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.back==='walk'){st.carSec=null;render();return}
   if(d.car){st.car=d.car;st.carSec=null;st.carList=null;render();window.scrollTo(0,0);return}
   if(d.walk){st.carSec=+d.walk;render();window.scrollTo(0,0);return}
-  if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null)openPart(openIdx);return}
+  if(d.setst){const seg=t.closest('.seg');setStatus(seg.dataset.carid,seg.dataset.pn,d.setst);seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===t));if(!sheet.hidden&&openIdx!=null){const y=sheet.scrollTop;openPart(openIdx);sheet.scrollTop=y}return}
   if('savecar' in d){saveCar(d.savecar);return}
   if(d.fb){publishFB(d.fb,t);return}
   if(d.fben){publishFB(d.fben,t,'en');return}
