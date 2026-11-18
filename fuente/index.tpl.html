@@ -101,7 +101,7 @@ const EXTH={'NH731P':'#141414','NH883P':'#f3f1ea','NH830M':'#b9bcc0','NH797M':'#
 const gName=s=>String(s||'').replace(/\s*\([^)]*\)\s*\*[A-Z0-9]+\*/,'').replace(/\s*\*[A-Z0-9]+\*\s*\([^)]*\)/,'').trim();
 const GV={};
 PARTS.forEach(p=>{const m=(p.es+' '+p.en).match(/\*(NH731P|NH883P|NH830M|NH797M|R94|B575P)\*/);p.ext=m?m[1]:null});
-PARTS.forEach(p=>{if(p.g&&p.ext)(GV[p.g]=GV[p.g]||[]).push(p)});Object.values(GV).forEach(v=>v.sort((a,b)=>Object.keys(EXTH).indexOf(a.ext)-Object.keys(EXTH).indexOf(b.ext)));
+PARTS.forEach(p=>{if(p.g&&p.ext&&!(GV[p.g]||[]).some(v=>v.pn===p.pn))(GV[p.g]=GV[p.g]||[]).push(p)});Object.values(GV).forEach(v=>v.sort((a,b)=>Object.keys(EXTH).indexOf(a.ext)-Object.keys(EXTH).indexOf(b.ext)));
 // junta los colores de una misma pieza en un renglón (se queda el primero que aparece)
 const grpCollapse=arr=>{const sg=new Set();return arr.filter(p=>!(p.g&&GV[p.g])||(!sg.has(p.g)&&sg.add(p.g)))};
 // números por año/versión: p.y = {'18':..,'19':..,'20T':..}; '' = no existe en esa versión; sin clave = mismo número
@@ -222,7 +222,7 @@ function priceHTML(pn){const pr=priceOf(pn);return pr?`<span class="price">${mon
 function gItemHTML(p,pre){const vs=GV[p.g];const pk=vs.find(v=>availCars(v.pn).length)||p;const nf=vs.reduce((a,v)=>a+(FOTOS[v.pn]||[]).length,0);
   const av=vs.flatMap(v=>availCars(v.pn).map(o=>({o,v})));
   return `<button class="item" data-open="${pk.i}"><span class="ph">${phTag(pk)}</span>
-   <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.g)}</span><span class="es">${esc(gName(p.es))}</span><span class="gdots">${vs.map(v=>`<i title="${esc(EXT[v.ext])}" class="${availCars(v.pn).length?'on':''}" style="background:${EXTH[v.ext]}"></i>`).join('')}</span></span>
+   <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.g)}</span><span class="es">${esc((p.gn||gName(p.es)))}</span><span class="gdots">${vs.map(v=>`<i title="${esc(EXT[v.ext])}" class="${availCars(v.pn).length?'on':''}" style="background:${EXTH[v.ext]}"></i>`).join('')}</span></span>
    <span class="r">${priceHTML(pk.pn)}${!CARS.length?'':av.length?`<span class="avail">${av.map(({o,v})=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}</span>`).join('')}</span>`:'<span class="stock n">Sin existencia</span>'}</span></button>`}
 function itemHTML(p,pre){if(p.g&&GV[p.g])return gItemHTML(p,pre);const nf=(FOTOS[p.pn]||[]).length;
   return `<button class="item" data-open="${p.i}"><span class="ph">${phTag(p)}</span>
@@ -420,7 +420,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
   <div class="wrap body">${pcarHTML(p)}
    ${galHTML(p.pn)}
    <div class="tagline"><span class="tag">${esc(p.pn)}</span><button class="copy" data-copy="${esc(p.pn)}">Copiar número</button></div>
-   <div><h2 class="title">${esc(p.g&&GV[p.g]?gName(p.es):p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
+   <div><h2 class="title">${esc(p.g&&GV[p.g]?(p.gn||gName(p.es)):p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
    ${p.g&&GV[p.g]?`<div class="card form"><b>Color: ${esc(EXT[p.ext])}</b><p class="hint" style="margin:0">Elige el color de la pieza y luego asígnala al carro abajo. Con ✓ los colores que ya tienes.</p><div class="row">${GV[p.g].map(v=>`<button class="chip gcol" data-open="${v.i}" aria-pressed="${v.i===p.i}"><i style="background:${EXTH[v.ext]}"></i>${esc(EXT[v.ext])}${availCars(v.pn).length?' ✓':''}</button>`).join('')}</div></div>`:''}
    <dl class="meta"><dt>Sección</dt><dd>${esc(s.es)} · #${esc(p.ref)}</dd>${others.length?`<dt>También en</dt><dd>${others.map(o=>esc(SECS[o.s].es)+' (#'+esc(o.ref)+')').join(', ')}</dd>`:''}
     ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>

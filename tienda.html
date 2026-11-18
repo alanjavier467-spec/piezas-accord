@@ -313,7 +313,7 @@ let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[],VAR=[];const S
 // colores de carrocería: piezas que Honda vende por color (p.g en data.json) salen como una sola pieza y el cliente elige el color
 const COL={NH731P:{l:'Negro cristal',h:'#141414'},NH883P:{l:'Blanco platino',h:'#f3f1ea'},NH830M:{l:'Plata lunar',h:'#b9bcc0'},NH797M:{l:'Gris acero',h:'#5b6166'},R94:{l:'Rojo San Marino',h:'#a3141c'},B575P:{l:'Azul noche',h:'#1c2a4d'}};
 const COLO=Object.keys(COL);const colOf=s=>{const m=String(s).match(/\*([A-Z0-9]+)\*/);return m&&COL[m[1]]?m[1]:null};
-const gName=s=>String(s||'').replace(/\s*\([^)]*\)\s*\*[A-Z0-9]+\*/,'').replace(/\s*\*[A-Z0-9]+\*\s*\([^)]*\)/,'').trim();
+const gName=s=>String(s||'').replace(/\s*\([^)]*\)\s*\*[A-Z0-9]+\*/,'').replace(/\s*\*[A-Z0-9]+\*\s*\([^)]*\)/,'').replace(/\s*\*[A-Z0-9]+\*/,'').trim();
 const dotsHTML=it=>it.vars?`<span class="cdots">${it.vars.map(v=>`<i title="${esc(COL[v.col].l)}${v.ex==='no'?' (no disponible)':''}" class="${v.ex==='no'?'off':''}" style="background:${COL[v.col].h}"></i>`).join('')}</span>`:'';
 const st={zone:'',dsec:null,carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,promo:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
@@ -644,7 +644,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261118-0031';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261118-0034';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -661,14 +661,14 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}
   if(!(PR&&PR.act))st.promo=false;
   // piezas por color: una sola tarjeta por lado; cada color sigue siendo su propia pieza en el inventario
-  const GOF={};dj.parts.forEach(p=>{if(p.g)GOF[p.pn]=p.g});const GM={};VAR=[];
-  ALL=ALL.filter(it=>{const g=!it.x&&GOF[it.pn];const c=g&&colOf(it.es);if(!c)return true;it.g0=g;it.col=c;VAR.push(it);(GM[g]=GM[g]||[]).push(it);return false});
+  const GOF={},GNM={},ENP={};dj.parts.forEach(p=>{if(p.g){GOF[p.pn]=p.g;if(p.gn)GNM[p.g]=p.gn;ENP[p.pn]=p.en}});const GM={};VAR=[];
+  ALL=ALL.filter(it=>{const g=!it.x&&GOF[it.pn];const c=g&&colOf(it.es+' '+(ENP[it.pn]||''));if(!c)return true;it.g0=g;it.col=c;VAR.push(it);(GM[g]=GM[g]||[]).push(it);return false});
   for(const g in GM){const vs=GM[g].sort((a,b)=>COLO.indexOf(a.col)-COLO.indexOf(b.col));const av=vs.filter(v=>v.ex==='av');const pool=av.length?av:vs;
     const b=pool.reduce((m,v)=>(v.price||1e9)<(m.price||1e9)?v:m,pool[0]);const fids=av.flatMap(v=>v.fids);
-    ALL.push(Object.assign({},b,{k:'G:'+g,g,ipn:b.pn,g0:undefined,col:undefined,vars:vs,pn:g,y:null,es:gName(b.es),en:gName(b.en),av:av.length>0,ex:av.length?'av':vs.some(v=>v.ex==='rev')?'rev':'no',
+    ALL.push(Object.assign({},b,{k:'G:'+g,g,ipn:b.pn,g0:undefined,col:undefined,vars:vs,pn:g,y:null,es:GNM[g]||gName(b.es),en:gName(b.en),av:av.length>0,ex:av.length?'av':vs.some(v=>v.ex==='rev')?'rev':'no',
       cars:[...new Set(av.flatMap(v=>String(v.cars||'').split(',').filter(Boolean)))].join(','),n:av.reduce((t,v)=>t+(v.n||0),0),fids,f:fids[0]||'',enc:av.length>0&&av.every(v=>v.enc),
       cond:av.length===1?av[0].cond:'',desde:new Set(pool.map(v=>v.price)).size>1,promo:av.some(v=>v.promo)?1:0,
-      pnk:vs.map(v=>v.pnk).join(' '),key:norm(gName(b.es)+' '+gName(b.en)+' '+b.secName+' '+vs.map(v=>v.pn+' '+COL[v.col].l).join(' '))}))}
+      pnk:vs.map(v=>v.pnk).join(' '),key:norm((GNM[g]||gName(b.es))+' '+gName(b.en)+' '+b.secName+' '+vs.map(v=>v.pn+' '+COL[v.col].l).join(' '))}))}
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;document.querySelectorAll('.nmf').forEach(e=>e.textContent=nm);
