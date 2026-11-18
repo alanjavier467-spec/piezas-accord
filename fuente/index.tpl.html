@@ -134,7 +134,7 @@ const sugOf=pn=>nice(((BYPN[pn]||{}).sp||0)*fSug());
 const newOf=p=>p&&p.lp?Math.round(p.lp*tcNow()/10)*10:0;
 const priceOf=pn=>{const v=PRICE[pn];return v?v:sugOf(pn)};
 const dLocal=d=>{const x=d?new Date(d):new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
-const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[];
+const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[],ESPERAS=[];
 const isSug=pn=>!PRICE[pn];
 const xById=id=>EXTRAS.find(x=>x.id===id);
 const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
@@ -420,12 +420,13 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
    ${OWN?`<div class="card form"><span class="hint">Precio de venta${isSug(p.pn)?' (sugerido'+(subePct()?', +'+subePct()+'%':'')+')':''}</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda (lista EE.UU., $${tcNow()} por dólar): <b>${money(newOf(p))}</b>${priceOf(p.pn)<newOf(p)?' · el cliente ahorra '+Math.round((1-priceOf(p.pn)/newOf(p))*100)+'%':' · ⚠ tu precio está arriba de la nueva'}</span>`:''}
      <label class="f" for="f-price">Poner mi precio (MXN)<input id="f-price" type="number" inputmode="decimal" min="0" placeholder="Sugerido: ${esc(sugOf(p.pn)||'')}" value="${esc(pr)}"></label><button class="btn ghost" data-saveprice>Guardar precio</button><div class="status" id="p-status"></div></div>`
      :`<div class="card"><span class="hint">Precio de venta</span><div class="price">${money(priceOf(p.pn))}</div>${newOf(p)?`<span class="hint">Nueva Honda: ${money(newOf(p))}</span>`:''}</div>`}
+   ${OWN&&espDe(p.pn).length?`<div class="card form" style="border:2px solid var(--tag)"><b>🔔 ${espDe(p.pn).length} cliente${espDe(p.pn).length>1?'s esperan':' espera'} esta pieza</b>${espDe(p.pn).map(espRow).join('')}</div>`:''}
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
     ${cs.length?cs.map(c=>{const x=stOf(c,p.pn);const ic=inCart(p.pn,c.id);return `<div class="carrow"><span class="carcode">${esc(c.code)}</span><div style="min-width:0"><span class="st st-${x.s}">${x.s==='na'?'No aplica ('+naWhy(c,p)+')':x.s==='revisar'&&FACE21.has(p.s)&&es21(c)&&!(EST[c.id]||{})[p.pn]?'Por revisar (2021–22 cambió)':STL[x.s]}${x.s==='apartada'?(()=>{const a=((EST[c.id]||{})[p.pn]||{}).ap||{};return ' · '+esc(a.q||'')+' hasta '+(a.v?new Date(a.v).toLocaleString('es-MX',{weekday:'short',hour:'numeric',minute:'2-digit'}):'')})():''}${AVAIL(x.s)&&x.n>1?' · '+x.n+' pzas':''}</span>${(()=>{const yn=yNum(p,verOf(c));return yn&&yn!==p.pn?` <span class="pn" style="font-size:13px">${esc(yn)}</span>`:''})()}${av[0]&&av[0].c.id===c.id&&av.length>1?' <span class="hint">· el más viejo, vende este primero</span>':''}
       ${AVAIL(x.s)?`<div class="hint" style="margin-top:4px">📍 ${ubiOf(c.id,p.pn)?`<b>${esc(ubiOf(c.id,p.pn))}</b>`:(x.s==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
       ${x.s==='na'?'':`<details style="margin-top:6px"><summary class="hint">Cambiar estado o lugar</summary>${segHTML(c,p.pn,x.s)}
        <div class="drow" style="margin-top:8px"><input id="ubi-${c.id}" list="ubis" placeholder="Lugar: T-3, G-1…" value="${esc(ubiOf(c.id,p.pn))}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0"><button class="btn ghost" data-saveubi="${c.id}">Guardar lugar</button></div></details>`}</div>
-      <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">🛒 Agregar al carrito</button>`:ic?`<span class="hint">${ic} en el carrito</span>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
+      <div>${AVAIL(x.s)&&x.n-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-add="${c.id}">🛒 Agregar al carrito</button>`:ic?`<span class="hint">${ic} en el carrito</span>`:['mala','revisar','falta'].includes(x.s)?`<button class="btn ghost" style="padding:8px 10px;font-size:14px" data-tengo="${c.id}">✅ La tengo · al carrito</button>`:''}</div></div>`}).join(''):'<p class="hint">Todavía no hay carros.</p>'}</div>
   </div>`;
   sheet.insertAdjacentHTML('beforeend',ubiList());
   {const box=sheet.querySelector('.pcar');if(box&&box.querySelector('.parr')){let x0=null;box.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});box.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)pcarGo(box,dx<0?1:-1)},{passive:true})}}
@@ -462,6 +463,36 @@ function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;
   zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.z){z=Math.min(4,Math.max(1,z+(+t.dataset.z)*.75));apply()}if(t.hasAttribute('data-zn'))openZoom(si,(k+1)%ds.length,ref);if(t.hasAttribute('data-zclose'))closeTop()};
   area.ondblclick=()=>{z=z>1?1:2.5;apply()}})}
 // ---- menú (usuarios, cuenta) ----
+// ---- clientes esperando una pieza ("Avísame cuando llegue" en la tienda) ----
+const espPend=()=>ESPERAS.filter(x=>!x.atendido);
+const espDe=pn=>espPend().filter(x=>x.pn===pn);
+const espWa=(x)=>'https://wa.me/52'+String(x.tel||'').replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.name||'')+', te escribo de Trío Accord. Ya tenemos la pieza que nos pediste: '+(x.es||'')+' ('+x.pn+'). ¿Todavía te interesa?');
+const espRow=x=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((x.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(x.name||'')}</b><br><span class="hint">📱 ${esc(x.tel||'')}${x.email?' · ✉️ '+esc(x.email):''} · ${fmtDate((x.date||'').slice(0,10))}</span></div>
+  <div style="display:grid;gap:6px">${x.tel?`<a class="btn alt" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" target="_blank" rel="noopener" href="${espWa(x)}">WhatsApp</a>`:''}${x.email?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" href="mailto:${esc(x.email)}?subject=${encodeURIComponent('Ya llegó tu pieza: '+(x.es||''))}">Correo</a>`:''}<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-espok="${x.id}">Atendido</button></div></div>`;
+function esperasHTML(){const P=espPend();const g={};P.forEach(x=>{(g[x.pn]=g[x.pn]||[]).push(x)});
+  const L=Object.entries(g).map(([pn,xs])=>({pn,xs,es:(BYPN[pn]||{}).es||xs[0].es||pn,av:availCars(pn).map(o=>o.c.code)})).sort((a,b)=>(b.av.length?1:0)-(a.av.length?1:0)||b.xs.length-a.xs.length);
+  const hay=L.filter(o=>o.av.length).length;const at=ESPERAS.length-P.length;
+  return `<details class="card form"${hay?' open':''}><summary><b>🔔 Clientes esperando piezas (${P.length})</b>${hay?` <span class="st st-esta">${hay} ya las tienes</span>`:''}</summary>
+   <p class="hint" style="margin:0">Clientes que tocaron “Avísame cuando llegue” en la tienda. Arriba salen las piezas que ya tienes disponibles: avísales y el primero que la aparte se la lleva.${at?' Ya atendiste '+at+'.':''}</p>
+   ${L.length?L.map(o=>`<div class="card" style="margin:0"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><b>${esc(o.es)}</b><br><span class="pn" style="font-size:13px">${esc(o.pn)}</span> <span class="hint">· ${o.xs.length} esperando</span></div>${o.av.length?`<span class="st st-esta">✅ La tienes (${esc(o.av.join(', '))})</span>`:'<span class="st st-mala">Sin existencia</span>'}</div>
+     ${o.xs.map(espRow).join('')}<button class="btn ghost" style="margin-top:6px" data-esppn="${esc(o.pn)}">Abrir la pieza</button></div>`).join(''):'<p class="hint" style="margin:0">Aún nadie ha pedido que le avisen.</p>'}</details>`}
+// ---- pasar todo lo "por revisar" a "dañada" (con respaldo antes) ----
+const revTotal=()=>{let n=0;CARS.forEach(c=>{UPN.forEach(pn=>{if(stOf(c,pn).s==='revisar')n++})});return n};
+let rmArmed=false;
+function rev2malaHTML(){const n=revTotal();if(!n)return '';
+  return `<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Pasar “por revisar” a dañadas</b>
+   <p class="hint" style="margin:0">Tienes <b>${n}</b> piezas por revisar en tus carros (${CARS.map(c=>{let k=0;UPN.forEach(pn=>{if(stOf(c,pn).s==='revisar')k++});return k?esc(c.code)+': '+k:''}).filter(Boolean).join(', ')}). Esto las marca todas como <b>dañadas</b>: dejan de salir en la tienda y en el conteo de por revisar. Primero se descarga un respaldo. Si después te piden una y sí la tienes, ábrela y toca “✅ La tengo”.</p>
+   <button class="btn ${rmArmed?'alt':'ghost'}" data-rev2mala>${rmArmed?'Sí, marcar las '+n+' como dañadas':'Marcar las '+n+' como dañadas'}</button>${rmArmed?'<button class="btn ghost" data-rev2malano>Cancelar</button>':''}<div class="status" id="rm-status"></div></div>`}
+async function rev2mala(){const stt=$('#rm-status');if(!rmArmed){rmArmed=true;openMenu();const s2=$('#rm-status');if(s2){s2.className='status err';s2.textContent='¿Seguro? Toca el botón otra vez para confirmar.'}return}
+  rmArmed=false;stt.className='status';stt.textContent='Descargando respaldo…';
+  const ok=await backup(false);if(!ok){stt.className='status err';stt.textContent='No se pudo descargar el respaldo, no se cambió nada.';return}
+  try{let tot=0;const b=writeBatch(fs);const ml=[];
+    for(const c of CARS){const m={};let k=0;for(const pn of UPN){if(stOf(c,pn).s==='revisar'){m[pn]={s:'mala',n:0,u:''};k++}}
+      if(c.def==='revisar')b.set(doc(fs,'carros',c.id),{def:'mala'},{merge:true});
+      if(k){b.set(doc(fs,'estado',c.id),{m},{merge:true});EST[c.id]=Object.assign({},EST[c.id]||{},m);ml.push({tipo:'estado',pn:'(todas por revisar)',car:c.id,de:'revisar',a:'mala',qty:k});tot+=k}}
+    movs(b,ml);await b.commit();
+    stt.className='status ok';stt.textContent='Listo: '+tot+' piezas quedaron como dañadas. La tienda se actualiza en unos segundos.';pubSync();render()}
+  catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
 function openMenu(){SHEET='menu';
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
    <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Creador (administrador)':'Vendedor'}</span></div>
@@ -516,6 +547,8 @@ function openMenu(){SHEET='menu';
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    ${NEWV?`<div class="card form" style="border:2px solid var(--tag)"><b>Hay una versión nueva de la app</b><button class="btn alt" data-update>Actualizar ahora</button></div>`:''}
    <a class="btn ghost" style="text-align:center;text-decoration:none" href="tienda.html">👁 Ver la tienda como cliente</a>
+   ${OWN?esperasHTML():''}
+   ${OWN?rev2malaHTML():''}
    ${OWN?`<details class="card form"><summary><b>Clientes registrados (${CLIENTES.length})</b></summary>${CLIENTES.length?CLIENTES.map(c=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((c.name||c.user||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(c.name||'')}</b><br><span class="hint">⭐ ${c.puntos||0} puntos · ${c.compras||0} compras · Usuario: ${esc(c.user)}</span></div>${c.tel?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/52${esc(c.tel.slice(-10))}">WhatsApp</a>`:''}</div>`).join(''):'<p class="hint" style="margin:0">Aún no hay clientes registrados.</p>'}</details>`:''}
    ${OWN?`<details class="card form"><summary><b>Reseñas de clientes (${RESENAS.length})</b> ${RESENAS.length?`<span class="hint">⭐ ${(RESENAS.reduce((a,r)=>a+r.estrellas,0)/RESENAS.length).toFixed(1)}</span>`:''}</summary>
      <p class="hint" style="margin:0">Solo puede opinar quien compró: desde el ticket toca “⭐ Pedir reseña” y le llega un enlace que sirve una sola vez. Las ocultas no salen en la tienda.</p>
@@ -855,10 +888,11 @@ async function backup(withFull){const stt=$('#bk-status');stt.className='status'
     {const cq=await getDocs(collection(fs,'cortes'));out.cortes=cq.docs.map(d=>Object.assign({id:d.id},d.data()))}
     try{const mq=await getDocs(collection(fs,'movimientos'));out.movimientos=mq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     try{const sq=await getDocs(collection(fs,'solicitudes'));out.solicitudes=sq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
+    try{const eq=await getDocs(collection(fs,'esperas'));out.esperas=eq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()});
       try{const v=await getDocs(collection(fs,'vista360'));out.vista360={};v.docs.forEach(d=>{out.vista360[d.id]=d.data()})}catch(e){}}
     const day=new Date().toISOString().slice(0,10);download('respaldo-piezas-'+day+'.json',JSON.stringify(out),'application/json');LS.set('ultRespaldo',new Date().toISOString());
-    stt.className='status ok';stt.textContent='Listo. Guarda el archivo en tu Google Drive o mándatelo por WhatsApp.'}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}}
+    stt.className='status ok';stt.textContent='Listo. Guarda el archivo en tu Google Drive o mándatelo por WhatsApp.';return true}catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e);return false}}
 let rsArmed=null;
 async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(await file.text());if(J.app!=='piezas-accord')throw new Error('Ese archivo no es un respaldo de esta app');
   if(rsArmed!==file.name){rsArmed=file.name;stt.className='status err';stt.textContent='Respaldo del '+fmtDate(J.fecha.slice(0,10))+': '+(J.ventas||[]).length+' ventas, '+(J.carros||[]).length+' carros. Vuelve a elegir el archivo para confirmar (lo que hay se sobrescribe).';return}
@@ -868,7 +902,7 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   Object.entries(J.alternos||{}).forEach(([k,v])=>ops.push(['alternos',k,v]));(J.ventas||[]).forEach(v=>ops.push(['ventas',v.id,strip(v)]));(J.extras||[]).forEach(v=>ops.push(['extras',v.id,strip(v)]));
   (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
-  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
+  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));(J.esperas||[]).forEach(v=>ops.push(['esperas',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
   (J.movimientos||[]).forEach(v=>ops.push(['movimientos',v.id,strip(v)]));
   {const m={};let ult='';(J.fotos||[]).forEach(v=>{m[v.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});if((J.fotos||[]).length)ops.push(['indice','fotos',{v:1,ult,m}])}
   // envíos de máximo 6 MB y 400 documentos (Firestore acepta hasta 10 MB y 500)
@@ -881,7 +915,7 @@ const WA_DEF='6142737975';const fixWa=w=>{w=String(w||'').replace(/\D/g,'');retu
 const srv=(k,s)=>{if(s&&s.metadata&&s.metadata.fromCache)CACHE.add(k);else{CACHE.delete(k);LOADED.add(k)}};
 const pubURL=()=>location.origin+location.pathname.replace(/[^/]*$/,'')+'tienda.html';
 function pubSnapshot(){const items=[],rev=[];
-  for(const pn of UPN){const a=availCars(pn);if(!a.length){if(CARS.some(c=>stOf(c,pn).s==='revisar'))rev.push(pn);continue}const f=(FOTOS[pn]||[])[0];
+  for(const pn of UPN){const a=availCars(pn);if(!a.length)continue;const f=(FOTOS[pn]||[])[0];
     items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),(FOTOS[pn]||[]).slice(0,5).map(x=>x.id).join(','),f?(f.cond||''):'',isSug(pn)?1:0,a.every(o=>o.x.s==='esta')?1:0])}
   const xs=EXTRAS.filter(xAvail).map(x=>{const f=(FOTOS['X:'+x.id]||[])[0];return [x.id,x.name,x.num||'',x.price||0,x.qty,x.car?carCode(x.car):'',(FOTOS['X:'+x.id]||[]).slice(0,5).map(y=>y.id).join(','),x.cond||'']});
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
@@ -1012,6 +1046,10 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('pago' in d){PAGO=d.pago;LS.set('pago',PAGO);render();return}
   if('corte' in d){openCorte(dLocal());return}
   if('savecorte' in d){saveCorte();return}
+  if('rev2mala' in d){rev2mala();return}
+  if('rev2malano' in d){rmArmed=false;openMenu();return}
+  if(d.espok){setDoc(doc(fs,'esperas',d.espok),{atendido:true,atendidoFecha:new Date().toISOString()},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if(d.esppn){const i=PARTS.findIndex(x=>x.pn===d.esppn);if(i>=0)openPart(i);return}
   if('rhide' in d){const r=RESENAS.find(x=>x.id===d.rhide);if(r)setDoc(doc(fs,'resenas',r.id),{oculta:!r.oculta},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('rdel' in d){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Borrar? Toca otra vez';return}deleteDoc(doc(fs,'resenas',d.rdel)).catch(e=>toast(errMsg(e)));return}
   if('saveprecios' in d){const sube=+$('#n-sube').value,tc=+$('#n-tc').value;const s2=$('#pr-status');if(isNaN(sube)||sube<-50||sube>300||!(tc>5&&tc<60)){s2.className='status err';s2.textContent='Revisa los números.';return}
@@ -1065,6 +1103,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.delcatsi){delCatalogo(PARTS[+d.delcatsi]);return}
   if(d.delalt){delete ALT[d.delalt];deleteDoc(doc(fs,'alternos',d.delalt)).catch(e=>toast(errMsg(e)));openPart(openIdx);return}
   if(d.add){addToCart(d.add);return}
+  if(d.tengo){const p=PARTS[openIdx];setStatus(d.tengo,p.pn,'quitada');addToCart(d.tengo);return}
   if(d.q!=null){const l=CART[+d.q];const max=l.car?(()=>{const c=CARS.find(x=>x.id===l.car);return c?stOf(c,l.pn).n:99})():999;l.qty=Math.max(1,Math.min(max,l.qty+(+d.d)));saveCart();render();return}
   if(d.rm!=null){CART.splice(+d.rm,1);saveCart();render();return}
   if(d.pct!=null){DISC={mode:'pct',pct:+d.pct,amt:'',target:''};saveCart();render();return}
@@ -1151,6 +1190,7 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{const all=s.docs.map(d=>Object.assign({id:d.id},d.data()));SALES=all.filter(x=>!x.cancelada);CANCELADAS=all.filter(x=>x.cancelada);rr()});
     sub(query(collection(fs,'cortes'),orderBy('date','desc'),limit(60)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data()))});
     sub(collection(fs,'resenas'),s=>{RESENAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!sheet.hidden&&SHEET==='menu')openMenu()});
+    sub(collection(fs,'esperas'),s=>{ESPERAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.date||'').localeCompare(b.date||''));if(!sheet.hidden&&(SHEET==='menu'))openMenu()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
     sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}
   else{sub(query(collection(fs,'ventas'),where('by','==',u.uid)),s=>{const all=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>b.date.localeCompare(a.date));SALES=all.filter(x=>!x.cancelada);CANCELADAS=all.filter(x=>x.cancelada);rr()});

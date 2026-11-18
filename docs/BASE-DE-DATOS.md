@@ -32,6 +32,7 @@ Las cuentas son de Firebase Authentication. El usuario se convierte en `u<sha256
 | `movimientos/{id}` | `tipo` (venta, cancelación, estado), `pn`, `car`, `de`, `a`, `qty`, `ref?`, `date`, `by`, `byName` | creador | crear: cada miembro con su propio `by`; nadie edita |
 | `clientes/{uid}` | `user`, `name`, `tel`, `email`, `created`, `puntos`, `compras`, `ultimaCompra` | miembros o el propio cliente | el propio cliente; miembros suman puntos |
 | `solicitudes/{id}` | `uid`, `user`, `name`, `tel`, `pay`, `coment`, `total`, `date`, `items[] {k, pn, es, qty, price}` | creador o el cliente que la hizo | crear: el cliente (con su propio `uid`) |
+| `esperas/{id}` | “Avísame cuando llegue” de la tienda: `pn`, `es`, `name`, `tel` (10 números), `email`, `date`; el creador agrega `atendido`, `atendidoFecha`. Se ven en *Menú → Clientes esperando piezas* y en la ficha de la pieza | creador | crear: **cualquiera** (solo esos campos y tamaños); editar/borrar: creador |
 | `config/negocio` | `nombre`, `tel`, `wa`, `dir`, `pie`, `maxDuenos` (1–4) | miembros | creador |
 | `vista360/{carId}_{i}` | `car`, `i`, `img`: cuadros de la vista 360° | miembros | creador |
 | `config/lotes` | `hechos: { <idLote>: {date, by} }`: lotes ya subidos (para no subirlos dos veces) | miembros | creador |
@@ -56,7 +57,7 @@ La app de cualquier miembro lo arma y lo guarda solo, unos segundos después de 
 }
 ```
 
-En la tienda, una pieza que está en `items` sale **Disponible**, una que está en `rev` sale **Por confirmar**, y las demás salen **Sin existencia**.
+En la tienda, una pieza que está en `items` sale **Disponible** y las demás salen **Sin existencia** con el botón “Avísame cuando llegue”. Desde el 2026-11-17 la app ya no publica `rev` (va vacío): la tienda solo enseña lo confirmado.
 
 ## Archivos estáticos (no están en Firestore)
 

@@ -94,6 +94,17 @@ service cloud.firestore {
       allow read: if isOwner() || (signed() && resource.data.uid == request.auth.uid);
       allow update, delete: if isOwner();
     }
+    // "Avísame cuando llegue": cualquiera deja su nombre y WhatsApp para una pieza sin existencia; solo el creador los ve
+    match /esperas/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['pn','es','name','tel','email','date'])
+        && request.resource.data.pn is string && request.resource.data.pn.size() > 0 && request.resource.data.pn.size() <= 40
+        && request.resource.data.es is string && request.resource.data.es.size() <= 120
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+        && request.resource.data.tel is string && request.resource.data.tel.size() == 10
+        && request.resource.data.email is string && request.resource.data.email.size() <= 80
+        && request.resource.data.date is string && request.resource.data.date.size() <= 40;
+      allow read, update, delete: if isOwner();
+    }
     match /cortes/{id} {
       allow read: if isOwner() || (isStaff() && resource.data.by == request.auth.uid);
       allow create: if member() && request.resource.data.by == request.auth.uid;

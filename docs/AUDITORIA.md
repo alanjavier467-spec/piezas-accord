@@ -39,3 +39,6 @@ E
 
 ## 2026-11-09 — Fotos desaparecidas
 La lista ligera `indice/fotos` quedó vacía: la app y la tienda mostraban 0 fotos aunque todas seguían en `fotos/`. Causa: la lista solo se completaba "de la última fecha en adelante" y no se rehacía nunca; además la app quitaba fotos de la lista cuando una lectura fallaba. Arreglo (rama `arregla-fotos-2026-11-09`): el dueño revisa la lista completa al abrir si está vacía y cada 24 h; ya no se borran fotos de la lista por una lectura fallida. Pruebas: `fotos-lista-vacia`, `fotos-no-borra`. No cambian las reglas.
+
+## 2026-11-17 — Avísame cuando llegue y "por revisar" → dañadas
+Rama `avisame-y-danadas`. (1) La tienda solo enseña lo confirmado: ya no hay "Por confirmar" y lo montado en el carro sale "Disponible". (2) En piezas sin existencia el cliente deja nombre, WhatsApp y correo (colección nueva `esperas`, **requiere publicar las reglas**). (3) Menú → "Clientes esperando piezas", agrupado por pieza, con WhatsApp ya escrito y "Atendido"; la ficha muestra quién espera. (4) Menú → "Pasar por revisar a dañadas": descarga respaldo y cambia todas de golpe. (5) En la ficha, "✅ La tengo · al carrito" en piezas dañadas / no está / por revisar. Cubre N5 (buscadas sin existencia). Pruebas: `pruebas/esperas.js`.

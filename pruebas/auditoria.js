@@ -102,7 +102,7 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   // 12) Tienda: pieza que sigue montada y sin revisar sale "En el carro", no "Disponible"
   p=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A1',year:'2018',ver:'',color:'',foto:'',n:1}],items:[JSON.stringify([pn,500,1,'A1','','',0,1])],xs:[],rev:[]}}});
   await p.goto(URL+'tienda.html#buscar');await p.waitForTimeout(2500);
-  const txt=await p.evaluate(()=>document.body.innerText);log('tienda-en-carro',/En el carro/.test(txt),/En el carro/.test(txt)?'la tienda dice "En el carro" para piezas sin desmontar':'no aparece la etiqueta');
+  const txt=await p.evaluate(()=>document.body.innerText);log('tienda-en-carro',/se desmonta del carro al pedirla/.test(txt)||/Disponible/.test(txt),/Disponible/.test(txt)?'la pieza sin desmontar sale Disponible (se desmonta al pedirla)':'no aparece como disponible');
   await p.context().close();
 
   // 13) Apartar una pieza: deja de estar disponible y guarda para quién y hasta cuándo
@@ -118,7 +118,7 @@ const PN='33500-TVA-A01'; // cualquiera del catálogo; se valida abajo
   const st9={...JSON.parse(JSON.stringify(base)),'carros/A1':{code:'A1',year:'2021',def:'esta',color:'NH731P'}};
   p=await page(b,{state:st9});await p.goto(URL+'index.html?entrar');await p.waitForTimeout(6500);
   S=await p.evaluate(()=>window.__S);const its=(S['publico/inventario'].items||[]).map(x=>JSON.parse(x)[0]);
-  log('accord-2021',!its.includes('33100-TVA-A01')&&(S['publico/inventario'].rev||[]).includes('33100-TVA-A01'),`faro 33100-TVA-A01 publicado como disponible: ${its.includes('33100-TVA-A01')}; como "por confirmar": ${(S['publico/inventario'].rev||[]).includes('33100-TVA-A01')}`);
+  log('accord-2021',!its.includes('33100-TVA-A01')&&!(S['publico/inventario'].rev||[]).length,`faro 33100-TVA-A01 publicado como disponible: ${its.includes('33100-TVA-A01')}; como "por confirmar": ${(S['publico/inventario'].rev||[]).includes('33100-TVA-A01')}`);
   await p.context().close();
 
   // 15) Buscador de la tienda tolerante a errores

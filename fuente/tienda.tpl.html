@@ -294,8 +294,8 @@ const phHTML=it=>{const V=viewsOf(it);const i=Math.min(CARDV[it.k]||0,Math.max(0
   return `${imgOne(it,V[i])}${V.length>1?`<span class="swap" data-swap="${esc(it.k)}">${nx.t==='real'?'📷 Ver foto real':'✏️ Ver dibujo Honda'}</span><span class="dots">${V.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}</span>`:''}`};
 const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
 // enc = la pieza sigue montada en el carro y nadie la ha revisado: se ofrece, pero se confirma su estado al cotizar
-const exTag=it=>it.ex==='av'?(it.enc?'<span class="tag ok">En el carro</span>':'<span class="tag ok">Disponible</span>'):it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
-const exTxt=it=>it.ex==='av'?(it.enc?'En el carro'+carsTxt(it)+' · se desmonta al pedirla; confirmamos su estado al cotizar':'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):'')):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
+const exTag=it=>it.ex==='av'?'<span class="tag ok">Disponible</span>':it.ex==='no'?'<span class="tag no">Sin existencia</span>':'<span class="tag">OEM</span>';
+const exTxt=it=>it.ex==='av'?(it.enc?'Disponible'+carsTxt(it)+' · se desmonta del carro al pedirla':'Disponible'+carsTxt(it)+(it.cond?' · '+esc(it.cond):'')):it.ex==='no'?'No tenemos en existencia':(it.sug?'Precio sugerido · ':'')+'Existencia por confirmar';
 const inQ=k=>Q.some(q=>q.k===k);
 function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a,q)=>a+q.qty,0);
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
@@ -412,7 +412,7 @@ function vCot(){const lines=Q.map(q=>({q,it:byK(q.k)})).filter(o=>o.it);const to
   view.innerHTML=`<div class="qt"><div class="kicker">Te ayudamos a elegir</div><h1>Tu cotización</h1><p style="font-size:16px;margin:0 0 22px">Confirmaremos precio, compatibilidad y existencia antes de cobrar.</p>
    ${lines.length?lines.map(({q,it})=>`<div class="qline"><span class="ph">${imgTag(it)}</span><div style="min-width:0"><b style="cursor:pointer" data-det="${esc(it.k)}">${esc(it.es)}</b><br><span class="pn">${esc(numFor(it,st.ver))}</span>
       <div class="qty"><button data-qq="${esc(it.k)}" data-d="-1" aria-label="Menos">−</button><b>${q.qty}</b><button data-qq="${esc(it.k)}" data-d="1" aria-label="Más">+</button><button data-qrm="${esc(it.k)}" style="border:0;background:none;color:var(--muted);font-size:12.5px;margin-left:6px">Quitar</button></div></div>
-      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?(it.enc?'En el carro':'Disponible')+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
+      <div class="price" style="text-align:right">${it.price?money(it.price*q.qty):'—'}<small>${it.ex==='av'?'Disponible'+carsTxt(it):it.ex==='no'?'Sin existencia':'Por confirmar'}</small></div></div>`).join('')+`<div class="qtot"><span>Total aproximado</span><span>${money(tot)} MXN</span></div>`
    :`<div class="empty">Aún no has agregado piezas. <a href="#inicio" style="color:var(--green);font-weight:600">Explorar catálogo →</a></div>`}
    <h3 style="font-size:19px;margin:26px 0 4px">¿Cómo te gustaría continuar?</h3>
    <div class="opts">${['Cotización','Efectivo','Transferencia','Pago en línea'].map(o=>`<button class="chip" data-pay="${o}" aria-pressed="${st.pay===o}">${o}</button>`).join('')}</div>
@@ -538,18 +538,32 @@ async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
    ${ahorro(it)?`<div class="ahorro">Nueva en Honda: <s>${money(it.nuevo)}</s> · <b>Te ahorras ${money(it.nuevo-it.price)} (${ahorro(it)}%)</b><small>Precio nuevo de referencia: lista oficial de Honda en EE.UU. convertida a pesos ($${+INV.tc||18.7} por dólar).</small></div>`:''}
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
-   ${it.ex==='no'?'<div class="note">Por ahora no tenemos esta pieza. Pregúntanos por WhatsApp: puede llegar en el próximo carro.</div>':`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
+   ${it.ex==='no'?avisaHTML(it):`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
    <a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, me interesa esta pieza de Honda Accord: '+it.es+' ('+numFor(it,st.ver)+'). ¿Sigue disponible?')}">Preguntar por WhatsApp</a>
    <p style="font-size:12.5px;color:var(--muted);margin:0">Pieza original usada. Si quieres más fotos, pídelas por WhatsApp.</p></div>`;
   if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';hook(modal);
   GAL={it,i:CARDV[k]||0};showGal()}
 let GAL=null;const fullc={};
+// ---- "Avísame cuando llegue": el cliente deja sus datos y le avisamos cuando llegue un carro con la pieza ----
+function avisaHTML(it){const ya=LSg('avisos',[]).includes(it.k);
+  if(ya)return `<div class="note">🔔 <b>Ya te vamos a avisar</b> cuando llegue esta pieza. Si quieres, también pregúntanos por WhatsApp.</div>`;
+  return `<div class="note" id="av-box"><b>🔔 ¿La necesitas? Te avisamos cuando llegue</b><br>Por ahora no la tenemos. Déjanos tus datos y te escribimos en cuanto llegue un carro que la traiga.</div>
+   <label class="field">Tu nombre<input id="av-n" maxlength="60" autocomplete="name" value="${esc(CLI?(CLI.name||''):LSg('qn',''))}" placeholder="Ej. Carlos"></label>
+   <label class="field">Tu WhatsApp (10 números)<input id="av-t" inputmode="tel" maxlength="20" autocomplete="tel" value="${esc(CLI?(CLI.tel||''):LSg('avt',''))}" placeholder="Ej. 614 123 4567"></label>
+   <label class="field">Tu correo (opcional)<input id="av-e" type="email" maxlength="80" autocomplete="email" value="${esc(LSg('ave',''))}" placeholder="Ej. carlos@gmail.com"></label>
+   <button class="btn lime" data-avisa="${esc(it.k)}">🔔 Avísame cuando llegue</button><div id="av-st" style="font-size:14px;color:#b42318"></div>`}
+async function avisar(k){const it=byK(k);if(!it)return;const st2=$('#av-st');const name=$('#av-n').value.trim(),tel=$('#av-t').value.replace(/\D/g,'').slice(-10),email=$('#av-e').value.trim();
+  if(!name){st2.textContent='Escribe tu nombre.';return}if(tel.length!==10){st2.textContent='Escribe tu WhatsApp a 10 números.';return}if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){st2.textContent='Revisa tu correo (o déjalo vacío).';return}
+  st2.style.color='var(--muted)';st2.textContent='Guardando…';
+  try{await addDoc(collection(fs,'esperas'),{pn:String(it.pn).slice(0,40),es:String(it.es||'').slice(0,120),name:name.slice(0,60),tel,email:email.slice(0,80),date:new Date().toISOString()});
+    LSs('avisos',LSg('avisos',[]).concat(k).slice(-200));LSs('qn',name);LSs('avt',tel);if(email)LSs('ave',email);openDet(k)}
+  catch(e){st2.style.color='#b42318';st2.textContent='No se pudo guardar. Revisa tu señal o pregúntanos por WhatsApp.'}}
 async function showGal(){if(!GAL)return;const {it}=GAL;const V=viewsOf(it);if(!V.length){$('#bigph').innerHTML='<span style="font-size:60px">📦</span>';return}GAL.i=((GAL.i%V.length)+V.length)%V.length;const v=V[GAL.i];
   const box=$('#bigph');box.innerHTML=imgOne(it,v);hook(box);document.querySelectorAll('[data-galj]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.galj===GAL.i));
   if(v.t==='real'){try{const u=fullc[v.id]||(fullc[v.id]=(await getDoc(doc(fs,'fotosfull',v.id))).data()?.img);const im=box.querySelector('img');if(u&&im&&GAL&&viewsOf(GAL.it)[GAL.i]===v)im.src=u}catch(e){}}}
 function closeDet(){modal.hidden=true;document.body.style.overflow=''}
 // ---- eventos ----
-document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swap],[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;if(d.star){RSTAR=+d.star;document.querySelectorAll('[data-star]').forEach(b=>b.classList.toggle('on',+b.dataset.star<=RSTAR));return}if('rsend' in d){sendResena();return}
+document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swap],[data-det],[data-go],[data-acct]');if(!t)return;const d=t.dataset;if(d.star){RSTAR=+d.star;document.querySelectorAll('[data-star]').forEach(b=>b.classList.toggle('on',+b.dataset.star<=RSTAR));return}if('rsend' in d){sendResena();return}if(d.avisa){avisar(d.avisa);return}
   if('acct' in d){e.preventDefault();openAcct.reg=false;openAcct(d.acct||'cliente');return}
   if(d.atab){openAcct(d.atab);return}
   if('areg' in d){openAcct.reg=!openAcct.reg;openAcct('cliente');return}
@@ -593,7 +607,7 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   const inv={};(INV.items||[]).map(P).forEach(([pn,price,n,cars,f,cond,sug,ec])=>{inv[pn]={price,n,f:String(f||'').split(',')[0],fids:String(f||'').split(',').filter(Boolean),cond,sug,cars,ec:!!ec}});
   const seen=new Set(),BORR=new Set(INV.borr||[]);
   for(const p of dj.parts){if(seen.has(p.pn)||BORR.has(p.pn+'|'+p.s+'|'+p.ref))continue;seen.add(p.pn);const s=SECS[p.s];const iv=inv[p.pn];
-    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP||REV.has(p.pn)?'rev':'no'),enc:!!(iv&&iv.ec),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
+    ALL.push({k:p.pn,pn:p.pn,es:p.es,en:p.en,s:p.s,ref:p.ref,y:p.y||null,cat:s.cat.split(' / ')[0],secName:s.es,price:iv?iv.price:niceP((p.sp||0)*(+INV.fsug||1.5)),nuevo:p.lp?Math.round(p.lp*(+INV.tc||18.7)/10)*10:0,sug:iv?!!iv.sug:true,av:!!iv,ex:iv?'av':(!SNAP?'rev':'no'),enc:!!(iv&&iv.ec),cars:iv&&iv.cars||'',n:iv?iv.n:0,f:iv&&iv.f||'',fids:iv?iv.fids:[],cond:iv&&iv.cond||'',
       pnk:p.pn.replace(/-/g,'').toLowerCase(),key:norm(p.es+' '+p.en+' '+s.es+' '+p.pn)})}
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}
