@@ -120,6 +120,10 @@ h2.big{font-family:var(--fd);font-size:44px;font-weight:400;margin:6px 0 18px;li
 .starpick{display:flex;gap:6px}.starpick button{font-size:34px;line-height:1;background:none;border:0;cursor:pointer;color:#d6d3c8;padding:0}.starpick button.on{color:#e0a400}
 .add{width:40px;height:40px;border-radius:9px;border:0;background:var(--lime);color:var(--green);font-size:22px;font-weight:700;cursor:pointer;flex:none}
 .add.on{background:var(--green);color:#fff;font-size:17px}
+.cdots{display:flex;gap:4px;flex-wrap:wrap}.cdots i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.25)}.cdots i.off{opacity:.25}
+.colors{display:flex;flex-wrap:wrap;gap:8px}.colb{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px 8px 9px;font-size:13px;cursor:pointer}
+.colb i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.25);flex:none}.colb[aria-pressed="true"]{border:2px solid var(--green);font-weight:700}
+.colb:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
 .more{display:block;margin:22px auto 0}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:30px;text-align:center;color:var(--muted)}
 /* cotización */
@@ -305,7 +309,12 @@ const ICON={'':SV('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14"
  'Accesorios':SV('<path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2 8 12.7 4 8.8 9.5 8z"/>')};
 const ico=c=>ICON[c]||ICON['Otras'];
 const view=$('#view'),modal=$('#modal');
-let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[];
+let INV={wa:'6142737975',items:[],xs:[]},D,ALL=[],SECS=[],CATS=[],VAR=[];const SELC={};
+// colores de carrocería: piezas que Honda vende por color (p.g en data.json) salen como una sola pieza y el cliente elige el color
+const COL={NH731P:{l:'Negro cristal',h:'#141414'},NH883P:{l:'Blanco platino',h:'#f3f1ea'},NH830M:{l:'Plata lunar',h:'#b9bcc0'},NH797M:{l:'Gris acero',h:'#5b6166'},R94:{l:'Rojo San Marino',h:'#a3141c'},B575P:{l:'Azul noche',h:'#1c2a4d'}};
+const COLO=Object.keys(COL);const colOf=s=>{const m=String(s).match(/\*([A-Z0-9]+)\*/);return m&&COL[m[1]]?m[1]:null};
+const gName=s=>String(s||'').replace(/\s*\([^)]*\)\s*\*[A-Z0-9]+\*/,'').replace(/\s*\*[A-Z0-9]+\*\s*\([^)]*\)/,'').trim();
+const dotsHTML=it=>it.vars?`<span class="cdots">${it.vars.map(v=>`<i title="${esc(COL[v.col].l)}${v.ex==='no'?' (no disponible)':''}" class="${v.ex==='no'?'off':''}" style="background:${COL[v.col].h}"></i>`).join('')}</span>`:'';
 const st={zone:'',dsec:null,carf:'',sort:'top',q:'',cat:'',sec:'',ver:LSg('tuAccord',''),stock:false,promo:false,limit:24,route:'inicio',pay:'Cotización'};
 let Q=LSg('cotizacion',[]);// [{k,qty}]
 const bundles={};const bundle=i=>bundles[i]||(bundles[i]=fetch('p/'+i+'.json').then(r=>r.json()).catch(()=>({})));
@@ -318,12 +327,12 @@ const waNum=()=>{let w=String(INV.wa||'').replace(/\D/g,'');if(!w||w==='61426379
 const waLink=t=>'https://wa.me/'+waNum()+'?text='+encodeURIComponent(t);
 const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];return it.pn};
 const fitsVer=(it,v)=>!v||it.x||!(it.y&&it.y[v]==='');
-const imgTag=(it,big)=>it.f?`<img data-f="${esc(it.f)}" ${it.s!=null?`data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}"`:''} alt="${esc(it.es)}">`:it.s!=null?`<img data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}" alt="${esc(it.es)}">`:'<span style="font-size:40px">📦</span>';
-const byK=k=>ALL.find(i=>i.k===k);
+const imgTag=(it,big)=>it.f?`<img data-f="${esc(it.f)}" ${it.s!=null?`data-s="${it.s}" data-k="${esc((it.ipn||it.pn)+'|'+it.ref)}"`:''} alt="${esc(it.es)}">`:it.s!=null?`<img data-s="${it.s}" data-k="${esc((it.ipn||it.pn)+'|'+it.ref)}" alt="${esc(it.es)}">`:'<span style="font-size:40px">📦</span>';
+const byK=k=>ALL.find(i=>i.k===k)||VAR.find(i=>i.k===k);
 // vistas de imagen de cada pieza: dibujo de Honda + fotos reales
 const viewsOf=it=>{const v=[];if(it.s!=null)v.push({t:'cat'});(it.fids||[]).forEach(id=>v.push({t:'real',id}));return v};
 const CARDV={};
-const imgOne=(it,vw,cls)=>!vw?'<span class="box">📦</span>':vw.t==='cat'?`<img data-s="${it.s}" data-k="${esc(it.pn+'|'+it.ref)}" alt="${esc(it.es)}">`:`<img class="real" data-f="${esc(vw.id)}" alt="${esc(it.es)}">`;
+const imgOne=(it,vw,cls)=>!vw?'<span class="box">📦</span>':vw.t==='cat'?`<img data-s="${it.s}" data-k="${esc((it.ipn||it.pn)+'|'+it.ref)}" alt="${esc(it.es)}">`:`<img class="real" data-f="${esc(vw.id)}" alt="${esc(it.es)}">`;
 const phHTML=it=>{const V=viewsOf(it);const i=Math.min(CARDV[it.k]||0,Math.max(0,V.length-1));const nx=V[(i+1)%V.length];
   return `${imgOne(it,V[i])}${V.length>1?`<span class="swap" data-swap="${esc(it.k)}">${nx.t==='real'?'📷 Ver foto real':'✏️ Ver dibujo Honda'}</span><span class="dots">${V.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}</span>`:''}`};
 const carsTxt=it=>it.cars?' en '+it.cars.split(',').join(', '):'';
@@ -375,9 +384,9 @@ async function loadRes(){try{const sn=await getDocs(query(collection(fs,'resenas
 // ---- vistas ----
 function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
   return `<div class="card"><div class="ph" data-det="${esc(it.k)}" role="button" aria-label="Ver ${esc(it.es)}" id="ph-${esc(it.k)}">${phHTML(it)}${exTag(it)}${it.promo?`<span class="ptag">🔥 −${PR.pct}%</span>`:''}</div>
-   <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${num?`<span class="pn">${esc(num)}</span>`:''}
-   ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
-   ${it.ex==='no'?'':`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
+   <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${it.vars?dotsHTML(it):num?`<span class="pn">${esc(num)}</span>`:''}
+   ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?(it.desde?'Desde ':'')+money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
+   ${it.ex==='no'?'':it.vars?`<button class="add" data-det="${esc(it.k)}" aria-label="Elegir color">+</button>`:`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
 function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
   return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
     (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
@@ -562,12 +571,16 @@ async function vCuenta(){if(!CLI){view.innerHTML=`<div class="empty">Inicia sesi
 function render(){document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',a.dataset.nav===st.route?'page':'false'));
   $('#crumb').textContent='Honda Accord / '+({inicio:'Catálogo',cotizacion:'Mi cotización',nosotros:'Sobre nosotros',cuenta:'Mi cuenta',accord:'Explorar el Accord',privacidad:'Aviso de privacidad',resena:'Tu opinión'})[st.route];
   ({inicio:vInicio,cotizacion:vCot,nosotros:vNos,cuenta:vCuenta,accord:vAccord,privacidad:vPriv,resena:vResena})[st.route]();saveQ()}
-async function openDet(k){const it=byK(k);if(!it)return;const on=inQ(k);
-  const vers=it.x?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
+async function openDet(k){let it=byK(k);if(!it)return;
+  // pieza por color: se abre la ficha general con el color elegido (o el primero que haya)
+  if(it.g0){SELC[it.g0]=it.k;it=byK('G:'+it.g0);if(!it)return}let grp=null;
+  if(it.vars){grp=it;const s=byK(SELC[grp.g]);const v=s&&s.ex!=='no'?s:grp.vars.find(x=>x.ex==='av')||grp.vars.find(x=>x.ex!=='no');if(v)it=v}
+  k=it.k;const on=inQ(k);
+  const vers=it.x||it.vars?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
    <div class="bigwrap"><div class="bigph" id="bigph"></div>${viewsOf(it).length>1?'<button class="nav l" data-gal="-1" aria-label="Anterior">‹</button><button class="nav r" data-gal="1" aria-label="Siguiente">›</button>':''}</div>
    ${viewsOf(it).length>1?`<div class="thumbs">${viewsOf(it).map((v,j)=>`<button data-galj="${j}" aria-pressed="${j===0}">${imgOne(it,v)}</button>`).join('')}</div>`:''}
-   <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(it.es)}</h2>${it.en?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
+   <div class="kicker">${esc(it.secName)}</div><h2 class="big" style="margin:0;font-size:40px">${esc(grp?grp.es:it.es)}</h2>${grp?`<div><div class="kicker" style="margin-bottom:6px">Color${it!==grp?': <b>'+esc(COL[it.col].l)+'</b>':''}</div><div class="colors">${grp.vars.map(v=>`<button class="colb" data-col="${esc(v.k)}" aria-pressed="${v===it}" ${v.ex==='no'?'disabled title="No disponible"':''}><i style="background:${COL[v.col].h}"></i>${esc(COL[v.col].l)}</button>`).join('')}</div>${it===grp?'<p style="font-size:13px;color:var(--muted);margin:6px 0 0">Por ahora no tenemos ningún color disponible.</p>':''}</div>`:''}${it.en&&!grp?`<p style="margin:0;color:var(--muted)">${esc(it.en)}</p>`:''}
    ${it.promo?`<div class="ptag" style="position:static;display:inline-block;margin-top:6px">🔥 ${esc(PR.n)} −${PR.pct}% · hasta el ${fmtD(PR.b)}</div>`:''}<div class="price${it.promo?' pr':''}" style="font-size:28px">${it.antes?`<s class="antes" style="font-size:15px">Antes ${money(it.antes)}</s>`:''}${it.price?money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}${it.ex==='av'&&it.n>1?' · '+it.n+' disponibles':''}</small></div>
    ${ahorro(it)?`<div class="ahorro">Nueva en Honda: <s>${money(it.nuevo)}</s> · <b>Te ahorras ${money(it.nuevo-it.price)} (${ahorro(it)}%)</b><small>Precio nuevo de referencia: lista oficial de Honda en EE.UU. convertida a pesos ($${+INV.tc||18.7} por dólar).</small></div>`:''}
    <dl class="meta">${it.cond?`<dt>Estado</dt><dd>${esc(it.cond)}</dd>`:''}<dt>Número de parte</dt><dd><span class="pn">${esc(numFor(it,st.ver))}</span></dd></dl>
@@ -607,6 +620,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-swa
   if(d.go==='cat'){e.preventDefault();$('#catalogo').scrollIntoView({behavior:'smooth'});return}
   if(d.q){toggleQ(d.q);if(!modal.hidden)openDet(d.q);if(st.route==='inicio'){const b=document.querySelector(`.add[data-q="${CSS.escape(d.q)}"]`);if(b){const on=inQ(d.q);b.className='add'+(on?' on':'');b.textContent=on?'✓':'+'}}else render();return}
   if(d.swap){e.stopPropagation();const it=byK(d.swap);const V=viewsOf(it);CARDV[d.swap]=((CARDV[d.swap]||0)+1)%V.length;document.querySelectorAll('[id="ph-'+CSS.escape(d.swap)+'"]').forEach(el=>{el.innerHTML=phHTML(it)+exTag(it);hook(el)});return}
+  if(d.col){const y=modal.scrollTop;openDet(d.col);modal.scrollTop=y;return}
   if(d.det){openDet(d.det);return}
   if('close' in d){history.back();return}
   if(d.gal){GAL.i+=(+d.gal);showGal();return}
@@ -630,7 +644,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261117-2335';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261118-0015';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -646,6 +660,15 @@ function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign(
   for(const [id,name,num,price,n,car,f,cond] of (INV.xs||[]).map(P)){ALL.push({k:'X:'+id,x:1,pn:num,es:name,en:'',s:null,cat:'Otras',secName:'Pieza adicional',price,sug:false,av:true,ex:'av',cars:car||'',fids:String(f||'').split(',').filter(Boolean),n,f,cond,pnk:norm(num).replace(/[^a-z0-9]/g,''),key:norm(name+' '+num+' '+cond)})}
   LASTINV=[snap,dj];PR=promoOf();if(PR&&PR.act){const sel=new Set(PR.sel||[]);ALL.forEach(it=>{if(it.ex==='av'&&it.price&&(PR.todo||sel.has(it.k))){it.antes=it.price;it.price=promoR(it.price*(1-PR.pct/100));it.promo=1}})}
   if(!(PR&&PR.act))st.promo=false;
+  // piezas por color: una sola tarjeta por lado; cada color sigue siendo su propia pieza en el inventario
+  const GOF={};dj.parts.forEach(p=>{if(p.g)GOF[p.pn]=p.g});const GM={};VAR=[];
+  ALL=ALL.filter(it=>{const g=!it.x&&GOF[it.pn];const c=g&&colOf(it.es);if(!c)return true;it.g0=g;it.col=c;VAR.push(it);(GM[g]=GM[g]||[]).push(it);return false});
+  for(const g in GM){const vs=GM[g].sort((a,b)=>COLO.indexOf(a.col)-COLO.indexOf(b.col));const av=vs.filter(v=>v.ex==='av');const pool=av.length?av:vs;
+    const b=pool.reduce((m,v)=>(v.price||1e9)<(m.price||1e9)?v:m,pool[0]);const fids=av.flatMap(v=>v.fids);
+    ALL.push(Object.assign({},b,{k:'G:'+g,g,ipn:b.pn,g0:undefined,col:undefined,vars:vs,pn:g,y:null,es:gName(b.es),en:gName(b.en),av:av.length>0,ex:av.length?'av':vs.some(v=>v.ex==='rev')?'rev':'no',
+      cars:[...new Set(av.flatMap(v=>String(v.cars||'').split(',').filter(Boolean)))].join(','),n:av.reduce((t,v)=>t+(v.n||0),0),fids,f:fids[0]||'',enc:av.length>0&&av.every(v=>v.enc),
+      cond:av.length===1?av[0].cond:'',desde:new Set(pool.map(v=>v.price)).size>1,promo:av.some(v=>v.promo)?1:0,
+      pnk:vs.map(v=>v.pnk).join(' '),key:norm(gName(b.es)+' '+gName(b.en)+' '+b.secName+' '+vs.map(v=>v.pn+' '+COL[v.col].l).join(' '))}))}
   const EXO={av:0,rev:1,no:2};ALL.sort((a,b)=>(EXO[a.ex]-EXO[b.ex])||((b.f?1:0)-(a.f?1:0))||((a.s??999)-(b.s??999)));
   CATS=[...new Set(ALL.map(i=>i.cat))];
   const nm=INV.nombre||'Trío Accord';$('#nm1').textContent=nm;$('#nm2').textContent=nm;document.querySelectorAll('.nmf').forEach(e=>e.textContent=nm);
