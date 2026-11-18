@@ -66,3 +66,7 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 
 .fbbtn{background:#1877f2;border-color:#1877f2;color:#fff}.fbbtn small{opacity:.8;font-weight:400}
 .st-apartada{background:var(--warn-bg);color:var(--warn);font-weight:700}
+
+/* piezas por color */
+.gdots{display:flex;gap:4px;margin-top:4px}.gdots i{width:13px;height:13px;border-radius:50%;border:1px solid rgba(127,127,127,.6);opacity:.3}.gdots i.on{opacity:1;outline:2px solid var(--ok,#2e9d5b);outline-offset:1px}
+.chip.gcol{display:inline-flex;align-items:center;gap:7px}.chip.gcol i{width:16px;height:16px;border-radius:50%;border:1px solid rgba(127,127,127,.6);flex:none}
