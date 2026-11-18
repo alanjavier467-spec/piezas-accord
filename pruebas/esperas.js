@@ -12,7 +12,7 @@ async function page(b,{user,state,ls}={}){const ctx=await b.newContext({viewport
 (async()=>{const b=await chromium.launch(process.env.CHROME?{executablePath:process.env.CHROME}:{});
   const data=JSON.parse(fs.readFileSync(path.join(RAIZ,'data.json')));const pnA=data.parts[10].pn,pnB=data.parts.find(p=>p.pn!==pnA&&!p.y).pn;
   const base={'carros/A1':{code:'A1',year:'2018',ver:'',color:'NH731P',def:'revisar',vin:''},'carros/A4':{code:'A4',year:'2018',ver:'',color:'NH731P',def:'falta',vin:''},
-    'estado/A4':{m:{[pnA]:{s:'quitada',n:1},[pnB]:{s:'revisar',n:0}}},'config/negocio':{nombre:'Prueba'},'publico/inventario':{v:3,cars:[{code:'A1'}],items:[],xs:[]},
+    'estado/A4':{m:{[pnA]:{s:'quitada',n:1},[pnB]:{s:'revisar',n:0}}},'config/negocio':{nombre:'Prueba',rev2mala:'2026-01-01'},'publico/inventario':{v:3,cars:[{code:'A1'}],items:[],xs:[]},
     'esperas/e1':{pn:pnA,es:'Pieza A',name:'Carlos',tel:'6141234567',email:'c@x.com',date:'2026-11-17T10:00:00Z'},
     'esperas/e2':{pn:pnB,es:'Pieza B',name:'Ana',tel:'6147654321',email:'',date:'2026-11-17T11:00:00Z'}};
   // 1) app: tarjeta de clientes esperando y de por revisar
@@ -39,6 +39,13 @@ async function page(b,{user,state,ls}={}){const ctx=await b.newContext({viewport
   await p.click('[data-tengo="A4"]');await p.waitForTimeout(500);S=await p.evaluate(()=>window.__S);const cart=await p.evaluate(()=>JSON.parse(localStorage.getItem('comanda')||'[]'));
   log('la-tengo',S['estado/A4'].m[pnB].s==='quitada'&&cart.some(l=>l.pn===pnB&&l.car==='A4'),`estado ${S['estado/A4'].m[pnB].s}, en carrito ${cart.length}`);
   log('app-sin-errores',!p.errs.length,p.errs.join(' | ')||'sin errores');
+  // 3b) automático: una sola vez al abrir, con respaldo
+  {const st=JSON.parse(JSON.stringify(base));delete st['config/negocio'].rev2mala;const q=await page(b,{state:st});
+   const dlp=q.waitForEvent('download',{timeout:9000}).catch(()=>null);await q.goto(URL+'index.html?entrar');const d2=await dlp;await q.waitForTimeout(1500);
+   const S3=await q.evaluate(()=>window.__S);const nA1=Object.values(((S3['estado/A1']||{}).m)||{}).filter(v=>v.s==='mala').length;
+   log('auto-rev2mala',!!d2&&nA1>100&&S3['estado/A4'].m[pnB].s==='mala'&&!!S3['config/negocio'].rev2mala,`respaldo: ${!!d2}; A1 dañadas ${nA1}; marca ${S3['config/negocio'].rev2mala}`);
+   await q.reload();await q.waitForTimeout(3000);const mv=await q.evaluate(()=>Object.keys(window.__S).filter(k=>k.startsWith('movimientos/')).length);log('auto-una-vez',mv===2,'movimientos tras volver a abrir: '+mv);
+   log('auto-sin-errores',!q.errs.length,q.errs.join(' | ')||'sin errores')}
   // 4) tienda: pieza sin existencia → avísame
   const t=await page(b,{user:null,state:{'publico/inventario':{v:3,wa:'6140000000',cars:[{code:'A4',year:'2018',ver:'',color:'',foto:'',n:1}],items:[JSON.stringify([pnA,900,1,'A4','','Usado',0,0])],xs:[],rev:[pnB]}}});
   await t.goto(URL+'tienda.html');await t.waitForTimeout(2500);

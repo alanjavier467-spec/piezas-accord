@@ -355,7 +355,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261117-2050';
+const VERSION='20261117-2058';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -749,13 +749,20 @@ function rev2malaHTML(){const n=revTotal();if(!n)return '';
 async function rev2mala(){const stt=$('#rm-status');if(!rmArmed){rmArmed=true;openMenu();const s2=$('#rm-status');if(s2){s2.className='status err';s2.textContent='¿Seguro? Toca el botón otra vez para confirmar.'}return}
   rmArmed=false;stt.className='status';stt.textContent='Descargando respaldo…';
   const ok=await backup(false);if(!ok){stt.className='status err';stt.textContent='No se pudo descargar el respaldo, no se cambió nada.';return}
-  try{let tot=0;const b=writeBatch(fs);const ml=[];
-    for(const c of CARS){const m={};let k=0;for(const pn of UPN){if(stOf(c,pn).s==='revisar'){m[pn]={s:'mala',n:0,u:''};k++}}
-      if(c.def==='revisar')b.set(doc(fs,'carros',c.id),{def:'mala'},{merge:true});
-      if(k){b.set(doc(fs,'estado',c.id),{m},{merge:true});EST[c.id]=Object.assign({},EST[c.id]||{},m);ml.push({tipo:'estado',pn:'(todas por revisar)',car:c.id,de:'revisar',a:'mala',qty:k});tot+=k}}
-    movs(b,ml);await b.commit();
+  try{const tot=await rev2malaRun();
     stt.className='status ok';stt.textContent='Listo: '+tot+' piezas quedaron como dañadas. La tienda se actualiza en unos segundos.';pubSync();render()}
   catch(e){stt.className='status err';stt.textContent=errMsg(e)}}
+async function rev2malaRun(){let tot=0;const b=writeBatch(fs);const ml=[];
+  for(const c of CARS){const m={};let k=0;for(const pn of UPN){if(stOf(c,pn).s==='revisar'){m[pn]={s:'mala',n:0,u:''};k++}}
+    if(c.def==='revisar')b.set(doc(fs,'carros',c.id),{def:'mala'},{merge:true});
+    if(k){b.set(doc(fs,'estado',c.id),{m},{merge:true});EST[c.id]=Object.assign({},EST[c.id]||{},m);ml.push({tipo:'estado',pn:'(todas por revisar)',car:c.id,de:'revisar',a:'mala',qty:k});tot+=k}}
+  movs(b,ml);b.set(doc(fs,'config','negocio'),{rev2mala:new Date().toISOString()},{merge:true});await b.commit();NEG=Object.assign({},NEG,{rev2mala:new Date().toISOString()});return tot}
+// una sola vez (pedido de Alan, 2026-11-17): al abrir la app el creador principal, con datos del servidor, respalda y pasa todo lo "por revisar" a dañada
+let AUTORM=false;
+async function autoRev2mala(){if(AUTORM||!OWN||!ME||(ME.email||'').toLowerCase()!==OWNER||NEG.rev2mala||CACHE.size||!navigator.onLine||!['carros','estado','config'].every(k=>LOADED.has(k))||!CARS.length)return;
+  AUTORM=true;if(!revTotal()){setDoc(doc(fs,'config','negocio'),{rev2mala:new Date().toISOString()},{merge:true}).catch(()=>{});return}
+  toast('Guardando respaldo antes de pasar las piezas por revisar a dañadas…');const ok=await backup(false);if(!ok){AUTORM=false;toast('No se pudo hacer el respaldo; se intenta otra vez al abrir la app.');return}
+  try{const tot=await rev2malaRun();toast('Listo: '+tot+' piezas por revisar quedaron como dañadas. Guarda el respaldo que se descargó.');pubSync();render()}catch(e){AUTORM=false;toast(errMsg(e))}}
 function openMenu(){SHEET='menu';
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Menú</span></div></div><div class="wrap body">
    <div class="card"><b>${esc(PROFILE?.name||ME.email)}</b><br><span class="hint">${esc(PROFILE&&PROFILE.user?'Usuario: '+PROFILE.user:ME.email)} · ${OWN?'Creador (administrador)':'Vendedor'}</span></div>
@@ -818,7 +825,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261117-2050</p></div>`;
+   <p class="note">Versión 20261117-2058</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -1143,7 +1150,7 @@ function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio|
   sheet._sale=s;showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
 // ---- respaldo ----
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}
-async function backup(withFull){const stt=$('#bk-status');stt.className='status';stt.textContent='Juntando datos…';
+async function backup(withFull){const stt=$('#bk-status')||{};stt.className='status';stt.textContent='Juntando datos…';
   try{const out={app:'piezas-accord',version:VERSION,fecha:new Date().toISOString(),carros:CARS,privado:PRIV,estado:EST,precios:PRICE,alternos:ALT,ventas:SALES,extras:EXTRAS,config:{negocio:NEG},users:USERS,clientes:CLIENTES,cortes:CORTES,resenas:RESENAS};
     {const fq=await getDocs(collection(fs,'fotos'));out.fotos=fq.docs.map(d=>Object.assign({id:d.id},d.data()))}
     // ventas, cortes e historial completos (la pantalla solo carga los últimos)
@@ -1185,7 +1192,7 @@ function pubSnapshot(){const items=[],rev=[];
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
   const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
   return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev,borr:Object.keys(BORR).sort()}}
-function pubSync(){clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
+function pubSync(){setTimeout(autoRev2mala,1500);clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
 function promoHTML(k,base){const p=NEG.promo;if(!p||!p.on)return '';const on=p.todo||(p.sel||[]).includes(k);const act=promoAct();
