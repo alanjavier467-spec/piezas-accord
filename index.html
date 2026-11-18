@@ -245,6 +245,10 @@ html,body,nav.tabs,nav.tabs button{touch-action:manipulation}
 .fbbtn{background:#1877f2;border-color:#1877f2;color:#fff}.fbbtn small{opacity:.8;font-weight:400}
 .st-apartada{background:var(--warn-bg);color:var(--warn);font-weight:700}
 
+/* piezas por color */
+.gdots{display:flex;gap:4px;margin-top:4px}.gdots i{width:13px;height:13px;border-radius:50%;border:1px solid rgba(127,127,127,.6);opacity:.3}.gdots i.on{opacity:1;outline:2px solid var(--ok,#2e9d5b);outline-offset:1px}
+.chip.gcol{display:inline-flex;align-items:center;gap:7px}.chip.gcol i{width:16px;height:16px;border-radius:50%;border:1px solid rgba(127,127,127,.6);flex:none}
+
 </style>
 </head>
 <body>
@@ -355,11 +359,18 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261118-0020';
+const VERSION='20261118-0034';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
+// piezas por color (p.g en data.json): en las listas salen en un solo renglón; en la ficha se elige el color
+const EXTH={'NH731P':'#141414','NH883P':'#f3f1ea','NH830M':'#b9bcc0','NH797M':'#5b6166','R94':'#a3141c','B575P':'#1c2a4d'};
+const gName=s=>String(s||'').replace(/\s*\([^)]*\)\s*\*[A-Z0-9]+\*/,'').replace(/\s*\*[A-Z0-9]+\*\s*\([^)]*\)/,'').trim();
+const GV={};
 PARTS.forEach(p=>{const m=(p.es+' '+p.en).match(/\*(NH731P|NH883P|NH830M|NH797M|R94|B575P)\*/);p.ext=m?m[1]:null});
+PARTS.forEach(p=>{if(p.g&&p.ext&&!(GV[p.g]||[]).some(v=>v.pn===p.pn))(GV[p.g]=GV[p.g]||[]).push(p)});Object.values(GV).forEach(v=>v.sort((a,b)=>Object.keys(EXTH).indexOf(a.ext)-Object.keys(EXTH).indexOf(b.ext)));
+// junta los colores de una misma pieza en un renglón (se queda el primero que aparece)
+const grpCollapse=arr=>{const sg=new Set();return arr.filter(p=>!(p.g&&GV[p.g])||(!sg.has(p.g)&&sg.add(p.g)))};
 // números por año/versión: p.y = {'18':..,'19':..,'20T':..}; '' = no existe en esa versión; sin clave = mismo número
 const YL={'18':'2018 1.5T','19':'2019 1.5T','20':'2020 1.5T','20T':'2020 2.0T'};const YK=['18','19','20','20T'];
 PARTS.forEach(p=>{if(p.y)p.ypk=Object.values(p.y).flat().filter(Boolean).map(x=>x.replace(/-/g,'').toLowerCase()).join(' ')});
@@ -475,7 +486,12 @@ function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.r
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
   return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}${ubiOf(o.c.id,pn)?' · '+esc(ubiOf(o.c.id,pn)):''}</span>`).join('')}</span>`}
 function priceHTML(pn){const pr=priceOf(pn);return pr?`<span class="price">${money(pr)}</span>${isSug(pn)?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}
-function itemHTML(p,pre){const nf=(FOTOS[p.pn]||[]).length;
+function gItemHTML(p,pre){const vs=GV[p.g];const pk=vs.find(v=>availCars(v.pn).length)||p;const nf=vs.reduce((a,v)=>a+(FOTOS[v.pn]||[]).length,0);
+  const av=vs.flatMap(v=>availCars(v.pn).map(o=>({o,v})));
+  return `<button class="item" data-open="${pk.i}"><span class="ph">${phTag(pk)}</span>
+   <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.g)}</span><span class="es">${esc((p.gn||gName(p.es)))}</span><span class="gdots">${vs.map(v=>`<i title="${esc(EXT[v.ext])}" class="${availCars(v.pn).length?'on':''}" style="background:${EXTH[v.ext]}"></i>`).join('')}</span></span>
+   <span class="r">${priceHTML(pk.pn)}${!CARS.length?'':av.length?`<span class="avail">${av.map(({o,v})=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}</span>`).join('')}</span>`:'<span class="stock n">Sin existencia</span>'}</span></button>`}
+function itemHTML(p,pre){if(p.g&&GV[p.g])return gItemHTML(p,pre);const nf=(FOTOS[p.pn]||[]).length;
   return `<button class="item" data-open="${p.i}"><span class="ph">${phTag(p)}</span>
    <span class="t">${pre||''}${nf?'<span class="realtag">📷 foto real</span>':''}<span class="pn">${esc(p.pn)}</span><span class="es">${esc(p.es)}</span>${p.en?`<span class="en">${esc(p.en)}</span>`:''}</span>
    <span class="r">${priceHTML(p.pn)}${availHTML(p.pn)}</span></button>`}
@@ -497,14 +513,14 @@ function vBuscar(){let arr=search(st.q);
     <div id="offline-card"></div>${OWN&&LS.get('sinRes',[]).length?`<details class="card"><summary><b>Búsquedas sin resultado</b> <span class="hint">(en este teléfono)</span></summary><p class="hint" style="margin:.4em 0">Si alguna es otra forma de llamar a una pieza, agrégala a <code>fuente/sinonimos.json</code>.</p><div class="row">${LS.get('sinRes',[]).map(q=>`<button class="chip" data-try="${esc(q)}">${esc(q)}</button>`).join('')}</div></details>`:''}
     <p class="sec-h">O explora por categoría</p>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${PARTS.filter(p=>SECS[p.s].cat===c).length} piezas ›</span></button>`).join('')}`;renderOffline();return}}
   if(st.cat)arr=arr.filter(p=>SECS[p.s].cat===st.cat);
-  if(st.onlyStock)arr=arr.filter(p=>availCars(p.pn).length);
-  const seen=new Set();arr=arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn));
+  if(st.onlyStock)arr=arr.filter(p=>p.g&&GV[p.g]?GV[p.g].some(v=>availCars(v.pn).length):availCars(p.pn).length);
+  const seen=new Set();arr=grpCollapse(arr.filter(p=>!seen.has(p.pn)&&seen.add(p.pn)));
   const xs=st.q?searchExtras(st.q).filter(x=>!st.onlyStock||xAvail(x)):[];
   // búsquedas sin resultado (en este teléfono): sirven para saber qué sinónimo falta agregar
   if(st.q&&!arr.length&&!xs.length&&!st.cat&&!st.onlyStock){clearTimeout(window._sr);window._sr=setTimeout(()=>{const q=norm(st.q).trim();if(q.length<3)return;const L=LS.get('sinRes',[]).filter(x=>x!==q);L.unshift(q);LS.set('sinRes',L.slice(0,30))},1500)}
   view.innerHTML=chips+(xs.length?`<p class="sec-h">Agregadas por ti con foto</p><div class="list">${xs.map(xItemHTML).join('')}</div><p class="sec-h">Catálogo</p>`:'')+`<p class="hint">${arr.length} ${arr.length===1?'resultado':'resultados'}${Object.keys(CORR).length?' · buscando también: <b>'+Object.entries(CORR).map(([a,b])=>esc(b)).join(', ')+'</b>':''}</p>`+renderList(arr)}
 function vCatalogo(){
-  if(st.secView!=null){const s=SECS[st.secView];const ps=PARTS.filter(p=>p.s===s.i);
+  if(st.secView!=null){const s=SECS[st.secView];const ps=grpCollapse(PARTS.filter(p=>p.s===s.i));
     view.innerHTML=`<button class="back" data-back="sec">‹ ${esc(s.cat)}</button><h2 class="title">${esc(s.es)}</h2>${s.en?`<p class="hint" style="margin:0">${esc(s.en)}</p>`:''}
     <div id="dg" class="list"><div class="hint">Cargando diagrama…</div></div><p class="sec-h">${ps.length} piezas · # = lugar en el diagrama</p>
     <div class="list">${ps.map(p=>itemHTML(p,`<span class="hint">#${esc(p.ref)}</span>`)).join('')}</div>`;
@@ -671,7 +687,8 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
   <div class="wrap body">${pcarHTML(p)}
    ${galHTML(p.pn)}
    <div class="tagline"><span class="tag">${esc(p.pn)}</span><button class="copy" data-copy="${esc(p.pn)}">Copiar número</button></div>
-   <div><h2 class="title">${esc(p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
+   <div><h2 class="title">${esc(p.g&&GV[p.g]?(p.gn||gName(p.es)):p.es)}</h2>${p.en?`<p class="hint" style="margin:.3em 0 0;font-size:15px">${esc(p.en)}</p>`:''}</div>
+   ${p.g&&GV[p.g]?`<div class="card form"><b>Color: ${esc(EXT[p.ext])}</b><p class="hint" style="margin:0">Elige el color de la pieza y luego asígnala al carro abajo. Con ✓ los colores que ya tienes.</p><div class="row">${GV[p.g].map(v=>`<button class="chip gcol" data-open="${v.i}" aria-pressed="${v.i===p.i}"><i style="background:${EXTH[v.ext]}"></i>${esc(EXT[v.ext])}${availCars(v.pn).length?' ✓':''}</button>`).join('')}</div></div>`:''}
    <dl class="meta"><dt>Sección</dt><dd>${esc(s.es)} · #${esc(p.ref)}</dd>${others.length?`<dt>También en</dt><dd>${others.map(o=>esc(SECS[o.s].es)+' (#'+esc(o.ref)+')').join(', ')}</dd>`:''}
     ${p.cr?`<dt>Lleva el carro</dt><dd>${p.cr}</dd>`:''}${p.ext?`<dt>Color</dt><dd>${esc(EXT[p.ext])}</dd>`:''}${p.carga?'<dt>Envío</dt><dd>Pieza grande (flete)</dd>':''}${p.n?`<dt>Nota</dt><dd>${esc(p.n)}</dd>`:''}</dl>
    ${yHTML(p)}
@@ -826,7 +843,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261118-0020</p></div>`;
+   <p class="note">Versión 20261118-0034</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
