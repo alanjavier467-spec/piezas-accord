@@ -355,7 +355,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261117-2335';
+const VERSION='20261118-0020';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -395,10 +395,11 @@ const subePct=()=>NEG.subeSug!=null&&NEG.subeSug!==''?+NEG.subeSug:SUBE_DEF;cons
 const nice=v=>!v?0:v<200?Math.max(10,Math.round(v/10)*10):Math.round(v/50)*50;
 const sugOf=pn=>nice(((BYPN[pn]||{}).sp||0)*fSug());
 const newOf=p=>p&&p.lp?Math.round(p.lp*tcNow()/10)*10:0;
-const priceOf=pn=>{const v=PRICE[pn];return v?v:sugOf(pn)};
+// pv en data.json = precio fijo de catálogo (lo usa si no le pusiste precio en la app)
+const priceOf=pn=>{const v=PRICE[pn];return v?v:(BYPN[pn]||{}).pv||sugOf(pn)};
 const dLocal=d=>{const x=d?new Date(d):new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
 const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[],ESPERAS=[];
-const isSug=pn=>!PRICE[pn];
+const isSug=pn=>!PRICE[pn]&&!(BYPN[pn]||{}).pv;
 const xById=id=>EXTRAS.find(x=>x.id===id);
 const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
 const st={tab:'buscar',q:'',cat:'',onlyStock:false,limit:40,catView:null,secView:null,car:null,carSec:null};
@@ -825,7 +826,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261117-2335</p></div>`;
+   <p class="note">Versión 20261118-0020</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
