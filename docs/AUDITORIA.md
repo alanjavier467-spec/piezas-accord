@@ -42,3 +42,12 @@ La lista ligera `indice/fotos` quedó vacía: la app y la tienda mostraban 0 fot
 
 ## 2026-11-17 — Avísame cuando llegue y "por revisar" → dañadas
 Rama `avisame-y-danadas`. (1) La tienda solo enseña lo confirmado: ya no hay "Por confirmar" y lo montado en el carro sale "Disponible". (2) En piezas sin existencia el cliente deja nombre, WhatsApp y correo (colección nueva `esperas`, **requiere publicar las reglas**). (3) Menú → "Clientes esperando piezas", agrupado por pieza, con WhatsApp ya escrito y "Atendido"; la ficha muestra quién espera. (4) Menú → "Pasar por revisar a dañadas": descarga respaldo y cambia todas de golpe. (5) En la ficha, "✅ La tengo · al carrito" en piezas dañadas / no está / por revisar. Cubre N5 (buscadas sin existencia). Pruebas: `pruebas/esperas.js`.
+
+## 2026-11-23 — Mercado Libre y apps viejas
+Pruebas `prueba`, `auditoria`, `lote` y `esperas`: todo OK. Cambios publicados en `main`:
+- Enlace con Mercado Libre: tarjeta por pieza en la app (`config/negocio.ml`), lista pública aparte `publico/ml` (solo el dueño la escribe) y botón amarillo "Comprar en Mercado Libre" en la tienda. Al cobrar, el ticket avisa qué piezas pausar en ML.
+- Números de ML como alternos (una vez, marca `config/negocio.mlAlt`).
+- **Corregido:** la búsqueda no encontraba números alternos escritos con guiones.
+- **Corregido:** una app con versión vieja seguía publicando `publico/inventario` y tapaba campos nuevos (la tienda perdía los enlaces de ML). Ahora la app que sabe que hay versión nueva no publica, y se actualiza sola si no hay carrito ni ventana abierta (una vez por versión, sin ciclo).
+- Precios de 49 piezas igualados a Mercado Libre (desde la app, como dueño).
+Pendiente (RECOMENDACIÓN): exigir `v >= 4` en las reglas de `publico/inventario` para bloquear del todo a las apps de antes de este cambio.
