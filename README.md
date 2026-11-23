@@ -1,4 +1,4 @@
-# Piezas Accord · Trío Accord
+# Piezas Accord · Yonke Chihuahua (antes Trío Accord)
 
 Sistema del yonke de piezas originales de Honda Accord 2018–2020 Sport (Chihuahua, México). Son dos páginas que usan la misma base de datos:
 

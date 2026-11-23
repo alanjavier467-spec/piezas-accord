@@ -502,7 +502,7 @@ function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;
 // ---- clientes esperando una pieza ("Avísame cuando llegue" en la tienda) ----
 const espPend=()=>ESPERAS.filter(x=>!x.atendido);
 const espDe=pn=>espPend().filter(x=>x.pn===pn);
-const espWa=(x)=>'https://wa.me/52'+String(x.tel||'').replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.name||'')+', te escribo de Trío Accord. Ya tenemos la pieza que nos pediste: '+(x.es||'')+' ('+x.pn+'). ¿Todavía te interesa?');
+const espWa=(x)=>'https://wa.me/52'+String(x.tel||'').replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.name||'')+', te escribo de Yonke Chihuahua. Ya tenemos la pieza que nos pediste: '+(x.es||'')+' ('+x.pn+'). ¿Todavía te interesa?');
 const espRow=x=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((x.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(x.name||'')}</b><br><span class="hint">📱 ${esc(x.tel||'')}${x.email?' · ✉️ '+esc(x.email):''} · ${fmtDate((x.date||'').slice(0,10))}</span></div>
   <div style="display:grid;gap:6px">${x.tel?`<a class="btn alt" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" target="_blank" rel="noopener" href="${espWa(x)}">WhatsApp</a>`:''}${x.email?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" href="mailto:${esc(x.email)}?subject=${encodeURIComponent('Ya llegó tu pieza: '+(x.es||''))}">Correo</a>`:''}<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-espok="${x.id}">Atendido</button></div></div>`;
 function esperasHTML(){const P=espPend();const g={};P.forEach(x=>{(g[x.pn]=g[x.pn]||[]).push(x)});
