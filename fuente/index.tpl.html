@@ -502,7 +502,7 @@ function openZoom(si,k,ref){diagrams(si).then(ds=>{if(!ds.length)return;let z=1;
 // ---- clientes esperando una pieza ("Avísame cuando llegue" en la tienda) ----
 const espPend=()=>ESPERAS.filter(x=>!x.atendido);
 const espDe=pn=>espPend().filter(x=>x.pn===pn);
-const espWa=(x)=>'https://wa.me/52'+String(x.tel||'').replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.name||'')+', te escribo de Yonke Chihuahua. Ya tenemos la pieza que nos pediste: '+(x.es||'')+' ('+x.pn+'). ¿Todavía te interesa?');
+const espWa=(x)=>'https://wa.me/52'+String(x.tel||'').replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.name||'')+', te escribo de Trío Accord. Ya tenemos la pieza que nos pediste: '+(x.es||'')+' ('+x.pn+'). ¿Todavía te interesa?');
 const espRow=x=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((x.name||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(x.name||'')}</b><br><span class="hint">📱 ${esc(x.tel||'')}${x.email?' · ✉️ '+esc(x.email):''} · ${fmtDate((x.date||'').slice(0,10))}</span></div>
   <div style="display:grid;gap:6px">${x.tel?`<a class="btn alt" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" target="_blank" rel="noopener" href="${espWa(x)}">WhatsApp</a>`:''}${x.email?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none;text-align:center" href="mailto:${esc(x.email)}?subject=${encodeURIComponent('Ya llegó tu pieza: '+(x.es||''))}">Correo</a>`:''}<button class="btn ghost" style="padding:8px 10px;font-size:13px" data-espok="${x.id}">Atendido</button></div></div>`;
 function esperasHTML(){const P=espPend();const g={};P.forEach(x=>{(g[x.pn]=g[x.pn]||[]).push(x)});
@@ -966,7 +966,8 @@ function pubSnapshot(){const items=[],rev=[];
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
   const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
   const ml=mlMap();return {v:3,fsug:fSug(),tc:tcNow(),promo,ml,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev,borr:Object.keys(BORR).sort()}}
-function pubSync(){setTimeout(autoRev2mala,1500);clearTimeout(pubT);pubT=setTimeout(()=>{mlSeedAlt();mlPub();if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
+function pubSync(){setTimeout(autoRev2mala,1500);clearTimeout(pubT);pubT=setTimeout(()=>{if(NEWV)return;// una app vieja no publica la tienda: taparía lo que puso la versión nueva
+  mlSeedAlt();mlPub();if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
 function promoHTML(k,base){const p=NEG.promo;if(!p||!p.on)return '';const on=p.todo||(p.sel||[]).includes(k);const act=promoAct();
@@ -1173,6 +1174,8 @@ window.addEventListener('online',()=>{net();prefetchAll()});window.addEventListe
 // ---- versión nueva ----
 let NEWV=null;
 async function checkVersion(){try{const j=await fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null);NEWV=j&&j.v&&j.v>VERSION?j.v:null}catch(e){}
+  // si la app está sin usar (sin carrito ni ventana abierta), se actualiza sola
+  if(NEWV&&!CART.length&&sheet.hidden&&!COBRANDO&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){let k='';try{k=sessionStorage.getItem('autoupd')}catch(e){}if(k!==NEWV){try{sessionStorage.setItem('autoupd',NEWV)}catch(e){}activateUpdate();return}}
   const u=$('#upd');if(u)u.hidden=!NEWV||OWN;if(!sheet.hidden&&SHEET==='menu')openMenu()}
 async function activateUpdate(btn){if(btn)btn.textContent='Activando…';
   try{const ks=await caches.keys();await Promise.all(ks.filter(k=>k.startsWith('piezas-shell-')).map(k=>caches.delete(k)))}catch(e){}
