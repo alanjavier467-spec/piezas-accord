@@ -52,7 +52,7 @@ main{min-width:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:12px 18px;border:1px solid var(--line);background:var(--card);font-weight:600;cursor:pointer;text-decoration:none;color:var(--ink)}
 .btn.dark{background:var(--green);border-color:var(--green);color:#fff}
 .btn.lime{background:var(--lime);border-color:var(--lime);color:var(--green)}
-.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}.btn.ml{background:#ffe600;border-color:#e6cf00;color:#2d3277}
+.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}.mlbtn{display:flex;align-items:center;gap:12px;background:#ffe600;color:#2d3277;border-radius:12px;padding:13px 16px;text-decoration:none;box-shadow:0 2px 0 #e0c800;font-size:16px}.mlbtn b{display:block;font-size:17px}.mlbtn small{display:block;font-size:12.5px;opacity:.85;margin-top:2px}.mlbtn .mlic{width:38px;height:38px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:19px;flex:none}.mlbtn .mlgo{margin-left:auto;font-size:26px;font-weight:700}.mlbtn:active{transform:translateY(1px)}
 .page{padding:26px 40px 60px;max-width:1360px}
 .hero{background:var(--green);border-radius:22px;color:#fff;padding:46px 40px;display:grid;grid-template-columns:1.2fr 1fr;align-items:center;gap:20px;position:relative;overflow:hidden}
 .hero .kicker{color:var(--lime)}
@@ -347,6 +347,7 @@ function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});save
 // ---- precio nuevo de Honda (lista EE.UU. convertida) ----
 // ---- promoción (Buen Fin, Navidad…): la arma el dueño en la app; fechas en hora de Chihuahua ----
 let PR=null,LASTINV=null;
+let MLM={},DETK=null;const mlId=k=>MLM[k]||(INV&&INV.ml&&INV.ml[k])||'';
 const promoOf=()=>{const p=INV&&INV.promo;if(!p||!(+p.pct>0)||!p.ini||!p.fin)return null;const a=new Date(p.ini+'T00:00:00-06:00'),b=new Date(p.fin+'T23:59:59-06:00'),n=Date.now();
   if(isNaN(a)||isNaN(b)||n>b||a-n>21*864e5)return null;return Object.assign({},p,{n:p.n||'Promoción',pct:+p.pct,a,b,act:n>=a})};
 const promoR=v=>Math.max(10,Math.round(v/10)*10);
@@ -575,7 +576,7 @@ async function openDet(k){let it=byK(k);if(!it)return;
   // pieza por color: se abre la ficha general con el color elegido (o el primero que haya)
   if(it.g0){SELC[it.g0]=it.k;it=byK('G:'+it.g0);if(!it)return}let grp=null;
   if(it.vars){grp=it;const s=byK(SELC[grp.g]);const v=s&&s.ex!=='no'?s:grp.vars.find(x=>x.ex==='av')||grp.vars.find(x=>x.ex!=='no');if(v)it=v}
-  k=it.k;const on=inQ(k);
+  k=it.k;DETK=k;const on=inQ(k);
   const vers=it.x||it.vars?'':VERS.slice(1).map(([v,l])=>{const n=it.y&&it.y[v];return `<div><span>${l}</span><span class="pn" style="background:none;padding:0">${n===''?'No aplica':esc(n||it.pn)}</span></div>`}).join('');
   modal.innerHTML=`<div class="bar"><button data-close>‹ Regresar</button></div><div class="in">
    <div class="bigwrap"><div class="bigph" id="bigph"></div>${viewsOf(it).length>1?'<button class="nav l" data-gal="-1" aria-label="Anterior">‹</button><button class="nav r" data-gal="1" aria-label="Siguiente">›</button>':''}</div>
@@ -587,7 +588,7 @@ async function openDet(k){let it=byK(k);if(!it)return;
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
    ${it.ex==='no'?avisaHTML(it):`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
    <a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, me interesa esta pieza de Honda Accord: '+it.es+' ('+numFor(it,st.ver)+'). ¿Sigue disponible?')}">Preguntar por WhatsApp</a>
-   ${it.ex==='av'&&INV.ml&&INV.ml[k]?`<a class="btn ml" target="_blank" rel="noopener" href="https://articulo.mercadolibre.com.mx/MLM-${esc(INV.ml[k])}">Comprar en Mercado Libre ↗</a><p style="font-size:12.5px;color:var(--muted);margin:0">Si prefieres, cómprala en Mercado Libre con su protección al comprador.</p>`:''}
+   ${it.ex==='av'&&mlId(k)?`<a class="mlbtn" target="_blank" rel="noopener" href="https://articulo.mercadolibre.com.mx/MLM-${esc(mlId(k))}"><span class="mlic">🛒</span><span><b>Comprar en Mercado Libre</b><small>Paga con tarjeta · compra protegida</small></span><span class="mlgo">›</span></a>`:''}
    <p style="font-size:12.5px;color:var(--muted);margin:0">Pieza original usada. Si quieres más fotos, pídelas por WhatsApp.</p></div>`;
   if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';hook(modal);
   GAL={it,i:CARDV[k]||0};showGal()}
@@ -645,7 +646,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261123-1242';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261123-1327';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});
@@ -679,6 +680,7 @@ try{const dj=await fetch('data.json').then(r=>r.json());D=dj;SECS=dj.secs;let fi
     if(first){first=false;route();onAuthStateChanged(auth,u=>{if(!SIGNING)onUser(u)});loadRes();return}
     // llegó información nueva mientras el cliente ve la página: refresca sin moverlo de lugar
     const a=document.activeElement;if(modal.hidden&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){const y=scrollY;render();scrollTo(0,y)}};
+  onSnapshot(doc(fs,'publico','ml'),d=>{MLM=(d.exists()&&d.data().m)||{};if(!first&&!modal.hidden&&DETK){const y=modal.scrollTop;openDet(DETK);modal.scrollTop=y}},e=>console.warn(e));
   onSnapshot(doc(fs,'publico','inventario'),got,e=>{console.warn(e);if(first)getDoc(doc(fs,'publico','inventario')).then(got).catch(()=>got(null))})}
 catch(e){console.error(e);view.innerHTML='<div class="empty"><b>No se pudo cargar el catálogo.</b><br>Revisa tu internet y recarga la página.</div>'}
 </script>
