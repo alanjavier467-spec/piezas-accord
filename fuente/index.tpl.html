@@ -128,6 +128,25 @@ let ME=null, OWN=false, PROFILE=null;
 let CARS=[], PRIV={}, EST={}, PRICE={}, SALES=[], CANCELADAS=[], ALT={}, USERS=[], LOTES={};
 let FOTOS={}, FOTOLIST=[], EXTRAS=[], NEG={}, CLIENTES=[];
 const TC_DEF=18.7,SUBE_DEF=50;
+// ---- Mercado Libre: qué pieza está publicada en ML (número de publicación MLM…). La lista de arranque viene aquí; lo que cambie el dueño se guarda en config/negocio.ml ("" = quitada) ----
+const ML_BASE={"83503-TVA-A61ZD":"3742890305","84507-TVA-A01ZA":"3821406293","77293-TVA-A01ZA":"3821580727","84171-TVA-A01ZA":"3821586591","84121-TVA-A01ZA":"3821614507","83420-TVA-A01ZA":"3828827771","83160-TVA-A11ZA":"3832704777","83111-TVA-A11ZA":"3832743269","83750-TVA-A21ZA":"3833942991","35881-TBA-A01":"3833946621","84630-TVA-A01ZA":"3834042111","74485-TVA-A10":"3834103359","38387-TVA-A31":"3839823605","77200-TVA-A01ZA":"3839829237","81238-TLA-A01ZA":"3842535603","81648-TLA-A01ZA":"3842538425","84151-TVA-A01ZA":"3842540705","36166-TVA-A01":"3843506549","77265-TVA-A01ZA":"6626589240","77360-TVA-A01ZA":"6626522402","18200-TVA-A03":"6634239376","76258-TVA-A02":"6605829990","84651-TVA-A02ZA":"6628172018","35800-TBA-A01":"6628112920","83430-TVA-A01ZA":"6622099248","83415-TVA-A01":"6612902434","35190-TVA-A01":"6605837292","33550-TVA-A01":"6605750444","77100-TVA-A00ZA":"6620680910","84551-TVA-A04ZA":"6613070976","84501-TVA-A04ZA":"6620697766","72160-TVA-A01ZA":"3833941773","81121-TVC-A43ZD":"3842774619","81131-TVC-A43ZA":"3842777283","82131-TVC-A43ZA":"3842817129","81521-TVC-A53ZD":"6637547010","81531-TVC-A53ZA":"6637554418","82550-TVC-L03ZA":"6637640778","82150-TVC-L03ZA":"6637557406","81638-TVA-A51ZA":"6637223748","77220-TVA-A01ZA":"6634340964","77302-TVA-A01ZA":"6620689878","82620-TVA-003":"3834163439","77248-TVA-A21ZA":"6634376052","77241-TVA-A01ZA":"6626623494","34404-T2A-A21":"3843467975","77267-TVA-A01ZA":"6626527254","77281-TVA-A02ZB":"6612869010","82521-TVC-A43ZA":"6628179036"};
+// números que trae la publicación de ML (otra versión o color) → pieza del catálogo; el dueño los guarda una sola vez como números alternos
+const ML_ALT={"72160-TVA-A11ZA":"72160-TVA-A01ZA","81121-TVA-A42ZD":"81121-TVC-A43ZD","81131-TVC-A42ZA":"81131-TVC-A43ZA","82131-TVC-A42ZA":"82131-TVC-A43ZA","81521-TVC-A31ZC":"81521-TVC-A53ZD","81531-TVA-A52ZA":"81531-TVC-A53ZA","82550-TVC-A01ZA":"82550-TVC-L03ZA","82150-TVC-A01ZA":"82150-TVC-L03ZA"};
+let ALTOK=false;
+function mlSeedAlt(){if(!OWN||!ALTOK||!LOADED.has('config')||NEG.mlAlt)return;const b=writeBatch(fs);let n=0;const date=new Date().toISOString();
+  for(const [a,pn] of Object.entries(ML_ALT)){if(ALT[a]||!BYPN[pn])continue;ALT[a]={pn};b.set(doc(fs,'alternos',a),{pn,es:BYPN[pn].es,by:'Mercado Libre',date});n++}
+  NEG=Object.assign({},NEG,{mlAlt:date});b.set(doc(fs,'config','negocio'),{mlAlt:date},{merge:true});b.commit().catch(e=>console.warn('mlAlt',e))}
+const mlMap=()=>{const m=Object.assign({},ML_BASE,NEG.ml||{});for(const k in m)if(!m[k])delete m[k];return m};
+const mlOf=k=>mlMap()[k]||'';
+const mlURL=id=>'https://articulo.mercadolibre.com.mx/MLM-'+id;
+const mlAdmin=id=>'https://vendedores.mercadolibre.com.mx/publicaciones?search='+id;
+const mlParse=t=>{const m=String(t||'').toUpperCase().match(/MLM-?(\d{8,12})/)||String(t||'').match(/^\s*#?(\d{8,12})\s*$/);return m?m[1]:''};
+function mlHTML(k){const id=mlOf(k);
+  return `<div class="card form mlcard"><b>🟡 Mercado Libre</b>${id?`<span class="hint">Publicada: <a href="${mlURL(id)}" target="_blank" rel="noopener">MLM${esc(id)} ↗</a> · en la tienda sale el botón “Comprar en Mercado Libre”. Si la vendes aquí, <a href="${mlAdmin(id)}" target="_blank" rel="noopener">páusala en ML ↗</a>.</span>`:'<span class="hint">No está enlazada a una publicación de Mercado Libre.</span>'}
+   ${OWN?`<div class="drow"><input id="ml-in" placeholder="Pega el link o el número MLM…" value="${esc(id?'MLM'+id:'')}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);min-width:0"><button class="btn ghost" data-mlsave="${esc(k)}">Guardar</button></div>${id?`<button class="btn ghost" data-mldel="${esc(k)}">Quitar enlace</button>`:''}`:''}</div>`}
+function mlSet(k,id){const ml=Object.assign({},NEG.ml||{});ml[k]=id||'';NEG=Object.assign({},NEG,{ml});setDoc(doc(fs,'config','negocio'),{ml},{merge:true}).catch(e=>toast(errMsg(e)));pubSync()}
+// piezas de una venta que también están en ML (para pausarlas allá)
+const mlDeVenta=s=>(s.items||[]).map(it=>{const k=it.xid?'X:'+it.xid:it.pn;return {es:it.es,id:mlOf(k)}}).filter(o=>o.id);
 // ---- promoción (Buen Fin, Navidad…): % de descuento por fechas, a todo lo disponible o solo a piezas elegidas ----
 const PROMO_DEF={n:'Buen Fin',pct:15,ini:'2026-11-13',fin:'2026-11-17',todo:true,sel:[]};
 const promoCfg=()=>Object.assign({},PROMO_DEF,NEG.promo||{});
@@ -208,7 +227,7 @@ const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto re
 
 // ---- búsqueda ----
 function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
-  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.toLowerCase().includes(compact))altHits.add(v.pn)}
+  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.replace(/[^A-Za-z0-9]/g,'').toLowerCase().includes(compact))altHits.add(v.pn)}
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
     else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
@@ -427,6 +446,7 @@ function openPart(i){openIdx=i;SHEET='part';const p=PARTS[i];const s=SECS[p.s];c
    ${yHTML(p)}
    <button class="btn ghost" data-zoom="${p.s}" data-zk="0" data-ref="${esc(p.ref)}">Ver diagrama (busca el #${esc(p.ref)})</button>
    ${promoHTML(p.pn,priceOf(p.pn))}
+   ${mlHTML(p.pn)}
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="${esc(p.pn)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="${esc(p.pn)}">🇺🇸 Anuncio en inglés</button></div>
    <div class="card form"><b>Números que trae la pieza física</b><p class="hint" style="margin:0">Si la pieza trae otro número (versión nueva, otro año), guárdalo aquí y la búsqueda la encontrará con ese número.</p>
     <div class="row">${alts.length?alts.map(a=>`<span class="alt">${esc(a)}<button data-delalt="${esc(a)}" aria-label="Quitar">×</button></span>`).join(''):'<span class="hint">Sin números alternos.</span>'}</div>
@@ -668,7 +688,7 @@ async function checkout(){const t=calc();const stt=$('#co-status');if(!CART.leng
   COBRANDO=false;
   for(const [cid,m] of Object.entries(plan.est))EST[cid]=Object.assign({},EST[cid]||{},m);
   for(const [xid,v] of Object.entries(plan.xs)){const x=xById(xid);if(x)Object.assign(x,v)}
-  CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';CLIID='';CLIQ='';LS.set('cliid','');saveCart();st.tab='ventas';render();toast(venta.sinSenal?'Venta guardada en el teléfono; se sube cuando haya señal':'Venta registrada');openTicket(Object.assign({id:ref.id},venta))}
+  CART=[];DISC={mode:'pct',pct:0,amt:'',target:''};CLIENTE='';CLIID='';CLIQ='';LS.set('cliid','');saveCart();st.tab='ventas';render();toast((venta.sinSenal?'Venta guardada en el teléfono; se sube cuando haya señal':'Venta registrada')+(mlDeVenta(venta).length?' · ⚠️ pausa en Mercado Libre':''));openTicket(Object.assign({id:ref.id},venta))}
 // ---- historial de movimientos (quién movió qué pieza y cuándo) ----
 function movs(w,list){const date=new Date().toISOString();list.forEach(m=>{if(!m.pn)return;w.set(doc(collection(fs,'movimientos')),Object.assign({date,by:ME.uid,byName:PROFILE?.name||ME.email},m))})}
 function mov1(m){const b=writeBatch(fs);movs(b,[m]);b.commit().catch(()=>{})}
@@ -805,6 +825,7 @@ function openExtra(id){const x=xById(id);if(!x)return;openX=id;SHEET='extra';ope
     <button class="btn ghost" data-savex>Guardar cambios</button>`:''}</div>
    ${xAvail(x)&&x.qty-ic>0?`<button class="btn alt" data-addx="${esc(id)}">🛒 Agregar al carrito</button>`:ic?`<p class="hint">${ic} en el carrito</p>`:''}
    ${promoHTML('X:'+id,x.price)}
+   ${mlHTML('X:'+id)}
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="X:${esc(id)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="X:${esc(id)}">🇺🇸 Anuncio en inglés</button></div>
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
   showSheet();sheet.scrollTop=0;document.body.style.overflow='hidden'}
@@ -889,7 +910,7 @@ function ticketText(s){const L=[];if(NEG.nombre)L.push('*'+NEG.nombre+'*');if(NE
   if(s.desc){L.push('Subtotal: '+money(s.sub),'Descuento: -'+money(s.desc))}L.push('*TOTAL: '+money(s.total)+'*');if(s.pago)L.push('Pago: '+s.pago);if(s.puntos)L.push('⭐ Puntos ganados: +'+s.puntos);if(s.byName)L.push('Atendió: '+s.byName);if(NEG.pie)L.push('',NEG.pie);return L.join('\n')}
 function openTicket(s){openIdx=null;openX=null;SHEET='ticket';const fol=s.folio||s.id.slice(-6).toUpperCase();const ph=(s.cliente||'').replace(/\D/g,'');
   sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Ticket #${esc(fol)}</span></div></div>
-  <div class="wrap body"><div class="tk">${NEG.nombre?`<h3>${esc(NEG.nombre)}</h3>`:'<h3>Piezas Accord</h3>'}${NEG.tel?`<div class="c">Tel. ${esc(NEG.tel)}</div>`:''}${NEG.dir?`<div class="c">${esc(NEG.dir)}</div>`:''}<hr>
+  <div class="wrap body">${(()=>{const L=s.cancelada?[]:mlDeVenta(s);return L.length?`<div class="card form mlwarn"><b>⚠️ También están en Mercado Libre</b><span class="hint">Páusalas o bájales la cantidad allá para que no se vendan dos veces:</span>${L.map(o=>`<a class="btn ghost" href="${mlAdmin(o.id)}" target="_blank" rel="noopener">${esc(o.es)} · MLM${esc(o.id)} ↗</a>`).join('')}</div>`:''})()}<div class="tk">${NEG.nombre?`<h3>${esc(NEG.nombre)}</h3>`:'<h3>Piezas Accord</h3>'}${NEG.tel?`<div class="c">Tel. ${esc(NEG.tel)}</div>`:''}${NEG.dir?`<div class="c">${esc(NEG.dir)}</div>`:''}<hr>
    <div class="l"><span>Ticket</span><span>#${esc(fol)}</span></div><div class="l"><span>Fecha</span><span>${new Date(s.date).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span></div>${s.cliente?`<div class="l"><span>Cliente</span><span>${esc(s.cliente)}</span></div>`:''}<hr>
    ${(s.items||[]).map(it=>`<div class="l"><span>${it.qty}× ${esc(it.es)}${it.pn?`<br><small>${esc(it.pn)}</small>`:''}</span><span>${money(it.qty*it.price)}</span></div>`).join('')}<hr>
    ${s.desc?`<div class="l"><span>Subtotal</span><span>${money(s.sub)}</span></div><div class="l"><span>Descuento</span><span>−${money(s.desc)}</span></div>`:''}
@@ -942,8 +963,8 @@ function pubSnapshot(){const items=[],rev=[];
   // Firestore no acepta listas dentro de listas: cada renglón va como texto JSON
   const cars=carsSorted().filter(c=>c.year&&!/^bod/i.test(c.code||'')&&!/bodega/i.test(c.id)).map(c=>({code:c.code,year:c.year||'',ver:c.ver||'',color:EXT[c.color]||'',foto:c.foto||'',n:items.filter(it=>String(it[3]).split(',').includes(c.code)).length}));
   const P0=NEG.promo;const promo=P0&&P0.on?{n:P0.n||'Promoción',pct:+P0.pct,ini:P0.ini,fin:P0.fin,todo:!!P0.todo,sel:P0.todo?[]:(P0.sel||[]).slice(0,400)}:null;
-  return {v:3,fsug:fSug(),tc:tcNow(),promo,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev,borr:Object.keys(BORR).sort()}}
-function pubSync(){setTimeout(autoRev2mala,1500);clearTimeout(pubT);pubT=setTimeout(()=>{if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
+  const ml=mlMap();return {v:3,fsug:fSug(),tc:tcNow(),promo,ml,cars,wa:fixWa(NEG.wa||NEG.tel),nombre:NEG.nombre||'',dir:NEG.dir||'',pie:NEG.pie||'',items:items.map(a=>JSON.stringify(a)),xs:xs.map(a=>JSON.stringify(a)),rev,borr:Object.keys(BORR).sort()}}
+function pubSync(){setTimeout(autoRev2mala,1500);clearTimeout(pubT);pubT=setTimeout(()=>{mlSeedAlt();if(!ME||CACHE.size||!navigator.onLine||!['carros','estado','precios','fotos','extras','config','publico'].every(k=>LOADED.has(k)))return;
   const snap=pubSnapshot();const js=JSON.stringify(snap);if(js===PUBLAST)return;PUBLAST=js;
   setDoc(doc(fs,'publico','inventario'),Object.assign({t:new Date().toISOString()},snap)).catch(e=>{console.warn('pub',e);PUBLAST=null;if(OWN)toast('No se pudo actualizar la tienda: '+(e.code||e.message))})},4000)}
 function promoHTML(k,base){const p=NEG.promo;if(!p||!p.on)return '';const on=p.todo||(p.sel||[]).includes(k);const act=promoAct();
@@ -1099,6 +1120,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('savecar' in d){saveCar(d.savecar);return}
   if(d.fb){publishFB(d.fb,t);return}
   if(d.fben){publishFB(d.fben,t,'en');return}
+  if(d.mlsave){const id=mlParse($('#ml-in').value);if(!id){toast('Pega el link de la publicación o el número MLM…');return}mlSet(d.mlsave,id);toast('Enlazada a Mercado Libre');if(d.mlsave.startsWith('X:'))openExtra(d.mlsave.slice(2));else openPart(openIdx);return}
+  if(d.mldel){mlSet(d.mldel,'');toast('Enlace quitado');if(d.mldel.startsWith('X:'))openExtra(d.mldel.slice(2));else openPart(openIdx);return}
   if(d.psel){const p=promoCfg();const sel=new Set(p.sel||[]);sel.has(d.psel)?sel.delete(d.psel):sel.add(d.psel);const promo=Object.assign({},NEG.promo||PROMO_DEF,{sel:[...sel]});
     NEG=Object.assign({},NEG,{promo});setDoc(doc(fs,'config','negocio'),{promo},{merge:true}).catch(e=>toast(errMsg(e)));pubSync();toast(sel.has(d.psel)?'En promoción':'Quitada de la promoción');
     if(d.psel.startsWith('X:'))openExtra(d.psel.slice(2));else openPart(openIdx);return}
@@ -1198,7 +1221,7 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   subM(collection(fs,'carros'),s=>{srv('carros',s);pubSync();CARS=s.docs.map(d=>Object.assign({id:d.id},d.data()));rr()});
   subM(collection(fs,'estado'),s=>{srv('estado',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).m||{}});EST=o;rr()});
   subM(collection(fs,'precios'),s=>{srv('precios',s);pubSync();const o={};s.docs.forEach(d=>{o[d.id]=(d.data()||{}).price||0});PRICE=o;rr()});
-  sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;rr()});
+  sub(collection(fs,'alternos'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});ALT=o;ALTOK=true;rr()});
   subM(doc(fs,'indice','fotos'),d=>{if(d.exists())srv('fotos',d);IDXM=(d.exists()&&(d.data()||{}).m)||{};pubSync();
     FOTOLIST=Object.entries(IDXM).map(([id,v])=>Object.assign({id},v)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const o={};FOTOLIST.forEach(f=>{(o[f.pn]=o[f.pn]||[]).push(f)});FOTOS=o;rr();
     if(!(d.metadata&&d.metadata.fromCache))syncIdx(d)});

@@ -52,7 +52,7 @@ main{min-width:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:12px 18px;border:1px solid var(--line);background:var(--card);font-weight:600;cursor:pointer;text-decoration:none;color:var(--ink)}
 .btn.dark{background:var(--green);border-color:var(--green);color:#fff}
 .btn.lime{background:var(--lime);border-color:var(--lime);color:var(--green)}
-.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}
+.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}.btn.ml{background:#ffe600;border-color:#e6cf00;color:#2d3277}
 .page{padding:26px 40px 60px;max-width:1360px}
 .hero{background:var(--green);border-radius:22px;color:#fff;padding:46px 40px;display:grid;grid-template-columns:1.2fr 1fr;align-items:center;gap:20px;position:relative;overflow:hidden}
 .hero .kicker{color:var(--lime)}
@@ -553,6 +553,7 @@ async function openDet(k){let it=byK(k);if(!it)return;
    ${vers?`<div><div class="kicker" style="margin-bottom:6px">Número por versión</div><div class="vers">${vers}</div></div>`:''}
    ${it.ex==='no'?avisaHTML(it):`<button class="btn ${on?'':'lime'}" data-q="${esc(k)}">${on?'✓ En tu cotización (quitar)':'+ Agregar a mi cotización'}</button>`}
    <a class="btn wa" target="_blank" rel="noopener" href="${waLink('Hola, me interesa esta pieza de Honda Accord: '+it.es+' ('+numFor(it,st.ver)+'). ¿Sigue disponible?')}">Preguntar por WhatsApp</a>
+   ${it.ex==='av'&&INV.ml&&INV.ml[k]?`<a class="btn ml" target="_blank" rel="noopener" href="https://articulo.mercadolibre.com.mx/MLM-${esc(INV.ml[k])}">Comprar en Mercado Libre ↗</a><p style="font-size:12.5px;color:var(--muted);margin:0">Si prefieres, cómprala en Mercado Libre con su protección al comprador.</p>`:''}
    <p style="font-size:12.5px;color:var(--muted);margin:0">Pieza original usada. Si quieres más fotos, pídelas por WhatsApp.</p></div>`;
   if(modal.hidden)history.pushState({det:1},'');modal.hidden=false;modal.scrollTop=0;document.body.style.overflow='hidden';hook(modal);
   GAL={it,i:CARDV[k]||0};showGal()}
