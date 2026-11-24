@@ -329,7 +329,13 @@ const CATS=[...new Set(SECS.map(s=>s.cat))];
 // Sinónimos (fuente/sinonimos.json) + plural/singular + una letra de diferencia. Todo en el teléfono, sin internet.
 // En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
 // ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
-const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"]]};
+const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto", ">driver side", ">driver", ">lado del conductor", ">lado conductor", ">conductor"], ["der", "derech", "right", ">lado copiloto", ">passenger side", ">passenger", ">lado del pasajero", ">lado pasajero", ">pasajero"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"], ["assy", "assembly", "ensamble", "conjunto"], ["interruptor", "switch", "boton", "control"]]};
+// Palabras de relleno que trae un título copiado de eBay/Mercado Libre y que no ayudan a encontrar la pieza
+const RELLENO=new Set(['honda','accord','genuine','oem','oe','new','used','nuevo','nueva','usado','usada','original','originales','for','fits','fit','the','and','with','w','of','sedan','sport','pieza','refaccion']);
+// quita relleno, años (2018) y rangos de años (2018-2022 / 18-22)
+function limpiar(nq){return nq.replace(/[,;:/()|+]+/g,' ').split(/\s+/).filter(w=>w&&!RELLENO.has(w)&&!/^(19|20)\d\d$/.test(w)&&!/^((19|20)?\d\d)-((19|20)?\d\d)$/.test(w)).join(' ')}
+// números de parte que vengan dentro del texto (ej. "81653-SDB-A71" o "81653SDBA71"), en minúsculas y sin guiones
+function numeros(nq){return [...new Set(nq.split(/[\s,;:/()|+]+/).map(w=>w.replace(/[^a-z0-9]/g,'')).filter(w=>w.length>=5&&/\d/.test(w)&&(/[a-z]/.test(w)||/^\d{5}$/.test(w))))]}
 function mkBuscador(norm,textos){
   const G=new Map();const FRASES=[];
   (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
@@ -358,10 +364,12 @@ function mkBuscador(norm,textos){
   // ¿el texto (ya normalizado) cumple todas las unidades?
   const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
-  return {expandir,cumple}}
+  // cuántas unidades cumple (para "lo más parecido" cuando ninguna pieza cumple todas)
+  const cuenta=(key,grupos)=>{const k=pad(key);return grupos.filter(alts=>alts.some(a=>k.includes(a))).length};
+  return {expandir,cumple,cuenta,limpiar,numeros}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261123-1416';
+const VERSION='20261123-2231';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -497,14 +505,20 @@ async function syncIdx(d){if(IDXSYNC||!navigator.onLine)return;const x=d.exists(
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto real'):imgTag(p)};
 
 // ---- búsqueda ----
-function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
-  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.replace(/[^A-Za-z0-9]/g,'').toLowerCase().includes(compact))altHits.add(v.pn)}
+function search(q){const nq0=norm(q).trim();if(!nq0)return null;const NUMS=BUS.numeros(nq0);const nq=BUS.limpiar(nq0)||nq0;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
+  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){const ak=a.replace(/[^A-Za-z0-9]/g,'').toLowerCase();if(ak.includes(compact)||NUMS.some(n=>ak.includes(n)))altHits.add(v.pn)}
+  // si el texto trae un número de parte, esa pieza sale primero aunque el resto de las palabras no coincida
+  const numHit=p=>NUMS.some(n=>p.pnk.includes(n)||(p.ypk&&p.ypk.includes(n)));
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
     else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
+    else if(NUMS.length&&numHit(p))sc=95;
     else if(altHits.has(p.pn))sc=90;
     else if(BUS.cumple(p.key,EX.grupos)){sc=10;const es=norm(p.es);if(es.startsWith(cw[0]))sc+=6;if(es.includes(cq))sc+=4;else if(cw.every(w=>es.includes(w)))sc+=2;if(norm(p.en).includes(cq))sc+=3}
     if(sc)out.push([sc,p])}
+  // ninguna pieza cumple todas las palabras: enseña las que cumplen más (lo más parecido)
+  if(!out.length&&EX.grupos.length>1){let mx=0;const cs=PARTS.map(p=>{const c=BUS.cuenta(p.key,EX.grupos);if(c>mx)mx=c;return c});
+    if(mx>=Math.ceil(EX.grupos.length/2))PARTS.forEach((p,i)=>{if(cs[i]===mx)out.push([1,p])})}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
   return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}${ubiOf(o.c.id,pn)?' · '+esc(ubiOf(o.c.id,pn)):''}</span>`).join('')}</span>`}
@@ -522,8 +536,8 @@ function xItemHTML(x){const f=FOTOS['X:'+x.id]||[];
   return `<button class="item" data-openx="${esc(x.id)}"><span class="ph">${f.length?thumbImg(f[0].id):'📦'}</span>
    <span class="t"><span class="realtag">Agregada</span>${x.num?`<span class="pn">${esc(x.num)}</span>`:''}<span class="es">${esc(x.name)}</span>${x.cond?`<span class="en">${esc(x.cond)}</span>`:''}</span>
    <span class="r">${x.price?`<span class="price">${money(x.price)}</span>${x.sug?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}${xAvail(x)?`<span class="avail"><span class="cb">${esc(x.car?carCode(x.car):'Bodega')}${x.qty>1?'×'+x.qty:''}</span></span>`:'<span class="stock n">Vendida</span>'}</span></button>`}
-function searchExtras(q){const nq=norm(q).trim();if(!nq)return [];const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
-  return EXTRAS.filter(x=>{const k=norm(x.name+' '+x.num+' '+x.cond+' '+(x.nota||''));return (c.length>=3&&norm(x.num).replace(/[\s-]/g,'').includes(c))||w.every(t=>k.includes(t))})}
+function searchExtras(q){const nq0=norm(q).trim();if(!nq0)return [];const NUMS=BUS.numeros(nq0);const nq=BUS.limpiar(nq0)||nq0;const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
+  return EXTRAS.filter(x=>{const k=norm(x.name+' '+x.num+' '+x.cond+' '+(x.nota||''));const xn=norm(x.num).replace(/[^a-z0-9]/g,'');return (c.length>=3&&norm(x.num).replace(/[\s-]/g,'').includes(c))||(xn.length>=5&&NUMS.some(n=>xn.includes(n)||n.includes(xn)))||w.every(t=>k.includes(t))})}
 function renderList(arr){if(!arr.length)return '<div class="empty">No encontré piezas con eso en el catálogo. Prueba otra palabra, en inglés, o parte del número.<br><br><button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button></div>';
   return `<div class="list">${arr.slice(0,st.limit).map(p=>itemHTML(p)).join('')}</div>`+(arr.length>st.limit?`<button class="more" data-more>Mostrar más (${arr.length-st.limit} restantes)</button>`:'')}
 
@@ -867,7 +881,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261123-1416</p></div>`;
+   <p class="note">Versión 20261123-2231</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};

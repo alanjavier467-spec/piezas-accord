@@ -354,9 +354,17 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${it.vars?dotsHTML(it):num?`<span class="pn">${esc(num)}</span>`:''}
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?(it.desde?'Desde ':'')+money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':it.vars?`<button class="add" data-det="${esc(it.k)}" aria-label="Elegir color">+</button>`:`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
-function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
-  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
+function filtered(){const nq0=norm(st.q).trim();if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const NUMS=nq0?BUS.numeros(nq0):[];const nq=BUS.limpiar(nq0)||nq0,w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');const EX=w.length?BUS.expandir(nq):{grupos:[]};
+  const base=ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver));
+  if(!w.length&&!NUMS.length)return base;
+  const yk=it=>Object.values(it.y||{}).filter(v=>typeof v==="string"&&v).map(v=>v.replace(/-/g,"").toLowerCase());
+  // si el texto trae un número de parte (aunque venga con más palabras, como un título de eBay), esa pieza sale primero
+  if(NUMS.length){const hit=base.filter(it=>NUMS.some(n=>String(it.pnk||'').includes(n)||yk(it).some(v=>v.includes(n))));if(hit.length)return hit}
+  const r=base.filter(it=>(c.length>=3&&/\d/.test(c)&&(String(it.pnk||'').includes(c)||yk(it).some(v=>v.includes(c))))||BUS.cumple(it.key,EX.grupos));
+  if(r.length||EX.grupos.length<2)return r;
+  // ninguna cumple todas las palabras: enseña las que cumplen más (lo más parecido)
+  let mx=0;const cs=base.map(it=>{const k=BUS.cuenta(it.key,EX.grupos);if(k>mx)mx=k;return k});
+  return mx>=Math.ceil(EX.grupos.length/2)?base.filter((it,i)=>cs[i]===mx):[]}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>

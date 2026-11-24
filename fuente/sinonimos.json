@@ -30,9 +30,11 @@
     ["turbo", "turbocompresor", "turbocharger"],
     ["modulo", "computadora", "unidad de control", "control unit", "ecu"],
     ["moldura", "embellecedor", "garnish", "molding"],
-    ["izq", "izquierd", "left", ">lado piloto"],
-    ["der", "derech", "right", ">lado copiloto"],
+    ["izq", "izquierd", "left", ">lado piloto", ">driver side", ">driver", ">lado del conductor", ">lado conductor", ">conductor"],
+    ["der", "derech", "right", ">lado copiloto", ">passenger side", ">passenger", ">lado del pasajero", ">lado pasajero", ">pasajero"],
     ["delantero", "delantera", "frontal", "front"],
-    ["trasero", "trasera", "rear"]
+    ["trasero", "trasera", "rear"],
+    ["assy", "assembly", "ensamble", "conjunto"],
+    ["interruptor", "switch", "boton", "control"]
   ]
 }

@@ -262,7 +262,13 @@ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'')
 // Sinónimos (fuente/sinonimos.json) + plural/singular + una letra de diferencia. Todo en el teléfono, sin internet.
 // En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
 // ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
-const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto"], ["der", "derech", "right", ">lado copiloto"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"]]};
+const SINON={"grupos": [["calavera", "luz trasera", "tail light", "taillight", ">stop", ">cuarto trasero"], ["faro", "farol", "headlight", "luz delantera"], ["faro de niebla", "faro antiniebla", "niebla", "antiniebla", "fog light", "foglight"], ["facia", "fascia", "defensa", "parachoques", "bumper", "fachada"], ["parrilla", "grille", "rejilla"], ["cofre", "capo", "capó", "hood"], ["cajuela", "maletero", "tapa de cajuela", "trunk", "baul"], ["salpicadera", "guardabarros", "fender", "lodera"], ["espejo", "retrovisor", "mirror"], ["estereo", "estéreo", "radio", "audio", "pantalla", "display", "head unit"], ["claxon", "bocina", "horn"], ["rin", "rines", "llanta", "rueda", "wheel", "disco de rueda"], ["vidrio", "cristal", "glass"], ["parabrisas", "windshield"], ["volante", "steering wheel"], ["bolsa de aire", "airbag", "air bag"], ["asiento", "seat"], ["puerta", "door"], ["manija", "jaladera", "handle"], ["tapete", "alfombra", "mat"], ["amortiguador", "shock", "strut"], ["radiador", "radiator"], ["bateria", "acumulador", "battery"], ["alternador", "alternator"], ["marcha", "motor de arranque", "starter"], ["compresor", "compresor de aire", "ac compressor"], ["turbo", "turbocompresor", "turbocharger"], ["modulo", "computadora", "unidad de control", "control unit", "ecu"], ["moldura", "embellecedor", "garnish", "molding"], ["izq", "izquierd", "left", ">lado piloto", ">driver side", ">driver", ">lado del conductor", ">lado conductor", ">conductor"], ["der", "derech", "right", ">lado copiloto", ">passenger side", ">passenger", ">lado del pasajero", ">lado pasajero", ">pasajero"], ["delantero", "delantera", "frontal", "front"], ["trasero", "trasera", "rear"], ["assy", "assembly", "ensamble", "conjunto"], ["interruptor", "switch", "boton", "control"]]};
+// Palabras de relleno que trae un título copiado de eBay/Mercado Libre y que no ayudan a encontrar la pieza
+const RELLENO=new Set(['honda','accord','genuine','oem','oe','new','used','nuevo','nueva','usado','usada','original','originales','for','fits','fit','the','and','with','w','of','sedan','sport','pieza','refaccion']);
+// quita relleno, años (2018) y rangos de años (2018-2022 / 18-22)
+function limpiar(nq){return nq.replace(/[,;:/()|+]+/g,' ').split(/\s+/).filter(w=>w&&!RELLENO.has(w)&&!/^(19|20)\d\d$/.test(w)&&!/^((19|20)?\d\d)-((19|20)?\d\d)$/.test(w)).join(' ')}
+// números de parte que vengan dentro del texto (ej. "81653-SDB-A71" o "81653SDBA71"), en minúsculas y sin guiones
+function numeros(nq){return [...new Set(nq.split(/[\s,;:/()|+]+/).map(w=>w.replace(/[^a-z0-9]/g,'')).filter(w=>w.length>=5&&/\d/.test(w)&&(/[a-z]/.test(w)||/^\d{5}$/.test(w))))]}
 function mkBuscador(norm,textos){
   const G=new Map();const FRASES=[];
   (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
@@ -291,7 +297,9 @@ function mkBuscador(norm,textos){
   // ¿el texto (ya normalizado) cumple todas las unidades?
   const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
-  return {expandir,cumple}}
+  // cuántas unidades cumple (para "lo más parecido" cuando ninguna pieza cumple todas)
+  const cuenta=(key,grupos)=>{const k=pad(key);return grupos.filter(alts=>alts.some(a=>k.includes(a))).length};
+  return {expandir,cumple,cuenta,limpiar,numeros}}
 
 let BUS=null;
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
@@ -388,9 +396,17 @@ function cardHTML(it){const on=inQ(it.k);const num=numFor(it,st.ver);
    <div class="bd"><div class="sec">${esc(it.secName)}</div><h3 data-det="${esc(it.k)}">${esc(it.es)} ↗</h3>${it.vars?dotsHTML(it):num?`<span class="pn">${esc(num)}</span>`:''}
    ${nuevoHTML(it)}<div class="ft"><div class="price${it.promo?' pr':''}">${it.antes?`<s class="antes">${money(it.antes)}</s>`:''}${it.price?(it.desde?'Desde ':'')+money(it.price)+' MXN':'Precio a consultar'}<small>${exTxt(it)}</small></div>
    ${it.ex==='no'?'':it.vars?`<button class="add" data-det="${esc(it.k)}" aria-label="Elegir color">+</button>`:`<button class="add ${on?'on':''}" data-q="${esc(it.k)}" aria-label="${on?'Quitar de':'Agregar a'} mi cotización">${on?'✓':'+'}</button>`}</div></div></div>`}
-function filtered(){const nq=norm(st.q).trim(),w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const EX=w.length?BUS.expandir(nq):{grupos:[]};
-  return ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver)&&
-    (!w.length||(c.length>=3&&/\d/.test(c)&&(it.pnk.includes(c)||Object.values(it.y||{}).some(v=>v&&v.replace(/-/g,'').toLowerCase().includes(c))))||BUS.cumple(it.key,EX.grupos)))}
+function filtered(){const nq0=norm(st.q).trim();if(!BUS)BUS=mkBuscador(norm,ALL.map(it=>it.es+' '+(it.en||'')+' '+(it.secName||'')));const NUMS=nq0?BUS.numeros(nq0):[];const nq=BUS.limpiar(nq0)||nq0,w=nq.split(/\s+/).filter(Boolean),c=nq.replace(/[\s-]/g,'');const EX=w.length?BUS.expandir(nq):{grupos:[]};
+  const base=ALL.filter(it=>(!st.carf||String(it.cars||'').split(',').includes(st.carf))&&(!st.cat||it.cat===st.cat)&&(!st.sec||String(it.s)===st.sec)&&(!st.stock||it.av)&&(!st.promo||it.promo)&&fitsVer(it,st.ver));
+  if(!w.length&&!NUMS.length)return base;
+  const yk=it=>Object.values(it.y||{}).filter(v=>typeof v==="string"&&v).map(v=>v.replace(/-/g,"").toLowerCase());
+  // si el texto trae un número de parte (aunque venga con más palabras, como un título de eBay), esa pieza sale primero
+  if(NUMS.length){const hit=base.filter(it=>NUMS.some(n=>String(it.pnk||'').includes(n)||yk(it).some(v=>v.includes(n))));if(hit.length)return hit}
+  const r=base.filter(it=>(c.length>=3&&/\d/.test(c)&&(String(it.pnk||'').includes(c)||yk(it).some(v=>v.includes(c))))||BUS.cumple(it.key,EX.grupos));
+  if(r.length||EX.grupos.length<2)return r;
+  // ninguna cumple todas las palabras: enseña las que cumplen más (lo más parecido)
+  let mx=0;const cs=base.map(it=>{const k=BUS.cuenta(it.key,EX.grupos);if(k>mx)mx=k;return k});
+  return mx>=Math.ceil(EX.grupos.length/2)?base.filter((it,i)=>cs[i]===mx):[]}
 // ---- carruseles (donadores y destacados) ----
 const donors=()=>(INV.cars||[]).filter(c=>c.year&&!/^bod/i.test(c.code||''));
 const donorCard=c=>`<div class="card"><div class="ph" style="cursor:default">${c.foto?`<img class="real" src="${c.foto}" alt="Honda Accord ${esc(c.year)}">`:'<span class="box"><img class="mini big2" src="mini-accord.png" alt=""></span>'}<span class="tag ok">${esc(c.code)}</span></div>
@@ -646,7 +662,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261123-1416';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261123-2231';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});

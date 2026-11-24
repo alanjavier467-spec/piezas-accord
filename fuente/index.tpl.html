@@ -228,14 +228,20 @@ async function syncIdx(d){if(IDXSYNC||!navigator.onLine)return;const x=d.exists(
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto real'):imgTag(p)};
 
 // ---- búsqueda ----
-function search(q){const nq=norm(q).trim();if(!nq)return null;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
-  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){if(a.replace(/[^A-Za-z0-9]/g,'').toLowerCase().includes(compact))altHits.add(v.pn)}
+function search(q){const nq0=norm(q).trim();if(!nq0)return null;const NUMS=BUS.numeros(nq0);const nq=BUS.limpiar(nq0)||nq0;const compact=nq.replace(/[\s-]/g,'');const words=nq.split(/\s+/).filter(Boolean);const out=[];const EX=BUS.expandir(nq);CORR=EX.corr;const cw=words.map(w=>CORR[w]||w),cq=cw.join(' ');
+  const altHits=new Set();if(compact.length>=3)for(const [a,v] of Object.entries(ALT)){const ak=a.replace(/[^A-Za-z0-9]/g,'').toLowerCase();if(ak.includes(compact)||NUMS.some(n=>ak.includes(n)))altHits.add(v.pn)}
+  // si el texto trae un número de parte, esa pieza sale primero aunque el resto de las palabras no coincida
+  const numHit=p=>NUMS.some(n=>p.pnk.includes(n)||(p.ypk&&p.ypk.includes(n)));
   for(const p of PARTS){let sc=0;
     if(compact.length>=3&&/\d/.test(compact)&&p.pnk.includes(compact))sc=p.pnk.startsWith(compact)?100:80;
     else if(compact.length>=3&&/\d/.test(compact)&&p.ypk&&p.ypk.includes(compact))sc=85;
+    else if(NUMS.length&&numHit(p))sc=95;
     else if(altHits.has(p.pn))sc=90;
     else if(BUS.cumple(p.key,EX.grupos)){sc=10;const es=norm(p.es);if(es.startsWith(cw[0]))sc+=6;if(es.includes(cq))sc+=4;else if(cw.every(w=>es.includes(w)))sc+=2;if(norm(p.en).includes(cq))sc+=3}
     if(sc)out.push([sc,p])}
+  // ninguna pieza cumple todas las palabras: enseña las que cumplen más (lo más parecido)
+  if(!out.length&&EX.grupos.length>1){let mx=0;const cs=PARTS.map(p=>{const c=BUS.cuenta(p.key,EX.grupos);if(c>mx)mx=c;return c});
+    if(mx>=Math.ceil(EX.grupos.length/2))PARTS.forEach((p,i)=>{if(cs[i]===mx)out.push([1,p])})}
   out.sort((a,b)=>b[0]-a[0]||a[1].es.length-b[1].es.length);return out.map(x=>x[1])}
 function availHTML(pn){if(!CARS.length)return '';const a=availCars(pn);if(!a.length)return '<span class="stock n">Sin existencia</span>';
   return `<span class="avail">${a.map(o=>`<span class="cb ${o.x.s==='quitada'?'q':''}">${esc(o.c.code)}${o.x.n>1?'×'+o.x.n:''}${ubiOf(o.c.id,pn)?' · '+esc(ubiOf(o.c.id,pn)):''}</span>`).join('')}</span>`}
@@ -253,8 +259,8 @@ function xItemHTML(x){const f=FOTOS['X:'+x.id]||[];
   return `<button class="item" data-openx="${esc(x.id)}"><span class="ph">${f.length?thumbImg(f[0].id):'📦'}</span>
    <span class="t"><span class="realtag">Agregada</span>${x.num?`<span class="pn">${esc(x.num)}</span>`:''}<span class="es">${esc(x.name)}</span>${x.cond?`<span class="en">${esc(x.cond)}</span>`:''}</span>
    <span class="r">${x.price?`<span class="price">${money(x.price)}</span>${x.sug?'<span class="sug">sugerido</span>':''}`:'<span class="price none">Sin precio</span>'}${xAvail(x)?`<span class="avail"><span class="cb">${esc(x.car?carCode(x.car):'Bodega')}${x.qty>1?'×'+x.qty:''}</span></span>`:'<span class="stock n">Vendida</span>'}</span></button>`}
-function searchExtras(q){const nq=norm(q).trim();if(!nq)return [];const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
-  return EXTRAS.filter(x=>{const k=norm(x.name+' '+x.num+' '+x.cond+' '+(x.nota||''));return (c.length>=3&&norm(x.num).replace(/[\s-]/g,'').includes(c))||w.every(t=>k.includes(t))})}
+function searchExtras(q){const nq0=norm(q).trim();if(!nq0)return [];const NUMS=BUS.numeros(nq0);const nq=BUS.limpiar(nq0)||nq0;const c=nq.replace(/[\s-]/g,'');const w=nq.split(/\s+/);
+  return EXTRAS.filter(x=>{const k=norm(x.name+' '+x.num+' '+x.cond+' '+(x.nota||''));const xn=norm(x.num).replace(/[^a-z0-9]/g,'');return (c.length>=3&&norm(x.num).replace(/[\s-]/g,'').includes(c))||(xn.length>=5&&NUMS.some(n=>xn.includes(n)||n.includes(xn)))||w.every(t=>k.includes(t))})}
 function renderList(arr){if(!arr.length)return '<div class="empty">No encontré piezas con eso en el catálogo. Prueba otra palabra, en inglés, o parte del número.<br><br><button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button></div>';
   return `<div class="list">${arr.slice(0,st.limit).map(p=>itemHTML(p)).join('')}</div>`+(arr.length>st.limit?`<button class="more" data-more>Mostrar más (${arr.length-st.limit} restantes)</button>`:'')}
 

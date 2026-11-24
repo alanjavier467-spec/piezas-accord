@@ -3,6 +3,12 @@
 // En sinonimos.json, una palabra con ">" adelante es "solo de ida": al buscarla se busca el grupo, pero el grupo no la busca a ella
 // ("stop" encuentra calaveras, pero "calavera" no trae topes "stopper").
 const SINON=__SINONIMOS__;
+// Palabras de relleno que trae un título copiado de eBay/Mercado Libre y que no ayudan a encontrar la pieza
+const RELLENO=new Set(['honda','accord','genuine','oem','oe','new','used','nuevo','nueva','usado','usada','original','originales','for','fits','fit','the','and','with','w','of','sedan','sport','pieza','refaccion']);
+// quita relleno, años (2018) y rangos de años (2018-2022 / 18-22)
+function limpiar(nq){return nq.replace(/[,;:/()|+]+/g,' ').split(/\s+/).filter(w=>w&&!RELLENO.has(w)&&!/^(19|20)\d\d$/.test(w)&&!/^((19|20)?\d\d)-((19|20)?\d\d)$/.test(w)).join(' ')}
+// números de parte que vengan dentro del texto (ej. "81653-SDB-A71" o "81653SDBA71"), en minúsculas y sin guiones
+function numeros(nq){return [...new Set(nq.split(/[\s,;:/()|+]+/).map(w=>w.replace(/[^a-z0-9]/g,'')).filter(w=>w.length>=5&&/\d/.test(w)&&(/[a-z]/.test(w)||/^\d{5}$/.test(w))))]}
 function mkBuscador(norm,textos){
   const G=new Map();const FRASES=[];
   (SINON.grupos||[]).forEach(g=>{const all=g.map(w=>norm(w).trim()).filter(Boolean);const ns=[...new Set(all.filter(w=>!w.startsWith('>')))];
@@ -31,4 +37,6 @@ function mkBuscador(norm,textos){
   // ¿el texto (ya normalizado) cumple todas las unidades?
   const KC=new Map();const pad=k=>{let v=KC.get(k);if(v===undefined){v=' '+k.replace(/[^a-z0-9ñ]+/g,' ')+' ';KC.set(k,v)}return v};
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
-  return {expandir,cumple}}
+  // cuántas unidades cumple (para "lo más parecido" cuando ninguna pieza cumple todas)
+  const cuenta=(key,grupos)=>{const k=pad(key);return grupos.filter(alts=>alts.some(a=>k.includes(a))).length};
+  return {expandir,cumple,cuenta,limpiar,numeros}}
