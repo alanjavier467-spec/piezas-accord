@@ -361,7 +361,7 @@ function mkBuscador(norm,textos){
   return {expandir,cumple}}
 
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261123-2153';
+const VERSION='20261124-0952';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -435,7 +435,10 @@ const dLocal=d=>{const x=d?new Date(d):new Date();return x.getFullYear()+'-'+Str
 const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[],ESPERAS=[];
 const isSug=pn=>!PRICE[pn]&&!(BYPN[pn]||{}).pv;
 const xById=id=>EXTRAS.find(x=>x.id===id);
-const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
+const xAvail=x=>x&&x.status!=='vendida'&&x.status!=='nodisp'&&(x.qty||0)>0;
+// estado de una pieza agregada en un carro (mismas opciones que el catálogo, sin "apartada")
+const XNO=['mala','revisar','falta'];
+const xSt=y=>!y?'falta':xAvail(y)?(y.s==='esta'?'esta':'quitada'):y.status==='nodisp'&&XNO.includes(y.s)?y.s:'vendida';
 // piezas agregadas: una misma pieza puede estar en varios carros; cada carro es un registro con grupo = id de la primera
 const xG=x=>x.grupo||x.id;
 const xSibs=x=>EXTRAS.filter(y=>xG(y)===xG(x));
@@ -558,7 +561,7 @@ function vCatalogo(){
   if(st.catView){const ss=SECS.filter(s=>s.cat===st.catView);
     view.innerHTML=`<button class="back" data-back="cat">‹ Categorías</button><h2 class="title">${esc(st.catView)}</h2>${ss.map(s=>`<button class="cat" data-sec="${s.i}"><b>${esc(s.es)}</b><span>${s.n} ›</span></button>`).join('')}`;return}
   view.innerHTML=`<h2 class="title">Catálogo por diagrama</h2>${CATS.map(c=>`<button class="cat" data-gocat="${esc(c)}"><b>${esc(c)}</b><span>${SECS.filter(s=>s.cat===c).length} secciones ›</span></button>`).join('')}`}
-function carCounts(c){const k={esta:0,quitada:0,apartada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){if(xAvail(x))k.quitada+=(+x.qty||1);else k.vendida++}});return k}
+function carCounts(c){const k={esta:0,quitada:0,apartada:0,vendida:0,mala:0,revisar:0,falta:0,na:0};UPN.forEach(pn=>{k[stOf(c,pn).s]++});EXTRAS.forEach(x=>{if(x.car===c.id){const s=xSt(x);if(s==='esta'||s==='quitada')k[s]+=(+x.qty||1);else k[s]++}});return k}
 const fmtDate=s=>{try{return new Date(s+(s.length===10?'T12:00:00':'')).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}catch(e){return s}};
 function vCarros(){
   if(st.car&&!CARS.find(c=>c.id===st.car))st.car=null;
@@ -633,7 +636,7 @@ async function save360(c,frames,st){st.className='status';st.textContent='Guarda
 const segHTML=(c,pn,cur)=>`<div class="seg" data-carid="${c.id}" data-pn="${esc(pn)}">${STS.filter(([k])=>k!=='vendida'||cur==='vendida').map(([k,l])=>`<button data-setst="${k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
 function after360(){const c=st.car&&CARS.find(x=>x.id===st.car);if(c&&$('#v3box'))load360(c)}
 function vCarList(){const c=CARS.find(x=>x.id===st.car);const s=st.carList;const pns=UPN.filter(pn=>stOf(c,pn).s===s);
-  const xs=s==='quitada'?EXTRAS.filter(x=>x.car===c.id&&xAvail(x)):s==='vendida'?EXTRAS.filter(x=>x.car===c.id&&!xAvail(x)):[];
+  const xs=EXTRAS.filter(x=>x.car===c.id&&xSt(x)===s);
   view.innerHTML=`<button class="back" data-back="carlist">‹ ${esc(c.code)}</button>
   <div class="row"><span class="carcode">${esc(c.code)}</span><h2 class="title">${esc(STL[s])}</h2></div>
   ${OTROS.includes(s)?(()=>{const k=carCounts(c);return `<div class="chips" style="margin:10px 0;display:flex;flex-wrap:wrap;gap:6px">${OTROS.map(o=>`<button class="chip" data-carlist="${o}" aria-pressed="${s===o}">${esc(STL[o])} (${k[o]})</button>`).join('')}</div>`})():''}
@@ -874,7 +877,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261123-2153</p></div>`;
+   <p class="note">Versión 20261124-0952</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -927,7 +930,7 @@ function needOf(items){const need={};items.forEach(it=>{const k=it.xid?'X:'+it.x
 // problemas de existencia; estMap(carId) y xMap(xid) dan el estado a revisar (teléfono o servidor)
 function faltan(items,estMap,xMap){const out=[];
   for(const [k,q] of Object.entries(needOf(items))){
-    if(k.startsWith('X:')){const x=xMap(k.slice(2));const hay=x&&x.status!=='vendida'?(+x.qty||0):0;if(hay<q)out.push(`${x?x.name:'Pieza agregada'}: hay ${hay}, se quieren cobrar ${q}`);continue}
+    if(k.startsWith('X:')){const x=xMap(k.slice(2));const hay=xAvail(x)?(+x.qty||0):0;if(hay<q)out.push(`${x?x.name:'Pieza agregada'}: hay ${hay}, se quieren cobrar ${q}`);continue}
     const [cid,pn]=k.split('|');const c=CARS.find(x=>x.id===cid);if(!c)continue;const x=stOf(c,pn,estMap(cid));const hay=AVAIL(x.s)?x.n:0;
     if(hay<q)out.push(`${(BYPN[pn]||{}).es||pn} (${c.code}): ${x.s==='vendida'?'ya está vendida':x.s==='apartada'?'está apartada':'hay '+hay}, se quieren cobrar ${q}`)}
   return out}
@@ -1001,7 +1004,7 @@ function delSale(id,btn){if(pendingDel!==id){pendingDel=id;btn.textContent='¿Ca
     const cur=m[it.pn]||stOf(c,it.pn);const hay=AVAIL(cur.s)?cur.n:0;const back=it.prev&&AVAIL(it.prev.s)?it.prev.s:(AVAIL(cur.s)?cur.s:'quitada');
     m[it.pn]={s:AVAIL(cur.s)?cur.s:back,n:hay+it.qty}});
   for(const [cid,m] of Object.entries(m2))b.set(doc(fs,'estado',cid),{m},{merge:true});
-  const xq={};(s.items||[]).forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;xq[it.xid]=(xq[it.xid]!=null?xq[it.xid]:(x.status==='vendida'?0:(+x.qty||0)))+it.qty});
+  const xq={};(s.items||[]).forEach(it=>{if(!it.xid)return;const x=xById(it.xid);if(!x)return;xq[it.xid]=(xq[it.xid]!=null?xq[it.xid]:(xAvail(x)?(+x.qty||0):0))+it.qty});
   for(const [xid,q] of Object.entries(xq))b.set(doc(fs,'extras',xid),{qty:q,status:'disponible'},{merge:true});
   if(s.cliId&&s.puntos)b.set(doc(fs,'clientes',s.cliId),{puntos:increment(-s.puntos),compras:increment(-1)},{merge:true});
   b.set(doc(fs,'ventas',id),{cancelada:true,canceladaPor:ME.uid,canceladaPorNombre:PROFILE?.name||ME.email,canceladaFecha:new Date().toISOString()},{merge:true});
@@ -1090,10 +1093,11 @@ function savePhotos(key,imgs,meta){imgs.forEach(im=>{const r=doc(collection(fs,'
   setDoc(doc(fs,'fotosfull',r.id),{pn:key,img:im.full}).catch(()=>{})})}
 // ---- piezas agregadas (fuera del catálogo) ----
 let openX=null;
+function xSetSt(x,st){const up=XNO.includes(st)?{s:st,status:'nodisp'}:{s:st,status:'disponible',qty:Math.max(1,+x.qty||0)};Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)))}
 function xEnsure(r,cid,q){const s0=xSibs(r).find(y=>(y.car||'')===cid);if(s0)return s0;const ref=doc(collection(fs,'extras'));
   const x={grupo:r.id,name:r.name,num:r.num||'',cond:r.cond||'',nota:r.nota||'',car:cid,qty:q,status:q?'disponible':'vendida',price:r.price||0,sug:!!r.sug,ubi:'',date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email};
   setDoc(ref,x).catch(e=>toast(errMsg(e)));const o=Object.assign({id:ref.id},x);EXTRAS.push(o);o.nuevo=1;return o}
-function xSetQty(x,q,ubi){const up={qty:q,status:q?'disponible':'vendida'};if(ubi!=null)up.ubi=ubi;Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)))}
+function xSetQty(x,q,ubi){const up={qty:q,status:q?'disponible':(x.status==='nodisp'?'nodisp':'vendida')};if(q&&x.s!=='esta')up.s='quitada';if(ubi!=null)up.ubi=ubi;Object.assign(x,up);setDoc(doc(fs,'extras',x.id),up,{merge:true}).catch(e=>toast(errMsg(e)))}
 function xAddCart(x){const r=xRoot(x);const pr=precioV('X:'+r.id,r.price)||'';CART.push({pn:'',xid:x.id,es:r.name+(r.num?' ('+r.num+')':''),car:x.car||'',qty:1,price:pr,lista:pr});saveCart()}
 function openExtra(id){const x0=xById(id);if(!x0)return;const x=xRoot(x0);id=x.id;openX=id;SHEET='extra';openIdx=null;
   const sib=xSibs(x),av=sib.filter(xAvail),tot=av.reduce((a,y)=>a+(+y.qty||0),0);const icOf=y=>CART.filter(l=>l.xid===y.id).reduce((a,l)=>a+l.qty,0);
@@ -1112,11 +1116,11 @@ function openExtra(id){const x0=xById(id);if(!x0)return;const x=xRoot(x0);id=x.i
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn fbbtn" style="width:100%" data-fb="X:${esc(id)}">📣 Anuncio Facebook</button><button class="btn fbbtn" style="width:100%" data-fben="X:${esc(id)}">🇺🇸 Anuncio en inglés</button></div>
    <div class="card"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">¿En qué carro está?</b>
     ${rows.map(({cid,code})=>{const y=sib.find(z=>(z.car||'')===cid);const ok=y&&xAvail(y);const ic=y?icOf(y):0;const k=cid||'B';
-      const lab=ok?(cid?'En el carro':'En bodega')+(y.qty>1?' · '+y.qty+' pzas':''):y?'Vendida':'No está';
-      return `<div class="carrow"><span class="carcode">${esc(code)}</span><div style="min-width:0"><span class="st st-${ok?'esta':y?'vendida':'falta'}">${lab}</span>
-      ${ok?`<div class="hint" style="margin-top:4px">📍 ${y.ubi?`<b>${esc(y.ubi)}</b>`:(cid?'En el carro':'Sin lugar anotado')}</div>`:''}
-      <details style="margin-top:6px"><summary class="hint">Cambiar cantidad o lugar</summary>
-       <div class="drow" style="margin-top:8px"><input id="xq-${k}" type="number" min="0" inputmode="numeric" value="${ok?y.qty:0}" aria-label="Cantidad" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);min-width:0;width:70px">
+      const st=xSt(y);const lab=(!cid&&(st==='esta'||st==='quitada')?'En bodega':STL[st])+(ok&&y.qty>1?' · '+y.qty+' pzas':'');
+      return `<div class="carrow"><span class="carcode">${esc(code)}</span><div style="min-width:0"><span class="st st-${st}">${lab}</span>
+      ${ok?`<div class="hint" style="margin-top:4px">📍 ${y.ubi?`<b>${esc(y.ubi)}</b>`:(cid&&st==='esta'?'En el carro':'Sin lugar anotado')}</div>`:''}
+      <details style="margin-top:6px"><summary class="hint">Cambiar estado o lugar</summary><div class="seg">${STS.filter(([q])=>q!=='apartada'&&(q!=='vendida'||st==='vendida')&&(cid||q!=='esta')).map(([q,l])=>`<button data-xsetst="${q}" data-xk="${k}" aria-pressed="${st===q}">${q==='quitada'&&!cid?'En bodega':l}</button>`).join('')}</div>
+       <label class="hint" style="display:block;margin-top:8px">Cantidad <input id="xq-${k}" type="number" min="0" inputmode="numeric" value="${ok?y.qty:0}" style="border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);color:var(--ink);width:70px"></label><div class="drow" style="margin-top:8px">
        <input id="xu-${k}" list="ubis" placeholder="Lugar: T-3, G-1…" value="${esc(y?y.ubi||'':'')}" style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);text-transform:uppercase;min-width:0"><button class="btn ghost" data-savexc="${k}">Guardar</button></div></details></div>
       <div>${ok&&y.qty-ic>0?`<button class="btn alt" style="padding:8px 10px;font-size:14px" data-addx="${esc(y.id)}">🛒 Agregar al carrito</button>`:ic?`<span class="hint">${ic} en el carrito</span>`:`<button class="btn ghost" style="padding:8px 10px;font-size:14px" data-xtengo="${k}">✅ La tengo · al carrito</button>`}</div></div>`}).join('')}</div>
    ${OWN?`<button class="btn ghost" data-delx="${esc(id)}">Borrar esta pieza</button>`:''}</div>`;
@@ -1365,6 +1369,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('intnew' in d){intakeNew(intakeVals());return}
   if(d.addx){const x=xById(d.addx);if(!x)return;xAddCart(x);toast('Agregado al carrito');openExtra(x.id);return}
   if(d.xtengo){const r=xById(openX);if(!r)return;const cid=d.xtengo==='B'?'':d.xtengo;const y=xEnsure(r,cid,1);if(!y.nuevo)xSetQty(y,1);delete y.nuevo;xAddCart(y);toast('Agregado al carrito');openExtra(r.id);return}
+  if(d.xsetst){const r=xById(openX);if(!r)return;const cid=d.xk==='B'?'':d.xk,q=d.xsetst;if(q==='vendida')return;let y=xSibs(r).find(z=>(z.car||'')===cid);
+    if(!y){if(q==='falta')return;y=xEnsure(r,cid,XNO.includes(q)?0:1);delete y.nuevo}xSetSt(y,q);const sy=sheet.scrollTop;openExtra(r.id);sheet.scrollTop=sy;return}
   if(d.savexc){const r=xById(openX);if(!r)return;const k=d.savexc,cid=k==='B'?'':k;const q=Math.max(0,parseInt(($('#xq-'+k)||{}).value)||0),u=((($('#xu-'+k)||{}).value)||'').trim().toUpperCase();
     const ex=xSibs(r).find(y=>(y.car||'')===cid);if(!ex&&!q){toast('Pon la cantidad');return}const y=ex||xEnsure(r,cid,q);xSetQty(y,q,u);delete y.nuevo;toast('Guardado');openExtra(r.id);return}
   if(d.saveubi){const p=PARTS[openIdx];const v=($('#ubi-'+d.saveubi)||{}).value||'';const x=stOf(CARS.find(c=>c.id===d.saveubi),p.pn);if(!AVAIL(x.s))setStatus(d.saveubi,p.pn,'quitada');setUbi(d.saveubi,p.pn,v);toast(v?'Lugar guardado: '+v.toUpperCase():'Lugar borrado');openPart(openIdx);return}
