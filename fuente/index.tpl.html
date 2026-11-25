@@ -550,9 +550,8 @@ function openMenu(){SHEET='menu';
    <button class="btn alt" data-intake style="font-size:17px;padding:14px">📷 Agregar pieza con foto</button>
    ${OWN?'<button class="btn" data-nuevo="1" style="font-size:17px;padding:14px">🆕 Lo nuevo que se subió</button>':''}
    <div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Página para clientes</b>
-     <p class="hint" style="margin:0">Tus clientes ven lo disponible con fotos y precio, y te piden por WhatsApp al ${esc(fixWa(NEG.wa))}. Se actualiza sola.</p>
      <div class="acts2"><a class="btn alt" style="text-align:center;text-decoration:none" href="${pubURL()}" target="_blank" rel="noopener">Abrir</a><button class="btn ghost" data-pubshare>Compartir liga</button>
-     <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Checa las piezas de Honda Accord 2018-2022 que tengo disponibles, con fotos y precio: '+pubURL())}">Mandar por WhatsApp</a><button class="btn ghost" data-pubcopy>Copiar liga</button></div></div>
+     <a class="btn ghost" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Checa las piezas de Honda Accord 2018-2022 que tengo disponibles, con fotos y precio: '+pubURL())}">Mandar por WhatsApp</a><button class="btn ghost" data-pubqr>📱 Código QR</button></div></div>
    ${OWN?`<div class="card form"><b style="font-family:var(--f-display);font-size:19px;text-transform:uppercase">Vendedores y creadores</b>
      <p class="hint" style="margin:0">Creadores: ${nDuenos()} de ${maxDuenos()} (máximo 4). Todos se registran como vendedores; un creador los puede hacer creadores aquí.</p>
      <div class="drow"><label class="f" for="n-maxd" style="flex:1">Máximo de creadores<select id="n-maxd">${[1,2,3,4].map(n=>`<option ${n===maxDuenos()?'selected':''}>${n}</option>`).join('')}</select></label><button class="btn ghost" data-savemaxd>Guardar</button></div>
@@ -980,6 +979,19 @@ const WA_DEF='6142737975';const fixWa=w=>{w=String(w||'').replace(/\D/g,'');retu
 // marca si una fuente ya llegó del servidor; mientras alguna venga de la caché del teléfono, no se publica la tienda
 const srv=(k,s)=>{if(s&&s.metadata&&s.metadata.fromCache)CACHE.add(k);else{CACHE.delete(k);LOADED.add(k)}};
 const pubURL=()=>location.origin+location.pathname.replace(/[^/]*$/,'')+'tienda.html';
+// código QR de la tienda: el cliente que está en el yonke lo escanea con la cámara y ve las piezas en su teléfono
+const qrSrc=(px)=>'https://api.qrserver.com/v1/create-qr-code/?size='+px+'x'+px+'&margin=12&ecc=M&data='+encodeURIComponent(pubURL());
+function openQR(){zoom.innerHTML=`<div class="zbar"><span>Código QR de la tienda</span><button data-zclose>✕ Cerrar</button></div>
+  <div class="zarea" style="display:grid;place-items:center;align-content:center;gap:14px;padding:20px;text-align:center;background:#fff;color:#15191B">
+   <b style="font-family:var(--f-display);font-size:28px;text-transform:uppercase;line-height:1.05">${esc(NEG.nombre||'Yonke Chihuahua')}</b>
+   <img src="${qrSrc(600)}" alt="Código QR de la tienda" style="width:min(78vw,360px);height:auto;aspect-ratio:1;border:1px solid var(--line);border-radius:12px;background:#fff" onerror="this.replaceWith(Object.assign(document.createElement('p'),{textContent:'Se necesita internet para mostrar el código QR.'}))">
+   <span style="font-size:18px">Escanéalo con la cámara de tu celular y ve todas las piezas con foto y precio.</span>
+   <button class="btn" data-qrsave style="max-width:360px;width:100%;background:#15191B;color:#fff;border-color:#15191B">⬇️ Guardar imagen (para imprimir o mandar)</button></div>
+  <button class="zx" data-zclose>✕ Cerrar</button>`;
+  showZoom();zoom.onclick=e=>{const t=e.target.closest('button');if(!t)return;if(t.hasAttribute('data-zclose'))closeTop();if(t.hasAttribute('data-qrsave'))qrSave(t)}}
+async function qrSave(t){try{const b=await fetch(qrSrc(1000)).then(r=>{if(!r.ok)throw 0;return r.blob()});const f=new File([b],'qr-tienda.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],text:'Piezas de Honda Accord con foto y precio: '+pubURL()}).catch(()=>{});return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='qr-tienda.png';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),800)}catch(e){t.textContent='Sin internet: inténtalo otra vez'}}
 function pubSnapshot(){const items=[],rev=[];
   for(const pn of UPN){const a=availCars(pn);if(!a.length)continue;const f=(FOTOS[pn]||[])[0];
     items.push([pn,priceOf(pn),a.reduce((t,o)=>t+o.x.n,0),a.map(o=>o.c.code).join(','),(FOTOS[pn]||[]).slice(0,5).map(x=>x.id).join(','),f?(f.cond||''):'',isSug(pn)?1:0,a.every(o=>o.x.s==='esta')?1:0])}
@@ -1108,6 +1120,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if(d.tkcopy){navigator.clipboard&&navigator.clipboard.writeText(ticketText(sheet._sale)).then(()=>{t.textContent='Copiado'},()=>{});return}
   if(d.tkshare){const tx=ticketText(sheet._sale);if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiado'});return}
   if('tkprint' in d){window.print();return}
+  if('pubqr' in d){openQR();return}
+  if('qrsave' in d){qrSave(t);return}
   if('pubcopy' in d){navigator.clipboard&&navigator.clipboard.writeText(pubURL()).then(()=>{t.textContent='Copiada'});return}
   if('pubshare' in d){const tx='Piezas de Honda Accord 2018-2022 disponibles, con fotos y precio: '+pubURL();if(navigator.share)navigator.share({text:tx}).catch(()=>{});else navigator.clipboard&&navigator.clipboard.writeText(tx).then(()=>{t.textContent='Copiada'});return}
   if('nuevo' in d){openNuevo(+d.nuevo||1);return}
