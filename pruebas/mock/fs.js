@@ -1,4 +1,5 @@
-const S=window.__S=window.__S||{};const subs=[];const DEL='__borrar_campo__';const deepMerge=(a,b)=>{for(const k in b){if(b[k]===DEL)delete a[k];else if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&a[k]&&typeof a[k]==='object')deepMerge(a[k],b[k]);else a[k]=b[k]}return a};
+const S=window.__S=window.__S||{};const subs=[];const DEL='__borrar_campo__';const deepMerge=(a,b)=>{for(const k in b){if(b[k]===DEL)delete a[k];else if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&Object.keys(b[k]).length===0)a[k]={};// como Firestore: un mapa vacío con merge reemplaza al que había
+  else if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&a[k]&&typeof a[k]==='object')deepMerge(a[k],b[k]);else a[k]=b[k]}return a};
 export const deleteField=()=>DEL;
 // cuenta lecturas de documentos sueltos (para comprobar que las fotos se bajan solo al verse)
 window.__reads=window.__reads||{};const cnt=p=>{const c=p.split('/')[0];window.__reads[c]=(window.__reads[c]||0)+1};
