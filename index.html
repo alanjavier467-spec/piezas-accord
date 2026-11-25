@@ -360,8 +360,83 @@ function mkBuscador(norm,textos){
   const cumple=(key,grupos)=>{const k=pad(key);return grupos.every(alts=>alts.some(a=>k.includes(a)))};
   return {expandir,cumple}}
 
+// ---- Buzón de quejas y sugerencias (compartido por la tienda y la app) ----
+// Botón flotante 💬 abajo a la izquierda. Cualquiera (cliente, visitante, vendedor o dueño) deja su queja,
+// sugerencia o falla de la página. Se guarda en la colección "quejas"; solo los dueños/creadores la leen.
+// Se arma con Quejas.init({fs,addDoc,collection,donde:'tienda'|'app',quien:()=>({rol,nombre,tel,uid}),seccion:()=>'…',wa:()=>'614…',abrirBuzon:fn|null})
+const Quejas=(()=>{
+  const TIPOS=[['falla','🐞','Falla de la página','Un error, algo que no funciona o se ve mal'],['trabo','⏳','Se trabó o no carga','Se quedó pensando, no abre o no guarda'],['sugerencia','💡','Sugerencia o mejora','Una idea para que la página sea mejor'],['queja','😠','Queja de pieza o servicio','No quedaste a gusto con una pieza, el trato o la entrega'],['otro','💬','Otra cosa','Lo que quieras decirnos']];
+  const ERR=[];const addErr=m=>{m=String(m||'').slice(0,180);if(m&&ERR[ERR.length-1]!==m){ERR.push(m);if(ERR.length>4)ERR.shift()}};
+  window.addEventListener('error',e=>addErr((e.message||'error')+(e.filename?' @'+String(e.filename).split('/').pop()+':'+e.lineno:'')));
+  window.addEventListener('unhandledrejection',e=>addErr('promesa: '+((e.reason&&(e.reason.code||e.reason.message))||e.reason)));
+  const h=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const LSg=(k,d)=>{try{const v=localStorage.getItem('qz_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}};const LSs=(k,v)=>{try{localStorage.setItem('qz_'+k,JSON.stringify(v))}catch(e){}};
+  let O=null,fab=null,box=null,tipo='';
+  const css=`.qz-fab{position:fixed;left:14px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;align-items:center;gap:6px;border:0;border-radius:999px;background:#15191B;color:#fff;font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:11px 14px;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer}
+.qz-fab .qz-ic{font-size:18px;line-height:1}.qz-fab .qz-n{background:#c8102e;color:#fff;border-radius:999px;min-width:20px;height:20px;display:inline-grid;place-items:center;font-size:12px;padding:0 5px}
+.qz-fab.qz-up{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+@media (max-width:420px){.qz-fab .qz-tx{display:none}.qz-fab{padding:12px}}
+.qz-ov{position:fixed;inset:0;z-index:90;background:rgba(10,14,16,.55);display:flex;align-items:flex-end;justify-content:center;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#15191B}
+@media (min-width:600px){.qz-ov{align-items:center}}
+.qz-p{background:#fff;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box;display:grid;gap:12px}
+@media (min-width:600px){.qz-p{border-radius:18px}}
+.qz-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.qz-hd h2{margin:0;font-size:21px}.qz-hd p{margin:4px 0 0;color:#5B6569;font-size:14px}
+.qz-x{border:0;background:#ECEEEC;border-radius:999px;width:36px;height:36px;font-size:20px;cursor:pointer;flex:none}
+.qz-ts{display:grid;gap:8px}.qz-t{display:flex;gap:10px;align-items:center;text-align:left;border:2px solid #D2D8D6;background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+.qz-t b{display:block;font-size:15px}.qz-t small{color:#5B6569;font-size:13px}.qz-t .qz-e{font-size:22px}.qz-t[aria-pressed="true"]{border-color:#15191B;background:#F4F6F5;box-shadow:inset 0 0 0 1px #15191B}
+.qz-f{display:grid;gap:5px;font-size:14px;font-weight:600}.qz-f input,.qz-f textarea{font:inherit;font-weight:400;border:1.5px solid #D2D8D6;border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box}.qz-f textarea{min-height:110px;resize:vertical}
+.qz-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qz-hint{color:#5B6569;font-size:13px;margin:0}
+.qz-go{border:0;border-radius:12px;background:#15191B;color:#fff;font:700 16px system-ui,sans-serif;padding:14px;cursor:pointer}.qz-go:disabled{opacity:.6}
+.qz-alt{display:block;text-align:center;border:1.5px solid #D2D8D6;border-radius:12px;padding:11px;color:#15191B;text-decoration:none;font-weight:600;font-size:15px;background:#fff;cursor:pointer}
+.qz-st{font-size:14px;color:#b42318;min-height:1em}.qz-ok{text-align:center;padding:10px 0;display:grid;gap:10px}.qz-ok .qz-big{font-size:46px}`;
+  function init(o){O=o;if(fab)return;const s=document.createElement('style');s.textContent=css;document.head.appendChild(s);
+    fab=document.createElement('button');fab.type='button';fab.className='qz-fab';fab.id='qz-fab';fab.setAttribute('aria-label','Quejas y sugerencias');
+    fab.innerHTML='<span class="qz-ic">💬</span><span class="qz-tx">Quejas y sugerencias</span><span class="qz-n" hidden></span>';
+    fab.addEventListener('click',()=>{if(O.abrirBuzon&&O.abrirBuzon())return;abrir()});document.body.appendChild(fab);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&box)cerrar()})}
+  // cnt: nuevas sin leer (solo dueños); up: subir el botón para no tapar otro botón flotante
+  function pinta({cnt,up,ocultar}={}){if(!fab)return;const n=fab.querySelector('.qz-n');n.hidden=!cnt;n.textContent=cnt>99?'99+':String(cnt||0);fab.classList.toggle('qz-up',!!up);fab.hidden=!!ocultar}
+  function cerrar(){if(box){box.remove();box=null;document.body.style.overflow=document.body.dataset.qzov||''}}
+  function abrir(pre){const q=O.quien?O.quien():{};tipo=pre||tipo||'';if(box){box.remove();box=null}else document.body.dataset.qzov=document.body.style.overflow||'';
+    document.body.style.overflow='hidden';
+    box=document.createElement('div');box.className='qz-ov';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Quejas y sugerencias');
+    const wa=O.wa?String(O.wa()||'').replace(/\D/g,''):'';
+    box.innerHTML=`<div class="qz-p"><div class="qz-hd"><div><h2>💬 Quejas y sugerencias</h2><p>Cuéntanos lo que sea: una falla, algo que se trabó, una idea o algo que no te gustó. Lo leemos todo.</p></div><button class="qz-x" data-qzx aria-label="Cerrar">×</button></div>
+     <div class="qz-ts" role="group" aria-label="¿Qué nos quieres decir?">${TIPOS.map(([k,e,t,d])=>`<button type="button" class="qz-t" data-qzt="${k}" aria-pressed="${tipo===k}"><span class="qz-e">${e}</span><span><b>${t}</b><small>${d}</small></span></button>`).join('')}</div>
+     <label class="qz-f">Cuéntanos qué pasó<textarea id="qz-tx" maxlength="1000" placeholder="Ej. Le di a “Agregar a mi cotización” y no hizo nada. / Me gustaría que tuvieran…">${h(LSg('borrador',''))}</textarea></label>
+     <div class="qz-two"><label class="qz-f">Tu nombre <span class="qz-hint">(opcional)</span><input id="qz-n" maxlength="60" autocomplete="name" value="${h(q.nombre||LSg('n',''))}"></label>
+     <label class="qz-f">Tu WhatsApp <span class="qz-hint">(opcional)</span><input id="qz-w" inputmode="tel" maxlength="20" autocomplete="tel" value="${h(q.tel||LSg('w',''))}" placeholder="10 números"></label></div>
+     <p class="qz-hint">Si nos dejas tu WhatsApp te contestamos cuando lo revisemos. Junto con tu mensaje se manda en qué parte de la página estabas y qué teléfono o navegador usas, para encontrar la falla más rápido.</p>
+     <button class="qz-go" data-qzgo>Enviar</button><div class="qz-st" id="qz-st" aria-live="polite"></div>
+     ${wa?`<a class="qz-alt" target="_blank" rel="noopener" href="https://wa.me/52${wa.slice(-10)}?text=${encodeURIComponent('Hola, les escribo de la página de Yonke Chihuahua.')}">¿Es urgente? Escríbenos por WhatsApp</a>`:''}</div>`;
+    box.addEventListener('click',e=>{if(e.target===box){cerrar();return}const t=e.target.closest('button');if(!t)return;
+      if('qzx' in t.dataset){cerrar();return}
+      if(t.dataset.qzt){tipo=t.dataset.qzt;box.querySelectorAll('[data-qzt]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.qzt===tipo));return}
+      if('qzgo' in t.dataset){enviar(t);return}
+      if('qzotra' in t.dataset){tipo='';abrir();return}});
+    box.querySelector('#qz-tx').addEventListener('input',e=>LSs('borrador',e.target.value));
+    document.body.appendChild(box);if(!tipo)box.querySelector('[data-qzt]').focus();else box.querySelector('#qz-tx').focus()}
+  async function enviar(btn){const st=box.querySelector('#qz-st');const tx=box.querySelector('#qz-tx').value.trim(),nombre=box.querySelector('#qz-n').value.trim(),tel=box.querySelector('#qz-w').value.replace(/\D/g,'').slice(-10);
+    st.style.color='#b42318';
+    if(!tipo){st.textContent='Elige qué nos quieres decir (arriba).';return}
+    if(tx.length<3){st.textContent='Escribe qué pasó, aunque sea poquito.';return}
+    if(tel&&tel.length!==10){st.textContent='Tu WhatsApp debe tener 10 números (o déjalo vacío).';return}
+    const ult=LSg('ult',0);if(Date.now()-ult<20000){st.textContent='Espera unos segundos antes de mandar otra.';return}
+    const q=O.quien?O.quien():{};
+    const d={tipo,texto:tx.slice(0,1000),nombre:nombre.slice(0,60),tel,donde:O.donde,rol:String(q.rol||'visitante').slice(0,20),seccion:String(O.seccion?O.seccion():location.hash||'').slice(0,80),
+      equipo:String(navigator.userAgent||'').slice(0,200)+' · '+innerWidth+'x'+innerHeight,ver:String(O.ver||'').slice(0,20),err:ERR.join(' | ').slice(0,600),uid:String(q.uid||''),date:new Date().toISOString()};
+    btn.disabled=true;st.style.color='#5B6569';st.textContent='Enviando…';
+    const p=O.addDoc(O.collection(O.fs,'quejas'),d);
+    const r=await Promise.race([p.then(()=>'ok',e=>e),new Promise(r=>setTimeout(()=>r('lento'),9000))]);
+    if(r!=='ok'&&r!=='lento'){btn.disabled=false;st.style.color='#b42318';st.textContent='No se pudo mandar. Revisa tu señal e inténtalo otra vez.';console.warn(r);return}
+    LSs('ult',Date.now());LSs('borrador','');if(nombre)LSs('n',nombre);if(tel)LSs('w',tel);tipo='';
+    box.querySelector('.qz-p').innerHTML=`<div class="qz-ok"><div class="qz-big">🙌</div><h2 style="margin:0">¡Gracias! Ya nos llegó</h2>
+      <p class="qz-hint" style="font-size:15px">${r==='lento'?'Tu señal está lenta: se termina de mandar sola en cuanto tengas internet (no cierres la página). ':''}Lo vamos a revisar${tel?' y te escribimos a tu WhatsApp':''}.</p>
+      <button class="qz-go" data-qzx>Listo</button><button class="qz-alt" data-qzotra>Mandar otra</button></div>`}
+  return {init,abrir,cerrar,pinta,TIPOS}})();
+
 const BUS=mkBuscador(norm,PARTS.map(p=>p.es+' '+p.en).concat(SECS.map(s=>s.es+' '+s.en)));let CORR={};
-const VERSION='20261123-2153';
+const VERSION='20261125-0114';
 const BYPN={};PARTS.forEach((p,i)=>{p.i=i;p.key=norm(p.es+' '+p.en+' '+SECS[p.s].es+' '+SECS[p.s].en+' '+p.n);p.pnk=p.pn.replace(/-/g,'').toLowerCase();if(!BYPN[p.pn])BYPN[p.pn]=p});
 const UPN=Object.keys(BYPN);
 const EXT={'NH731P':'Negro cristal perlado','NH883P':'Blanco platino perlado','NH830M':'Plata lunar metálico','NH797M':'Gris acero metálico','R94':'Rojo San Marino','B575P':'Azul noche perlado'};
@@ -432,7 +507,7 @@ const newOf=p=>p&&p.lp?Math.round(p.lp*tcNow()/10)*10:0;
 // pv en data.json = precio fijo de catálogo (lo usa si no le pusiste precio en la app)
 const priceOf=pn=>{const v=PRICE[pn];return v?v:(BYPN[pn]||{}).pv||sugOf(pn)};
 const dLocal=d=>{const x=d?new Date(d):new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
-const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[],ESPERAS=[];
+const PAGOS=['Efectivo','Transferencia','Tarjeta'];let PAGO='Efectivo';let CORTES=[],RESENAS=[],ESPERAS=[],QUEJAS=[];let QZF='nuevas';
 const isSug=pn=>!PRICE[pn]&&!(BYPN[pn]||{}).pv;
 const xById=id=>EXTRAS.find(x=>x.id===id);
 const xAvail=x=>x&&x.status!=='vendida'&&(x.qty||0)>0;
@@ -788,6 +863,27 @@ function esperasHTML(){const P=espPend();const g={};P.forEach(x=>{(g[x.pn]=g[x.p
    <p class="hint" style="margin:0">Clientes que tocaron “Avísame cuando llegue” en la tienda. Arriba salen las piezas que ya tienes disponibles: avísales y el primero que la aparte se la lleva.${at?' Ya atendiste '+at+'.':''}</p>
    ${L.length?L.map(o=>`<div class="card" style="margin:0"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><b>${esc(o.es)}</b><br><span class="pn" style="font-size:13px">${esc(o.pn)}</span> <span class="hint">· ${o.xs.length} esperando</span></div>${o.av.length?`<span class="st st-esta">✅ La tienes (${esc(o.av.join(', '))})</span>`:'<span class="st st-mala">Sin existencia</span>'}</div>
      ${o.xs.map(espRow).join('')}<button class="btn ghost" style="margin-top:6px" data-esppn="${esc(o.pn)}">Abrir la pieza</button></div>`).join(''):'<p class="hint" style="margin:0">Aún nadie ha pedido que le avisen.</p>'}</details>`}
+// ---- buzón de quejas y sugerencias (lo que manda la gente con el botón 💬) ----
+const qzNuevas=()=>QUEJAS.filter(x=>!x.resuelta);
+const qzTipo=k=>(Quejas.TIPOS.find(t=>t[0]===k)||['','💬','Otra cosa'])
+const qzWa=x=>'https://wa.me/52'+String(x.tel||'').slice(-10)+'?text='+encodeURIComponent('Hola '+(x.nombre||'')+', te escribo de Yonke Chihuahua por el mensaje que nos dejaste: “'+String(x.texto||'').slice(0,120)+'”. ');
+const qzRol={cliente:'Cliente',visitante:'Visitante',vendedor:'Vendedor','dueño':'Dueño',pendiente:'Vendedor sin activar'};
+function qzRow(x){const t=qzTipo(x.tipo);return `<div class="card" style="margin:0;display:grid;gap:6px${x.resuelta?';opacity:.7':''}"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><b>${t[1]} ${esc(t[2])}</b>${x.resuelta?'<span class="st st-esta">Resuelta</span>':'<span class="st st-revisar">Nueva</span>'}</div>
+  <div style="white-space:pre-wrap;word-break:break-word">${esc(x.texto||'')}</div>
+  <span class="hint">${esc(x.nombre||'Sin nombre')} · ${esc(qzRol[x.rol]||x.rol||'')} · ${x.donde==='app'?'App':'Tienda'}${x.seccion?' ('+esc(x.seccion)+')':''} · ${fmtDate((x.date||'').slice(0,10))} ${esc((x.date||'').slice(11,16))}${x.tel?' · 📱 '+esc(x.tel):''}</span>
+  ${x.err||x.equipo?`<details><summary class="hint">Datos técnicos</summary><p class="hint" style="margin:4px 0 0;word-break:break-word">${x.err?'<b>Errores:</b> '+esc(x.err)+'<br>':''}<b>Equipo:</b> ${esc(x.equipo||'')}${x.ver?'<br><b>Versión:</b> '+esc(x.ver):''}</p></details>`:''}
+  <div class="row" style="gap:6px;flex-wrap:wrap">${x.tel?`<a class="btn alt" style="padding:8px 12px;font-size:13px;text-decoration:none" target="_blank" rel="noopener" href="${qzWa(x)}">Contestar por WhatsApp</a>`:''}<button class="btn ghost" style="padding:8px 12px;font-size:13px" data-qzok="${x.id}">${x.resuelta?'Volver a nueva':'✓ Resuelta'}</button><button class="btn ghost" style="padding:8px 12px;font-size:13px" data-qzdel="${x.id}">Borrar</button></div></div>`}
+function openBuzon(){SHEET='buzon';openIdx=null;openX=null;const N=qzNuevas();const L=QZF==='nuevas'?N:QZF==='resueltas'?QUEJAS.filter(x=>x.resuelta):QUEJAS;
+  const cuenta={};N.forEach(x=>{cuenta[x.tipo]=(cuenta[x.tipo]||0)+1});
+  sheet.innerHTML=`<div class="bar"><div class="wrap"><button data-close>‹ Regresar</button><span class="hint">Buzón</span></div></div><div class="wrap body">
+   <h2 class="title" style="margin:0">💬 Quejas y sugerencias</h2>
+   <p class="hint" style="margin:0">Lo que mandan clientes, visitantes y vendedores con el botón 💬 de la tienda y de la app. Contéstales por WhatsApp si dejaron su número y márcala como resuelta.</p>
+   <div class="card"><b>${N.length} nueva${N.length===1?'':'s'}</b>${N.length?'<br><span class="hint">'+Quejas.TIPOS.filter(t=>cuenta[t[0]]).map(t=>t[1]+' '+t[2]+': '+cuenta[t[0]]).join(' · ')+'</span>':''}</div>
+   <div class="row">${[['nuevas','Nuevas ('+N.length+')'],['resueltas','Resueltas ('+(QUEJAS.length-N.length)+')'],['todas','Todas']].map(([k,t])=>`<button class="chip" data-qzf="${k}" aria-pressed="${QZF===k}">${t}</button>`).join('')}</div>
+   ${L.length?L.map(qzRow).join(''):`<p class="hint">${QZF==='nuevas'?'No hay quejas ni sugerencias nuevas. 🎉':'Nada por aquí.'}</p>`}
+   <button class="btn ghost" data-qzescribir>Escribir una yo (para probar)</button></div>`;
+  showSheet()}
+const qzPinta=()=>Quejas.pinta({cnt:OWN?qzNuevas().length:0,up:true});
 // ---- pasar todo lo "por revisar" a "dañada" (con respaldo antes) ----
 const revTotal=()=>{let n=0;CARS.forEach(c=>{UPN.forEach(pn=>{if(stOf(c,pn).s==='revisar')n++})});return n};
 let rmArmed=false;
@@ -866,6 +962,7 @@ function openMenu(){SHEET='menu';
      <button class="btn ghost" data-changepin>Cambiar PIN</button><div class="status" id="pin-status"></div></div></details>`:''}
    ${NEWV?`<div class="card form" style="border:2px solid var(--tag)"><b>Hay una versión nueva de la app</b><button class="btn alt" data-update>Actualizar ahora</button></div>`:''}
    <a class="btn ghost" style="text-align:center;text-decoration:none" href="tienda.html">👁 Ver la tienda como cliente</a>
+   ${OWN?`<button class="btn ${qzNuevas().length?'alt':'ghost'}" data-qzopen>💬 Quejas y sugerencias${qzNuevas().length?' ('+qzNuevas().length+' nueva'+(qzNuevas().length>1?'s':'')+')':''}</button>`:''}
    ${OWN?esperasHTML():''}
    ${OWN?rev2malaHTML():''}
    ${OWN?`<details class="card form"><summary><b>Clientes registrados (${CLIENTES.length})</b></summary>${CLIENTES.length?CLIENTES.map(c=>`<div class="carrow"><span class="carcode" style="font-size:15px">${esc((c.name||c.user||'?').slice(0,2).toUpperCase())}</span><div style="min-width:0"><b>${esc(c.name||'')}</b><br><span class="hint">⭐ ${c.puntos||0} puntos · ${c.compras||0} compras · Usuario: ${esc(c.user)}</span></div>${c.tel?`<a class="btn ghost" style="padding:8px 10px;font-size:13px;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/52${esc(c.tel.slice(-10))}">WhatsApp</a>`:''}</div>`).join(''):'<p class="hint" style="margin:0">Aún no hay clientes registrados.</p>'}</details>`:''}
@@ -874,7 +971,7 @@ function openMenu(){SHEET='menu';
      ${RESENAS.length?RESENAS.map(r=>`<div class="carrow"><span class="carcode" style="font-size:13px">${'★'.repeat(r.estrellas)}</span><div style="min-width:0"><b>${esc(r.nombre||'Cliente')}</b>${r.oculta?' <span class="st st-revisar">Oculta</span>':''}<br><span class="hint">${esc(r.texto||'')} · ${fmtDate((r.date||'').slice(0,10))}</span></div>
       <div style="display:grid;gap:6px"><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rhide="${r.id}">${r.oculta?'Mostrar':'Ocultar'}</button><button class="btn ghost" style="padding:8px 10px;font-size:13px" data-rdel="${r.id}">Borrar</button></div></div>`).join(''):'<p class="hint" style="margin:0">Aún no hay reseñas.</p>'}</details>`:''}
    <button class="btn ghost" data-logout>Cerrar sesión</button>
-   <p class="note">Versión 20261123-2153</p></div>`;
+   <p class="note">Versión 20261125-0114</p></div>`;
   showSheet();renderOffline();if(OWN)checkLote()}
 // ---- escrituras ----
 const toast=m=>{const el=document.createElement('div');el.className='card';el.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;max-width:520px;margin:0 auto;box-shadow:var(--shadow)';el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2800)};
@@ -1224,6 +1321,7 @@ async function backup(withFull){const stt=$('#bk-status')||{};stt.className='sta
     try{const mq=await getDocs(collection(fs,'movimientos'));out.movimientos=mq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     try{const sq=await getDocs(collection(fs,'solicitudes'));out.solicitudes=sq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     try{const eq=await getDocs(collection(fs,'esperas'));out.esperas=eq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
+    try{const qq=await getDocs(collection(fs,'quejas'));out.quejas=qq.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){}
     if(withFull){const s=await getDocs(collection(fs,'fotosfull'));out.fotosfull={};s.docs.forEach(d=>{out.fotosfull[d.id]=d.data()});
       try{const v=await getDocs(collection(fs,'vista360'));out.vista360={};v.docs.forEach(d=>{out.vista360[d.id]=d.data()})}catch(e){}}
     const day=new Date().toISOString().slice(0,10);download('respaldo-piezas-'+day+'.json',JSON.stringify(out),'application/json');LS.set('ultRespaldo',new Date().toISOString());
@@ -1237,7 +1335,7 @@ async function restore(file){const stt=$('#bk-status');try{const J=JSON.parse(aw
   Object.entries(J.alternos||{}).forEach(([k,v])=>ops.push(['alternos',k,v]));(J.ventas||[]).forEach(v=>ops.push(['ventas',v.id,strip(v)]));(J.extras||[]).forEach(v=>ops.push(['extras',v.id,strip(v)]));
   (J.users||[]).forEach(v=>ops.push(['users',v.id,strip(v)]));(J.fotos||[]).forEach(v=>ops.push(['fotos',v.id,strip(v)]));Object.entries(J.fotosfull||{}).forEach(([k,v])=>ops.push(['fotosfull',k,v]));
   if(J.config&&J.config.negocio)ops.push(['config','negocio',J.config.negocio]);
-  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));(J.esperas||[]).forEach(v=>ops.push(['esperas',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
+  (J.clientes||[]).forEach(v=>ops.push(['clientes',v.id,strip(v)]));(J.cortes||[]).forEach(v=>ops.push(['cortes',v.id,strip(v)]));(J.resenas||[]).forEach(v=>ops.push(['resenas',v.id,strip(v)]));(J.solicitudes||[]).forEach(v=>ops.push(['solicitudes',v.id,strip(v)]));(J.esperas||[]).forEach(v=>ops.push(['esperas',v.id,strip(v)]));(J.quejas||[]).forEach(v=>ops.push(['quejas',v.id,strip(v)]));Object.entries(J.vista360||{}).forEach(([k,v])=>ops.push(['vista360',k,v]));
   (J.movimientos||[]).forEach(v=>ops.push(['movimientos',v.id,strip(v)]));
   {const m={};let ult='';(J.fotos||[]).forEach(v=>{m[v.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});if((J.fotos||[]).length)ops.push(['indice','fotos',{v:1,ult,m}])}
   // envíos de máximo 6 MB y 400 documentos (Firestore acepta hasta 10 MB y 500)
@@ -1388,6 +1486,11 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
   if('rev2mala' in d){rev2mala();return}
   if('rev2malano' in d){rmArmed=false;openMenu();return}
   if(d.espok){setDoc(doc(fs,'esperas',d.espok),{atendido:true,atendidoFecha:new Date().toISOString()},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if('qzopen' in d){openBuzon();return}
+  if(d.qzf){QZF=d.qzf;openBuzon();return}
+  if('qzescribir' in d){Quejas.abrir();return}
+  if(d.qzok){const x=QUEJAS.find(y=>y.id===d.qzok);if(x)setDoc(doc(fs,'quejas',x.id),{resuelta:!x.resuelta,resueltaFecha:x.resuelta?'':new Date().toISOString(),resueltaPor:x.resuelta?'':(PROFILE?.name||ME.email)},{merge:true}).catch(e=>toast(errMsg(e)));return}
+  if(d.qzdel){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Borrar? Toca otra vez';return}deleteDoc(doc(fs,'quejas',d.qzdel)).catch(e=>toast(errMsg(e)));return}
   if(d.esppn){const i=PARTS.findIndex(x=>x.pn===d.esppn);if(i>=0)openPart(i);return}
   if('rhide' in d){const r=RESENAS.find(x=>x.id===d.rhide);if(r)setDoc(doc(fs,'resenas',r.id),{oculta:!r.oculta},{merge:true}).catch(e=>toast(errMsg(e)));return}
   if('rdel' in d){if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='¿Borrar? Toca otra vez';return}deleteDoc(doc(fs,'resenas',d.rdel)).catch(e=>toast(errMsg(e)));return}
@@ -1506,7 +1609,12 @@ $('#l-go').addEventListener('click',async()=>{const u=L.email.value.trim(),p=L.p
 L.neu.addEventListener('click',()=>{lmsg('Creando…',true);createUserWithEmailAndPassword(auth,L.email.value.trim(),L.pass.value).catch(e=>lmsg(authErr(e)))});
 $('#l-reset').addEventListener('click',()=>{const em=L.email.value.trim();if(!em){lmsg('Escribe tu correo arriba primero.');return}sendPasswordResetEmail(auth,em).then(()=>lmsg('Te mandamos un correo para cambiar la contraseña.',true),e=>lmsg(authErr(e)))});
 let unsubs=[];
-onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsubs=[];ME=u;LOADED=new Set();CACHE=new Set();PUBLAST=null;
+// botón 💬 de quejas y sugerencias: el vendedor (o quien esté en el inicio de sesión) lo manda; al dueño le abre el buzón con lo que llegó
+Quejas.init({fs,addDoc,collection,donde:'app',ver:VERSION,wa:()=>OWN?'':fixWa(NEG.wa),
+  seccion:()=>ME?('pestaña '+st.tab+(SHEET?' · '+SHEET:'')):'inicio de sesión',
+  quien:()=>ME?{rol:OWN?'dueño':(PROFILE&&PROFILE.active?'vendedor':'pendiente'),nombre:(PROFILE&&PROFILE.name)||'',tel:'',uid:ME.uid}:{rol:'visitante'},
+  abrirBuzon:()=>{if(OWN&&ME){openBuzon();return true}return false}});qzPinta();
+onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsubs=[];QUEJAS=[];qzPinta();ME=u;LOADED=new Set();CACHE=new Set();PUBLAST=null;
   if(!u){if(!ENTRAR){location.replace('tienda.html');return}$('#app').hidden=true;L.box.hidden=false;if(REGISTRO&&!SIGNUP){SIGNUP=true;loginMode()}return}
   OWN=(u.email||'').toLowerCase()===OWNER;PROFILE=OWN?{name:'Alan'}:null;
   if(!OWN){try{const s=await getDoc(doc(fs,'users',u.uid));PROFILE=s.exists()?s.data():null}catch(e){PROFILE=null}
@@ -1533,6 +1641,7 @@ onAuthStateChanged(auth,async u=>{if(SIGNING)return;unsubs.forEach(f=>f());unsub
   if(OWN){sub(query(collection(fs,'ventas'),orderBy('date','desc'),limit(2000)),s=>{const all=s.docs.map(d=>Object.assign({id:d.id},d.data()));SALES=all.filter(x=>!x.cancelada);CANCELADAS=all.filter(x=>x.cancelada);rr()});
     sub(query(collection(fs,'cortes'),orderBy('date','desc'),limit(60)),s=>{CORTES=s.docs.map(d=>Object.assign({id:d.id},d.data()))});
     sub(collection(fs,'resenas'),s=>{RESENAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!sheet.hidden&&SHEET==='menu')openMenu()});
+    sub(collection(fs,'quejas'),s=>{QUEJAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.date||'').localeCompare(a.date||''));qzPinta();if(!sheet.hidden&&SHEET==='buzon')openBuzon();if(!sheet.hidden&&SHEET==='menu')openMenu()});
     sub(collection(fs,'esperas'),s=>{ESPERAS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.date||'').localeCompare(b.date||''));if(!sheet.hidden&&(SHEET==='menu'))openMenu()});
     sub(collection(fs,'privado'),s=>{const o={};s.docs.forEach(d=>{o[d.id]=d.data()});PRIV=o;rr()});
     sub(collection(fs,'users'),s=>{USERS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(b.pending?1:0)-(a.pending?1:0));{const n=USERS.filter(x=>x.pending&&!x.active).length;$('#menu-btn').textContent=n?'☰ '+n+' nuevo'+(n>1?'s':''):'☰'}if(!sheet.hidden&&SHEET==='menu')openMenu()})}

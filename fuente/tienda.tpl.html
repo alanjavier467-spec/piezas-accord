@@ -218,6 +218,8 @@ dl.meta dt{color:var(--muted)}dl.meta dd{margin:0}
  .fab{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:380px){.grid{grid-template-columns:1fr}}
+/* botón 💬 de quejas: en computadora va a la derecha (a la izquierda está el menú) y se sube si sale “Ver mi cotización” */
+@media (min-width:901px){#qz-fab.qz-fab{left:auto;right:18px}#qz-fab.qz-fab.qz-cot{bottom:84px}}
 </style>
 </head>
 <body>
@@ -259,6 +261,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{M}/gu,'');
 __BUSQUEDA__
+__QUEJAS__
 let BUS=null;
 const money=n=>'$'+Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
 const LSg=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};const LSs=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
@@ -291,6 +294,10 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return
 const hook=root=>root.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.observe(i));
 const waNum=()=>{let w=String(INV.wa||'').replace(/\D/g,'');if(!w||w==='6142637975')w='6142737975';return w.length===10?'52'+w:w};
 const waLink=t=>'https://wa.me/'+waNum()+'?text='+encodeURIComponent(t);
+// botón 💬 de quejas y sugerencias (abajo a la izquierda); en el teléfono se sube para no tapar las pestañas
+Quejas.init({fs,addDoc,collection,donde:'tienda',ver:'__VERSION__',wa:()=>waNum(),seccion:()=>(location.hash||'#inicio').slice(0,80),
+  quien:()=>CLI?{rol:'cliente',nombre:CLI.name||'',tel:CLI.tel||'',uid:CLI.uid}:ME?{rol:STAFF?'vendedor':'visitante',uid:ME.uid}:{rol:'visitante'}});
+{const mq=matchMedia('(max-width:900px)');const f=()=>Quejas.pinta({up:mq.matches});f();mq.addEventListener&&mq.addEventListener('change',f)}
 const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];return it.pn};
 const fitsVer=(it,v)=>!v||it.x||!(it.y&&it.y[v]==='');
 const imgTag=(it,big)=>it.f?`<img data-f="${esc(it.f)}" ${it.s!=null?`data-s="${it.s}" data-k="${esc((it.ipn||it.pn)+'|'+it.ref)}"`:''} alt="${esc(it.es)}">`:it.s!=null?`<img data-s="${it.s}" data-k="${esc((it.ipn||it.pn)+'|'+it.ref)}" alt="${esc(it.es)}">`:'<span style="font-size:40px">📦</span>';
@@ -308,7 +315,7 @@ const exTxt=it=>it.ex==='av'?(it.enc?'Disponible'+carsTxt(it)+' · se desmonta d
 const inQ=k=>Q.some(q=>q.k===k);
 function saveQ(){Q=Q.filter(q=>byK(q.k));LSs('cotizacion',Q);const n=Q.reduce((a,q)=>a+q.qty,0);
   document.querySelectorAll('[data-cnt]').forEach(e=>{e.textContent=n;if(e.tagName==='B')e.hidden=!n});
-  const f=$('#fab');f.hidden=!n||st.route==='cotizacion';f.textContent='Ver mi cotización ('+n+')'}
+  const f=$('#fab');f.hidden=!n||st.route==='cotizacion';f.textContent='Ver mi cotización ('+n+')';{const q=document.getElementById('qz-fab');if(q)q.classList.toggle('qz-cot',!f.hidden)}}
 function toggleQ(k){if(inQ(k))Q=Q.filter(q=>q.k!==k);else Q.push({k,qty:1});saveQ()}
 // ---- precio nuevo de Honda (lista EE.UU. convertida) ----
 // ---- promoción (Buen Fin, Navidad…): la arma el dueño en la app; fechas en hora de Chihuahua ----
