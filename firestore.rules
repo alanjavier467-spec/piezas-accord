@@ -105,6 +105,23 @@ service cloud.firestore {
         && request.resource.data.date is string && request.resource.data.date.size() <= 40;
       allow read, update, delete: if isOwner();
     }
+    // buzón de quejas y sugerencias: cualquiera (cliente, visitante, vendedor) deja una; solo los dueños/creadores las leen y las marcan
+    match /quejas/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['tipo','texto','nombre','tel','donde','rol','seccion','equipo','ver','err','uid','date'])
+        && request.resource.data.tipo in ['falla','trabo','sugerencia','queja','otro']
+        && request.resource.data.texto is string && request.resource.data.texto.size() >= 3 && request.resource.data.texto.size() <= 1000
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 60
+        && request.resource.data.tel is string && (request.resource.data.tel.size() == 0 || request.resource.data.tel.size() == 10)
+        && request.resource.data.donde in ['tienda','app']
+        && request.resource.data.rol is string && request.resource.data.rol.size() <= 20
+        && request.resource.data.seccion is string && request.resource.data.seccion.size() <= 80
+        && request.resource.data.equipo is string && request.resource.data.equipo.size() <= 240
+        && request.resource.data.ver is string && request.resource.data.ver.size() <= 20
+        && request.resource.data.err is string && request.resource.data.err.size() <= 600
+        && request.resource.data.uid is string && (request.resource.data.uid == '' || (signed() && request.resource.data.uid == request.auth.uid))
+        && request.resource.data.date is string && request.resource.data.date.size() <= 40;
+      allow read, update, delete: if isOwner();
+    }
     match /cortes/{id} {
       allow read: if isOwner() || (isStaff() && resource.data.by == request.auth.uid);
       allow create: if member() && request.resource.data.by == request.auth.uid;

@@ -11,7 +11,8 @@ css=open(F+'app.css',encoding='utf-8').read()+open(F+'extra.css',encoding='utf-8
 # buscador compartido (app y tienda) con la lista de sinónimos
 SIN=json.load(open(F+'sinonimos.json',encoding='utf-8'));SIN.pop('_nota',None)
 BUS=open(F+'busqueda.js',encoding='utf-8').read().replace('__SINONIMOS__',json.dumps(SIN,ensure_ascii=False))
-def fill(t):return t.replace('__BUSQUEDA__',BUS).replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG)).replace('__VERSION__',V).replace('__OWNER_EMAIL__',OWNER)
+QZ=open(F+'quejas.js',encoding='utf-8').read()
+def fill(t):return t.replace('__QUEJAS__',QZ).replace('__BUSQUEDA__',BUS).replace('__CSS__',css).replace('__FBCONFIG__',json.dumps(CFG)).replace('__VERSION__',V).replace('__OWNER_EMAIL__',OWNER)
 open('index.html','w',encoding='utf-8').write(fill(open(F+'index.tpl.html',encoding='utf-8').read()))
 open('tienda.html','w',encoding='utf-8').write(fill(open(F+'tienda.tpl.html',encoding='utf-8').read()))
 open('sw.js','w').write(open(F+'sw.js').read().replace('__VERSION__',V))
