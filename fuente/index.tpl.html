@@ -589,7 +589,6 @@ function openMenu(){SHEET='menu';
      <p class="hint" style="margin:0">Si eliges “solo las que yo elija”, abre cada pieza y toca “Poner en promoción”. La tienda muestra un letrero con cuenta regresiva desde 3 semanas antes, el precio tachado y el nuevo. En la app, el carrito cobra el precio de promoción esos días. Al terminar se quita sola.</p>
      <div class="two"><button class="btn alt" data-savepromo="1">${p.on?'Guardar':'Activar'}</button>${p.on?'<button class="btn ghost" data-savepromo="0">Apagar</button>':''}</div><div class="status" id="pm-status"></div></div></details>`})():''}
    ${OWN?`<div id="lote-card"></div>`:''}
-   ${OWN?`<div class="card form"><b>Datos de la versión anterior</b><p class="hint" style="margin:0">Pasa los carros A1–A4, lo que marcaste en ellos y tus precios desde la app de Claude. Hazlo una sola vez.</p><button class="btn ghost" data-import>Importar datos anteriores</button><div class="status" id="imp-status"></div></div>`:''}
    ${!OWN&&PROFILE&&PROFILE.user?`<details class="card form"><summary><b>Cambiar mi PIN</b></summary><div class="form" style="margin-top:10px">
      <label class="f" for="pin-new">PIN nuevo (6 números)<input id="pin-new" type="password" inputmode="numeric" maxlength="6"></label>
      <label class="f" for="pin-new2">Repítelo<input id="pin-new2" type="password" inputmode="numeric" maxlength="6"></label>
@@ -784,15 +783,6 @@ async function importLote(btn){const J=LOTE;const stt=$('#lote-status');if(!J)re
     await setDoc(doc(fs,'config','lotes'),{hechos:{[J.id]:{date:now,by:by.byName}}},{merge:true});LOTES[J.id]={date:now};
     LS.set('lotesHechos',LS.get('lotesHechos',[]).concat(J.id));stt.className='status ok';stt.textContent='¡Listo! Lote subido.'+(omit.length?' No toqué '+omit.length+' piezas que ya estaban vendidas: '+omit.slice(0,8).join(', ')+(omit.length>8?'…':''):'');btn.remove()}
   catch(e){stt.className='status err';stt.textContent='No se pudo: '+(e.message||e)}loteArmed=false}
-let impArmed=false;
-async function importOld(btn){const stt=$('#imp-status');if(!impArmed){impArmed=true;btn.textContent='Toca otra vez para confirmar';return}
-  stt.className='status';stt.textContent='Importando…';
-  try{const J=await fetch('import.json',{cache:'no-cache'}).then(r=>r.json());const b=writeBatch(fs);let n=0;
-    for(const [id,c] of Object.entries(J.carros||{})){const body=Object.assign({},c);const costo=body.costo||0;delete body.costo;b.set(doc(fs,'carros',id),body);b.set(doc(fs,'privado',id),{costo});n++}
-    for(const [id,e] of Object.entries(J.estado||{}))b.set(doc(fs,'estado',id),e,{merge:true});
-    for(const [id,p] of Object.entries(J.precios||{}))b.set(doc(fs,'precios',id),p);
-    await b.commit();stt.className='status ok';stt.textContent='Listo: '+n+' carros y '+Object.keys(J.precios||{}).length+' precios importados.'}
-  catch(e){stt.className='status err';stt.textContent=errMsg(e)}impArmed=false}
 // ---- fotos reales ----
 function galHTML(key,canAdd=true){const f=FOTOS[key]||[];
   return `<div class="card form"><b>Fotos reales${f.length?' ('+f.length+')':''}</b>
@@ -1204,7 +1194,6 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||
     setDoc(doc(fs,'users',d.setrole),{role:r},{merge:true}).then(()=>toast(r==='dueño'?'Ahora es creador. Que cierre sesión y vuelva a entrar.':'Ya no es creador.'),e=>toast(errMsg(e)));return}
   if('savemaxd' in d){const n=+$('#n-maxd').value;if(n<nDuenos()){toast('Ya hay '+nDuenos()+' creadores; quita uno antes de bajar el máximo.');return}NEG=Object.assign({},NEG,{maxDuenos:n});setDoc(doc(fs,'config','negocio'),{maxDuenos:n},{merge:true}).then(()=>{toast('Guardado: máximo '+n+' dueños');openMenu()},e=>toast(errMsg(e)));return}
   if(d.toggleuser){const u=USERS.find(x=>x.id===d.toggleuser);setDoc(doc(fs,'users',u.id),{active:!u.active,pending:false},{merge:true}).catch(e=>toast(errMsg(e)));return}
-  if('import' in d){importOld(t);return}
   if('lote' in d){importLote(t);return}
   if('logout' in d){signOut(auth);return}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
