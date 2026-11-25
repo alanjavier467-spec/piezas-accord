@@ -403,7 +403,7 @@ const hook=root=>root.querySelectorAll('img[data-k],img[data-f]').forEach(i=>io.
 const waNum=()=>{let w=String(INV.wa||'').replace(/\D/g,'');if(!w||w==='6142637975')w='6142737975';return w.length===10?'52'+w:w};
 const waLink=t=>'https://wa.me/'+waNum()+'?text='+encodeURIComponent(t);
 // botón 💬 de quejas y sugerencias (abajo a la izquierda); en el teléfono se sube para no tapar las pestañas
-Quejas.init({fs,addDoc,collection,donde:'tienda',ver:'20261125-0114',wa:()=>waNum(),seccion:()=>(location.hash||'#inicio').slice(0,80),
+Quejas.init({fs,addDoc,collection,donde:'tienda',ver:'20261125-0151',wa:()=>waNum(),seccion:()=>(location.hash||'#inicio').slice(0,80),
   quien:()=>CLI?{rol:'cliente',nombre:CLI.name||'',tel:CLI.tel||'',uid:CLI.uid}:ME?{rol:STAFF?'vendedor':'visitante',uid:ME.uid}:{rol:'visitante'}});
 {const mq=matchMedia('(max-width:900px)');const f=()=>Quejas.pinta({up:mq.matches});f();mq.addEventListener&&mq.addEventListener('change',f)}
 const numFor=(it,v)=>{if(it.x)return it.pn;if(v&&it.y&&it.y[v])return it.y[v];return it.pn};
@@ -727,7 +727,7 @@ window.addEventListener('hashchange',route);
 window.addEventListener('popstate',e=>{if(!modal.hidden&&!(history.state&&history.state.det))closeDet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)history.back()});
 // ---- si el navegador guardó una versión vieja de la página, se actualiza sola ----
-const TV='20261125-0114';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
+const TV='20261125-0151';fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j.v&&j.v!==TV){let k='';try{k=sessionStorage.getItem('tvr')}catch(e){}if(k!==j.v){try{sessionStorage.setItem('tvr',j.v)}catch(e){}location.reload()}}}).catch(()=>{});
 // ---- carga ----
 // arma el catálogo a partir del documento público (se vuelve a llamar si el documento cambia)
 function applyInv(snap,dj){const SNAP=!!(snap&&snap.exists());INV=Object.assign({wa:'6142737975',items:[],xs:[]},SNAP?snap.data():{});

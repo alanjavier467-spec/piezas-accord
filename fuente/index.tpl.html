@@ -231,8 +231,10 @@ async function syncIdx(d){if(IDXSYNC||!navigator.onLine)return;const x=d.exists(
   try{const q=full?collection(fs,'fotos'):query(collection(fs,'fotos'),where('date','>',x.ult));const sn=await getDocs(q);
     const m={};let ult=(x&&x.ult)||'';const vistos=new Set();sn.docs.forEach(f=>{vistos.add(f.id);const v=f.data()||{};if(v.thumb)THUMB[f.id]=v.thumb;const ya=xm[f.id];if(!ya||ya.pn!==(v.pn||''))m[f.id]=fmeta(v);if((v.date||'')>ult)ult=v.date});
     if(full&&sn.docs.length)Object.keys(xm).forEach(id=>{if(!vistos.has(id))m[id]=deleteField()});
-    const o={v:1,ult,m};if(full)o.rev=new Date().toISOString();
-    if(full||Object.keys(m).length||ult!==(x&&x.ult))await setDoc(doc(fs,'indice','fotos'),o,{merge:true})}catch(e){console.warn('indice',e);IDXSYNC=false}}
+    // OJO: en Firestore, guardar "m:{}" con merge BORRA toda la lista (un mapa vacío reemplaza al que había).
+    // Por eso la lista "m" solo se manda cuando trae fotos que agregar o quitar. Este error vaciaba la lista y las fotos dejaban de verse.
+    const o={v:1,ult};if(Object.keys(m).length)o.m=m;if(full)o.rev=new Date().toISOString();
+    if(full||o.m||ult!==(x&&x.ult))await setDoc(doc(fs,'indice','fotos'),o,{merge:true})}catch(e){console.warn('indice',e);IDXSYNC=false}}
 const phTag=p=>{const f=FOTOS[p.pn];return f&&f.length?thumbImg(f[0].id,'Foto real'):imgTag(p)};
 
 // ---- búsqueda ----
@@ -841,7 +843,7 @@ async function shrink(file,max,q){let src,w,h;
   const k=Math.min(1,max/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)}
 function savePhotos(key,imgs,meta){imgs.forEach(im=>{const r=doc(collection(fs,'fotos'));const data=Object.assign({pn:key,thumb:im.thumb,date:new Date().toISOString(),by:ME.uid,byName:PROFILE?.name||ME.email},meta);
   setDoc(r,data).catch(e=>toast(errMsg(e)));THUMB[r.id]=im.thumb;idxSet(r.id,fmeta(data));
-  setDoc(doc(fs,'fotosfull',r.id),{pn:key,img:im.full}).catch(()=>{})})}
+  setDoc(doc(fs,'fotosfull',r.id),{pn:key,img:im.full}).catch(e=>{console.warn('fotosfull',e);toast('La foto en tamaño grande no se pudo guardar ('+(e.code||'sin señal')+'). La miniatura sí quedó.')})})}
 // ---- piezas agregadas (fuera del catálogo) ----
 let openX=null;
 function xEnsure(r,cid,q){const s0=xSibs(r).find(y=>(y.car||'')===cid);if(s0)return s0;const ref=doc(collection(fs,'extras'));
